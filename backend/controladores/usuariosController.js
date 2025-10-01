@@ -1,13 +1,11 @@
-// controladores/usuariosController.js
 const { supabase } = require('../config/conexion.js');
-const { supabaseAdmin, getUserByEmail } = require('../config/supabaseAdmin.js'); // Importar aquí también
+const { supabaseAdmin, getUserByEmail } = require('../config/supabaseAdmin.js'); 
 const { enviarEmailBienvenida } = require('../servicios/emailServicio');
 
 const registrar = async (req, res) => {
   try {
     console.log('📨 Body recibido:', req.body);
 
-    // Validar que req.body existe
     if (!req.body) {
       return res.status(400).json({
         success: false,
@@ -145,7 +143,6 @@ const registrar = async (req, res) => {
   }
 };
 
-// FUNCIÓN PARA COMPLETAR REGISTRO DE NUEVO USUARIO
 const completarRegistroNuevoUsuario = async (req, res, authUser) => {
   const { 
     nombre_completo, 

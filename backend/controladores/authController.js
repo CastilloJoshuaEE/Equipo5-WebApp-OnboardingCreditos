@@ -1,4 +1,3 @@
-// controladores/authController.js
 const { supabase } = require('../config/conexion.js');
 const { supabaseAdmin } = require('../config/supabaseAdmin.js');
 

@@ -1,4 +1,3 @@
-// config/conexion.js
 const { createClient } = require('@supabase/supabase-js');
 
 // Configuración de Supabase

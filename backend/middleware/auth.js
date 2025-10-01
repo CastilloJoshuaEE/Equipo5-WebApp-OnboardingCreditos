@@ -1,4 +1,3 @@
-// middleware/auth.js
 const { supabase } = require('../config/conexion.js');
 
 const proteger = async (req, res, next) => {

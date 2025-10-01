@@ -1,4 +1,3 @@
-// datos_iniciales.js
 require('dotenv').config();
 const { supabase } = require('./config/conexion.js');
 const { supabaseAdmin, getUserByEmail } = require('./config/supabaseAdmin.js');

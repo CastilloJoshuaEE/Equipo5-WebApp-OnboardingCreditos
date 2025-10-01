@@ -1,8 +1,5 @@
-// backend/servicios/emailServicio.js
 const { Resend } = require('resend');
-
-// Inicializar Resend con tu API Key
-const resend = new Resend(process.env.RESEND_API_KEY || 're_123456789'); // Usa tu API key real
+const resend = new Resend(process.env.RESEND_API_KEY || 're_123456789'); 
 
 const enviarEmailBienvenida = async (email, nombre, rol) => {
   try {

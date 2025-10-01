@@ -2,7 +2,6 @@ const express = require('express');
 const { proteger, autorizar } = require('../middleware/auth');
 const authController = require('../controladores/authController');
 const usuariosController = require('../controladores/usuariosController');
-
 const router = express.Router();
 
 // ==================== RUTAS PÚBLICAS ====================
