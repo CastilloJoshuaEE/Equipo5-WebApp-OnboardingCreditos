@@ -61,13 +61,6 @@ SELECT '=== ELIMINACIÓN DE AUTH.SUPABASE ===' as info;
 
 -- NOTA: Para eliminar de auth.users necesitas usar la API de Supabase Admin
 -- o ejecutar esto desde el SQL Editor de Supabase con permisos de service_role
-
--- Opción 1: Usando la función auth.admin.delete_user() (si está disponible)
--- SELECT auth.admin.delete_user('8b573cf7-0411-4a5e-9d6b-6f754e1fea25');
-
--- Opción 2: Directamente en auth.users (SOLO si tienes acceso)
--- DELETE FROM auth.users WHERE id = '8b573cf7-0411-4a5e-9d6b-6f754e1fea25';
-
 -- 4. CUARTO: Verificación final
 SELECT '=== VERIFICACIÓN FINAL ===' as info;
 
