@@ -123,7 +123,7 @@ const login = async (req, res) => {
     
     res.status(500).json({
       success: false,
-      message: 'Error interno del servidor durante el login'
+      message: 'Error interno del servidor durante el login posible causa credenciales incorrectas'
     });
   }
 };
