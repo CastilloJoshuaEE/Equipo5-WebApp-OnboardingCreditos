@@ -8,53 +8,53 @@ SELECT '=== IDENTIFICANDO REGISTROS DEL USUARIO ===' as info;
 -- Verificar en tabla usuarios
 SELECT 'usuarios' as tabla, id, email, nombre_completo, rol 
 FROM usuarios 
-WHERE email = 'joshuacastillom004@hotmail.com'
-OR id = '7733d3b4-1c31-49a6-92b5-1dbbc40640d0';
+WHERE email = ''
+OR id = 'uuid';
 
 -- Verificar en tabla solicitantes
 SELECT 'solicitantes' as tabla, id, nombre_empresa, representante_legal
 FROM solicitantes 
-WHERE id = '7733d3b4-1c31-49a6-92b5-1dbbc40640d0';
+WHERE id = 'uuid';
 
 -- Verificar en tabla operadores (por si acaso)
 SELECT 'operadores' as tabla, id, nivel
 FROM operadores 
-WHERE id = '7733d3b4-1c31-49a6-92b5-1dbbc40640d0';
+WHERE id = 'uuid';
 
 -- 2. SEGUNDO: Eliminar en el orden correcto (primero tablas hijas)
 SELECT '=== ELIMINANDO REGISTROS EN ORDEN CORRECTO ===' as info;
 
 -- A. Eliminar de la tabla solicitantes (si existe)
 DELETE FROM solicitantes 
-WHERE id = '7733d3b4-1c31-49a6-92b5-1dbbc40640d0';
+WHERE id = 'uuid';
 
 -- Verificar eliminación de solicitantes
 SELECT 'solicitantes después de DELETE' as estado, 
        COUNT(*) as registros_restantes
 FROM solicitantes 
-WHERE id = '7733d3b4-1c31-49a6-92b5-1dbbc40640d0';
+WHERE id = 'uuid';
 
 -- B. Eliminar de la tabla operadores (si existe)
 DELETE FROM operadores 
-WHERE id = '7733d3b4-1c31-49a6-92b5-1dbbc40640d0';
+WHERE id = 'uuid';
 
 -- Verificar eliminación de operadores
 SELECT 'operadores después de DELETE' as estado, 
        COUNT(*) as registros_restantes
 FROM operadores 
-WHERE id = '7733d3b4-1c31-49a6-92b5-1dbbc40640d0';
+WHERE id = 'uuid';
 
 -- C. Finalmente eliminar de la tabla usuarios
 DELETE FROM usuarios 
 WHERE email = 'joshuacastillom004@hotmail.com'
-OR id = '7733d3b4-1c31-49a6-92b5-1dbbc40640d0';
+OR id = 'uuid';
 
 -- Verificar eliminación de usuarios
 SELECT 'usuarios después de DELETE' as estado, 
        COUNT(*) as registros_restantes
 FROM usuarios 
 WHERE email = 'joshuacastillom004@hotmail.com'
-OR id = '7733d3b4-1c31-49a6-92b5-1dbbc40640d0';
+OR id = 'uuid';
 
 -- 3. TERCERO: Eliminar de Auth de Supabase (requiere permisos de Service Role)
 SELECT '=== ELIMINACIÓN DE AUTH.SUPABASE ===' as info;
@@ -73,8 +73,8 @@ SELECT '=== VERIFICACIÓN FINAL ===' as info;
 
 SELECT 
   (SELECT COUNT(*) FROM usuarios WHERE email = 'joshuacastillom004@hotmail.com') as usuarios_restantes,
-  (SELECT COUNT(*) FROM solicitantes WHERE id = '7733d3b4-1c31-49a6-92b5-1dbbc40640d0') as solicitantes_restantes,
-  (SELECT COUNT(*) FROM operadores WHERE id = '7733d3b4-1c31-49a6-92b5-1dbbc40640d0') as operadores_restantes;
+  (SELECT COUNT(*) FROM solicitantes WHERE id = 'uuid') as solicitantes_restantes,
+  (SELECT COUNT(*) FROM operadores WHERE id = 'uuid') as operadores_restantes;
 
 -- Mensaje final
 SELECT 
