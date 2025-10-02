@@ -1,4 +1,4 @@
-const emailValidator = require('../servicios/emailValidationService');
+const emailValidator = require('../servicios/emailValidarServicio');
 
 const validateEmailBeforeAuth = async (req, res, next) => {
   try {

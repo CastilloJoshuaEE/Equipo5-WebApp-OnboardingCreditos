@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-class EmailValidationService {
+class emailValidarServicio {
   constructor() {
     this.services = [
       this.verifyEmailHubSpot,
@@ -217,6 +217,6 @@ class EmailValidationService {
 }
 
 // Instancia singleton
-const emailValidator = new EmailValidationService();
+const emailValidator = new emailValidarServicio();
 
 module.exports = emailValidator;
