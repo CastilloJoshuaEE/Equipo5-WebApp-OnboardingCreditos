@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+/* import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -26,6 +26,27 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
+      </body>
+    </html>
+  );
+} */
+import React from 'react';
+import { SessionProvider } from '../providers/SessionProvider';
+import '../styles/globals.css';
+
+interface RootLayoutProps {
+  children: React.ReactNode;
+}
+
+// Layout principal, solo incluye el SessionProvider y el CSS global.
+export default function RootLayout({ children }: RootLayoutProps) {
+  return (
+    <html lang="es">
+      <body suppressHydrationWarning>
+
+        <SessionProvider>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );
