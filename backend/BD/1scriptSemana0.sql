@@ -27,7 +27,7 @@ CREATE TABLE usuarios (
     nombre_completo VARCHAR(255) NOT NULL,           -- Nombre legal completo
     email VARCHAR(255) UNIQUE NOT NULL,              -- Email único para login
     telefono VARCHAR(20),                            -- Número de contacto
-    cedula_identidad VARCHAR(50) UNIQUE NOT NULL,    -- DNI/CI para identificación
+    dni VARCHAR(50) UNIQUE NOT NULL,    -- DNI/CI para identificación
     password_hash VARCHAR(255) NOT NULL,             -- Contraseña hasheada (usar bcrypt)
     rol VARCHAR(50) NOT NULL CHECK (rol IN ('solicitante', 'operador')), -- Tipo de usuario
     cuenta_activa BOOLEAN DEFAULT TRUE,              -- Para soft delete
@@ -111,3 +111,4 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trigger_insertar_tabla_hija
 AFTER INSERT ON usuarios
 FOR EACH ROW EXECUTE FUNCTION insertar_en_tabla_hija();
+CREATE INDEX IF NOT EXISTS idx_usuarios_token_confirmacion ON usuarios(token_confirmacion);

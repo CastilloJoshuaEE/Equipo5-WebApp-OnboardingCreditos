@@ -20,7 +20,7 @@ const registrar = async (req, res) => {
       password, 
       nombre_completo, 
       telefono, 
-      cedula_identidad, 
+      dni, 
       rol = 'solicitante',
       nombre_empresa, 
       cuit, 
@@ -29,10 +29,10 @@ const registrar = async (req, res) => {
     } = req.body;
 
     // Validar campos obligatorios
-    if (!email || !password || !nombre_completo || !cedula_identidad) {
+    if (!email || !password || !nombre_completo || !dni) {
       return res.status(400).json({
         success: false,
-        message: 'Faltan campos obligatorios: email, password, nombre_completo, cedula_identidad'
+        message: 'Faltan campos obligatorios: email, password, nombre_completo, dni'
       });
     }
 
@@ -81,7 +81,7 @@ const registrar = async (req, res) => {
           data: {
             nombre_completo,
             telefono: telefono || '',
-            cedula_identidad,
+            dni,
             rol: rol
           },
           // Enviar email de confirmación
@@ -159,7 +159,7 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
   const { 
     nombre_completo, 
     telefono, 
-    cedula_identidad, 
+    dni, 
     rol = 'solicitante',
     nombre_empresa, 
     cuit, 
@@ -174,7 +174,7 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
       nombre_completo,
       email: authUser.email,
       telefono: telefono || '',
-      cedula_identidad,
+      dni,
       password_hash: 'hashed_by_supabase',
       rol: rol,
       cuenta_activa: false, // . CAMBIO IMPORTANTE: Inactivo hasta confirmación
@@ -215,7 +215,7 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
     console.log(`. Usuario insertado en tabla 'usuarios' con rol: ${rol} (ID: ${authUser.id})`);
     // 2. Insertar en tabla específica según el rol
     await insertarEnTablaEspecifica(rol, authUser.id, {
-      nombre_completo, cedula_identidad, nombre_empresa, cuit, representante_legal, domicilio
+      nombre_completo, dni, nombre_empresa, cuit, representante_legal, domicilio
     });
 
     // 3. . ENVIAR EMAIL DE CONFIRMACIÓN en lugar de bienvenida
@@ -264,7 +264,7 @@ const completarRegistroUsuarioExistente = async (req, res, userId, authUser) => 
   const { 
     nombre_completo, 
     telefono, 
-    cedula_identidad, 
+    dni, 
     rol = 'solicitante',
     nombre_empresa, 
     cuit, 
@@ -290,7 +290,7 @@ const completarRegistroUsuarioExistente = async (req, res, userId, authUser) => 
         .update({
           nombre_completo,
           telefono: telefono || '',
-          cedula_identidad,
+          dni,
           rol: rol,
           cuenta_activa: true,
           updated_at: new Date().toISOString()
@@ -308,7 +308,7 @@ const completarRegistroUsuarioExistente = async (req, res, userId, authUser) => 
         nombre_completo,
         email: authUser.email,
         telefono: telefono || '',
-        cedula_identidad,
+        dni,
         password_hash: 'hashed_by_supabase',
         rol: rol,
         cuenta_activa: true,
@@ -326,7 +326,7 @@ const completarRegistroUsuarioExistente = async (req, res, userId, authUser) => 
 
     // Insertar/actualizar en tabla específica
     await insertarEnTablaEspecifica(rol, userId, {
-      nombre_completo, cedula_identidad, nombre_empresa, cuit, representante_legal, domicilio
+      nombre_completo, dni, nombre_empresa, cuit, representante_legal, domicilio
     });
 
     // Enviar email de bienvenida
@@ -352,7 +352,7 @@ const reactivarUsuario = async (req, res, userId) => {
   const { 
     nombre_completo, 
     telefono, 
-    cedula_identidad, 
+    dni, 
     rol = 'solicitante',
     nombre_empresa, 
     cuit, 
@@ -369,7 +369,7 @@ const reactivarUsuario = async (req, res, userId) => {
       .update({
         nombre_completo,
         telefono: telefono || '',
-        cedula_identidad,
+        dni,
         rol: rol,
         cuenta_activa: true,
         updated_at: new Date().toISOString()
@@ -381,7 +381,7 @@ const reactivarUsuario = async (req, res, userId) => {
 
     // Actualizar/insertar en tabla específica
     await insertarEnTablaEspecifica(rol, userId, {
-      nombre_completo, cedula_identidad, nombre_empresa, cuit, representante_legal, domicilio
+      nombre_completo, dni, nombre_empresa, cuit, representante_legal, domicilio
     });
 
     // Obtener datos del usuario de Auth
@@ -408,14 +408,14 @@ const reactivarUsuario = async (req, res, userId) => {
 
 // FUNCIÓN AUXILIAR PARA INSERTAR EN TABLA ESPECÍFICA
 const insertarEnTablaEspecifica = async (rol, userId, datos) => {
-  const { nombre_completo, cedula_identidad, nombre_empresa, cuit, representante_legal, domicilio } = datos;
+  const { nombre_completo, dni, nombre_empresa, cuit, representante_legal, domicilio } = datos;
 
   if (rol === 'solicitante') {
     const solicitanteData = {
       id: userId,
       tipo: 'empresa',
       nombre_empresa: nombre_empresa || `Empresa de ${nombre_completo.split(' ')[0]}`,
-      cuit: cuit || `30-${cedula_identidad}-9`,
+      cuit: cuit || `30-${dni}-9`,
       representante_legal: representante_legal || nombre_completo,
       domicilio: domicilio || `Dirección de ${nombre_completo.split(' ')[0]}`,
       created_at: new Date().toISOString(),

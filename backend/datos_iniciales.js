@@ -54,7 +54,7 @@ const insertarUsuariosEnTablas = async (usuariosAuthIds) => {
         nombre_completo: 'Jostin Meregildo',
         email: 'jomeregildo64@gmail.com',
         telefono: '0943802926',
-        cedula_identidad: '0999999999',
+        dni: '0999999999',
         password_hash: 'managed_by_supabase_auth',
         rol: 'operador',
         cuenta_activa: true,
@@ -66,7 +66,7 @@ const insertarUsuariosEnTablas = async (usuariosAuthIds) => {
         nombre_completo: 'Javier Castillo',
         email: 'joshuamerejildo846@gmail.com',
         telefono: '0903800026',
-        cedula_identidad: '0977777777',
+        dni: '0977777777',
         password_hash: 'managed_by_supabase_auth',
         rol: 'solicitante',
         cuenta_activa: true,
@@ -132,7 +132,7 @@ const insertarUsuariosEnTablas = async (usuariosAuthIds) => {
         id: usuario.id,
         tipo: 'empresa',
         nombre_empresa: 'Empresa de ' + usuario.nombre_completo.split(' ')[0],
-        cuit: '30-' + usuario.cedula_identidad + '-9',
+        cuit: '30-' + usuario.dni + '-9',
         representante_legal: usuario.nombre_completo,
         domicilio: 'Dirección de ' + usuario.nombre_completo.split(' ')[0],
         created_at: new Date().toISOString(),
@@ -176,7 +176,7 @@ const crearUsuariosAuth = async () => {
         email_confirm: true,
         user_metadata: {
           nombre_completo: 'Jostin Meregildo',
-          cedula_identidad: '0999999999',
+          dni: '0999999999',
           rol: 'operador'
         }
       },
@@ -186,7 +186,7 @@ const crearUsuariosAuth = async () => {
         email_confirm: true,
         user_metadata: {
           nombre_completo: 'Javier Castillo',
-          cedula_identidad: '0977777777',
+          dni: '0977777777',
           rol: 'solicitante'
         }
       }
