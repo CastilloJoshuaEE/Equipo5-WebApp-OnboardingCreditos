@@ -46,14 +46,14 @@ WHERE id = 'uuid';
 
 -- C. Finalmente eliminar de la tabla usuarios
 DELETE FROM usuarios 
-WHERE email = 'joshuacastillom004@hotmail.com'
+WHERE email = 'email'
 OR id = 'uuid';
 
 -- Verificar eliminación de usuarios
 SELECT 'usuarios después de DELETE' as estado, 
        COUNT(*) as registros_restantes
 FROM usuarios 
-WHERE email = 'joshuacastillom004@hotmail.com'
+WHERE email = 'email'
 OR id = 'uuid';
 
 -- 3. TERCERO: Eliminar de Auth de Supabase (requiere permisos de Service Role)
@@ -65,14 +65,14 @@ SELECT '=== ELIMINACIÓN DE AUTH.SUPABASE ===' as info;
 SELECT '=== VERIFICACIÓN FINAL ===' as info;
 
 SELECT 
-  (SELECT COUNT(*) FROM usuarios WHERE email = 'joshuacastillom004@hotmail.com') as usuarios_restantes,
+  (SELECT COUNT(*) FROM usuarios WHERE email = 'email') as usuarios_restantes,
   (SELECT COUNT(*) FROM solicitantes WHERE id = 'uuid') as solicitantes_restantes,
   (SELECT COUNT(*) FROM operadores WHERE id = 'uuid') as operadores_restantes;
 
 -- Mensaje final
 SELECT 
   CASE 
-    WHEN (SELECT COUNT(*) FROM usuarios WHERE email = 'joshuacastillom004@hotmail.com') = 0 
+    WHEN (SELECT COUNT(*) FROM usuarios WHERE email = 'email') = 0 
     THEN '. Usuario eliminado completamente de las tablas personalizadas'
     ELSE '. Error: El usuario aún existe en alguna tabla'
   END as resultado;
