@@ -1,6 +1,8 @@
 const { supabase } = require('../config/conexion.js');
 const { supabaseAdmin, getUserByEmail } = require('../config/supabaseAdmin.js'); 
 const { enviarEmailBienvenida } = require('../servicios/emailServicio');
+const { enviarEmailConfirmacionCuenta } = require('../servicios/emailServicio');
+const { validateEmailBeforeAuth } = require('../middleware/emailValidation');
 
 const registrar = async (req, res) => {
   try {
@@ -40,14 +42,23 @@ const registrar = async (req, res) => {
       nombre_completo: nombre_completo.substring(0, 10) + '...' 
     });
 
+    // ✅ NUEVO: Mostrar resultado de validación de email
+    if (req.emailValidation) {
+      console.log('📊 Resultado de validación de email:', {
+        isValid: req.emailValidation.isValid,
+        confidence: req.emailValidation.confidence,
+        servicesUsed: req.emailValidation.servicesUsed
+      });
+    }
+
     // PRIMERO: Verificar si el usuario existe pero está inactivo en nuestra tabla personalizada
     const { data: usuarioExistente, error: usuarioError } = await supabaseAdmin
       .from('usuarios')
       .select('id, email, cuenta_activa, rol')
       .eq('email', email)
-      .maybeSingle(); // Usar maybeSingle para evitar error si no existe
+      .maybeSingle();
 
-    if (usuarioError && usuarioError.code !== 'PGRST116') { // PGRST116 = no rows returned
+    if (usuarioError && usuarioError.code !== 'PGRST116') {
       console.error('❌ Error verificando usuario existente:', usuarioError);
     }
 
@@ -62,7 +73,7 @@ const registrar = async (req, res) => {
     let authError;
 
     try {
-      // Intentar registro normal primero
+      // No confirmar email automáticamente
       const result = await supabase.auth.signUp({
         email,
         password,
@@ -72,7 +83,9 @@ const registrar = async (req, res) => {
             telefono: telefono || '',
             cedula_identidad,
             rol: rol
-          }
+          },
+          // Enviar email de confirmación
+          emailRedirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/confirmacion-exitosa`
         }
       });
       
@@ -142,7 +155,6 @@ const registrar = async (req, res) => {
     });
   }
 };
-
 const completarRegistroNuevoUsuario = async (req, res, authUser) => {
   const { 
     nombre_completo, 
@@ -156,7 +168,7 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
   } = req.body;
 
   try {
-    // 1. Insertar en tabla usuarios
+    // 1. Insertar en tabla usuarios PERO con cuenta INACTIVA hasta confirmación
     const usuarioData = {
       id: authUser.id,
       nombre_completo,
@@ -165,7 +177,7 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
       cedula_identidad,
       password_hash: 'hashed_by_supabase',
       rol: rol,
-      cuenta_activa: true,
+      cuenta_activa: false, // . CAMBIO IMPORTANTE: Inactivo hasta confirmación
       created_at: new Date().toISOString()
     };
 
@@ -175,35 +187,75 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
       .select();
 
     if (userError) {
-      console.error('❌ Error insertando en tabla usuarios:', userError);
+      console.error('. Error insertando en tabla usuarios:', userError);
       
-      // Revertir: eliminar usuario de Auth si falla
-      await supabaseAdmin.auth.admin.deleteUser(authUser.id);
-      throw userError;
+      // Si es error de duplicado, puede ser por inconsistencia previa
+      if (userError.code === '23505') { // unique_violation
+        console.log('🔄 ID ya existe, actualizando registro existente...');
+        
+        const { data: updatedUser, error: updateError } = await supabaseAdmin
+          .from('usuarios')
+          .update(usuarioData)
+          .eq('id', authUser.id)
+          .select();
+
+        if (updateError) {
+          console.error('. Error actualizando usuario existente:', updateError);
+          await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+          throw updateError;
+        }
+        
+        userData = updatedUser;
+      } else {
+        await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+        throw userError;
+      }
     }
 
-    console.log(`✅ Usuario insertado en tabla 'usuarios' con rol: ${rol}`);
-
+    console.log(`. Usuario insertado en tabla 'usuarios' con rol: ${rol} (ID: ${authUser.id})`);
     // 2. Insertar en tabla específica según el rol
     await insertarEnTablaEspecifica(rol, authUser.id, {
       nombre_completo, cedula_identidad, nombre_empresa, cuit, representante_legal, domicilio
     });
 
-    // 3. Enviar email de bienvenida
-    await enviarEmailBienvenidaSiEsPosible(authUser.email, nombre_completo, rol);
+    // 3. . ENVIAR EMAIL DE CONFIRMACIÓN en lugar de bienvenida
+    await enviarEmailConfirmacionSiEsPosible(authUser.email, nombre_completo, authUser.id);
 
     res.status(201).json({
       success: true,
-      message: 'Usuario registrado correctamente',
+      message: 'Usuario registrado correctamente. Por favor revisa tu email para confirmar tu cuenta.',
       data: {
         user: authUser,
         profile: userData[0],
-        rol: rol
+        rol: rol,
+        emailConfirmed: false // Indicar que necesita confirmación
       }
     });
 
   } catch (error) {
     throw error;
+  }
+};
+const enviarEmailConfirmacionSiEsPosible = async (email, nombre, userId) => {
+  console.log('📧 [CONFIRMACIÓN] Iniciando envío de email de confirmación...');
+  try {
+    const emailResult = await enviarEmailConfirmacionCuenta(email, nombre, userId);
+    
+    if (!emailResult.success) {
+      if (emailResult.skip) {
+        console.log('. Email de confirmación no enviado (configuración faltante)');
+      } else {
+        console.warn('. Email de confirmación no enviado (error de envío):', emailResult.error);
+      }
+    } else {
+      console.log('🎉 Email de confirmación enviado exitosamente');
+    }
+    
+    return { emailEnviado: emailResult.success };
+    
+  } catch (emailError) {
+    console.warn('. Error en envío de email de confirmación:', emailError.message);
+    return { emailEnviado: false, error: emailError.message };
   }
 };
 
@@ -278,7 +330,7 @@ const completarRegistroUsuarioExistente = async (req, res, userId, authUser) => 
     });
 
     // Enviar email de bienvenida
-    await enviarEmailBienvenidaSiEsPosible(authUser.email, nombre_completo, rol);
+await enviarEmailBienvenidaSiEsPosible(authUser.email, nombre_completo, rol);
 
     res.status(201).json({
       success: true,
@@ -376,9 +428,9 @@ const insertarEnTablaEspecifica = async (rol, userId, datos) => {
       .upsert([solicitanteData], { onConflict: 'id' });
 
     if (solicitanteError) {
-      console.warn('⚠️ Error creando/actualizando solicitante:', solicitanteError);
+      console.warn('. Error creando/actualizando solicitante:', solicitanteError);
     } else {
-      console.log('✅ Solicitante insertado/actualizado en tabla específica');
+      console.log('. Solicitante insertado/actualizado en tabla específica');
     }
 
   } else if (rol === 'operador') {
@@ -395,26 +447,35 @@ const insertarEnTablaEspecifica = async (rol, userId, datos) => {
       .upsert([operadorData], { onConflict: 'id' });
 
     if (operadorError) {
-      console.warn('⚠️ Error creando/actualizando operador:', operadorError);
+      console.warn('. Error creando/actualizando operador:', operadorError);
     } else {
-      console.log('✅ Operador insertado/actualizado en tabla específica');
+      console.log('. Operador insertado/actualizado en tabla específica');
     }
   }
 };
 
 // FUNCIÓN AUXILIAR PARA ENVÍO DE EMAIL
 const enviarEmailBienvenidaSiEsPosible = async (email, nombre, rol) => {
-  console.log('📧 Enviando email de bienvenida...');
+  console.log('📧 [SISTEMA] Iniciando envío de email de bienvenida...');
   try {
     const emailResult = await enviarEmailBienvenida(email, nombre, rol);
     
     if (!emailResult.success) {
-      console.warn('⚠️ Email no enviado, pero usuario creado:', emailResult.error);
+      if (emailResult.skip) {
+        console.log('. Email no enviado (configuración faltante), pero usuario creado exitosamente');
+      } else {
+        console.warn('. Email no enviado (error de envío), pero usuario creado:', emailResult.error);
+      }
     } else {
       console.log('🎉 Email de bienvenida enviado exitosamente');
     }
+    
+    // Siempre retornar éxito para no bloquear el registro
+    return { emailEnviado: emailResult.success };
+    
   } catch (emailError) {
-    console.warn('⚠️ Error en envío de email, pero usuario creado:', emailError.message);
+    console.warn('. Error en envío de email, pero usuario creado:', emailError.message);
+    return { emailEnviado: false, error: emailError.message };
   }
 };
 
@@ -422,15 +483,32 @@ const obtenerPerfil = async (req, res) => {
   try {
     console.log('👤 Obteniendo perfil para usuario ID:', req.usuario.id);
     
-    const { data: userProfile, error } = await supabase
+    // . Usar el ID del middleware (ya corregido si era necesario)
+    let userProfile;
+    const { data: profileData, error } = await supabase
       .from('usuarios')
       .select('*')
       .eq('id', req.usuario.id)
       .single();
 
     if (error) {
-      console.error('❌ Error obteniendo perfil:', error);
-      throw error;
+      console.error('. Error obteniendo perfil:', error);
+      
+      // . Fallback por email
+      const { data: fallbackProfile, error: fallbackError } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('email', req.usuario.email)
+        .single();
+
+      if (fallbackError || !fallbackProfile) {
+        throw new Error('Perfil de usuario no encontrado');
+      }
+
+      console.log('. Perfil obtenido por email exitosamente');
+      userProfile = fallbackProfile;
+    } else {
+      userProfile = profileData;
     }
 
     if (!userProfile) {
@@ -440,13 +518,13 @@ const obtenerPerfil = async (req, res) => {
       });
     }
 
-    console.log('✅ Perfil obtenido exitosamente');
+    console.log('. Perfil obtenido exitosamente');
     res.json({
       success: true,
       data: userProfile
     });
   } catch (error) {
-    console.error('❌ Error en obtenerPerfil:', error);
+    console.error('. Error en obtenerPerfil:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -476,7 +554,7 @@ const obtenerPerfilPorId = async (req, res) => {
       .single();
 
     if (error) {
-      console.error('❌ Error obteniendo perfil por ID:', error);
+      console.error('. Error obteniendo perfil por ID:', error);
       
       if (error.code === 'PGRST116') { // No encontrado
         return res.status(404).json({
@@ -495,13 +573,13 @@ const obtenerPerfilPorId = async (req, res) => {
       });
     }
 
-    console.log('✅ Perfil por ID obtenido exitosamente');
+    console.log('. Perfil por ID obtenido exitosamente');
     res.json({
       success: true,
       data: userProfile
     });
   } catch (error) {
-    console.error('❌ Error en obtenerPerfilPorId:', error);
+    console.error('. Error en obtenerPerfilPorId:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor'
@@ -540,7 +618,7 @@ const actualizarPerfil = async (req, res) => {
       .select();
 
     if (error) {
-      console.error('❌ Error actualizando perfil:', error);
+      console.error('. Error actualizando perfil:', error);
       throw error;
     }
 
@@ -551,14 +629,14 @@ const actualizarPerfil = async (req, res) => {
       });
     }
 
-    console.log('✅ Perfil actualizado exitosamente');
+    console.log('. Perfil actualizado exitosamente');
     res.json({
       success: true,
       message: 'Perfil actualizado exitosamente',
       data: data[0]
     });
   } catch (error) {
-    console.error('❌ Error en actualizarPerfil:', error);
+    console.error('. Error en actualizarPerfil:', error);
     res.status(400).json({
       success: false,
       message: error.message
@@ -609,7 +687,7 @@ const actualizarPerfilPorId = async (req, res) => {
       .select();
 
     if (error) {
-      console.error('❌ Error actualizando perfil por ID:', error);
+      console.error('. Error actualizando perfil por ID:', error);
       
       if (error.code === 'PGRST116') { // No encontrado
         return res.status(404).json({
@@ -628,14 +706,14 @@ const actualizarPerfilPorId = async (req, res) => {
       });
     }
 
-    console.log('✅ Perfil por ID actualizado exitosamente');
+    console.log('. Perfil por ID actualizado exitosamente');
     res.json({
       success: true,
       message: 'Perfil actualizado exitosamente',
       data: data[0]
     });
   } catch (error) {
-    console.error('❌ Error en actualizarPerfilPorId:', error);
+    console.error('. Error en actualizarPerfilPorId:', error);
     res.status(400).json({
       success: false,
       message: error.message
@@ -656,7 +734,7 @@ const cambiarContrasena = async (req, res) => {
       message: 'Funcionalidad de cambio de contraseña en desarrollo'
     });
   } catch (error) {
-    console.error('❌ Error en cambiarContrasena:', error);
+    console.error('. Error en cambiarContrasena:', error);
     res.status(400).json({
       success: false,
       message: error.message
@@ -679,7 +757,7 @@ const desactivarCuenta = async (req, res) => {
       .select();
 
     if (error) {
-      console.error('❌ Error desactivando cuenta:', error);
+      console.error('. Error desactivando cuenta:', error);
       throw error;
     }
 
@@ -693,14 +771,14 @@ const desactivarCuenta = async (req, res) => {
     // Cerrar sesión
     await supabase.auth.signOut();
 
-    console.log('✅ Cuenta desactivada exitosamente');
+    console.log('. Cuenta desactivada exitosamente');
     res.json({
       success: true,
       message: 'Cuenta desactivada exitosamente',
       data: data[0]
     });
   } catch (error) {
-    console.error('❌ Error en desactivarCuenta:', error);
+    console.error('. Error en desactivarCuenta:', error);
     res.status(400).json({
       success: false,
       message: error.message

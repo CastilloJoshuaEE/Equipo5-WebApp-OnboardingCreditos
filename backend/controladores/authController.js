@@ -19,34 +19,34 @@ const login = async (req, res) => {
     console.log('📋 Verificando existencia en tabla usuarios...');
     const { data: usuarioExistente, error: usuarioError } = await supabase
       .from('usuarios')
-      .select('id, email, cuenta_activa, rol')
+      .select('id, email, cuenta_activa, rol, nombre_completo')
       .eq('email', email)
       .maybeSingle();
 
     if (usuarioError) {
-      console.error('❌ Error verificando usuario:', usuarioError);
+      console.error('. Error verificando usuario:', usuarioError);
       throw usuarioError;
     }
 
     // Si no existe en nuestra tabla, rechazar login inmediatamente
     if (!usuarioExistente) {
-      console.log('❌ Usuario no encontrado en tabla usuarios');
+      console.log('. Usuario no encontrado en tabla usuarios');
       return res.status(401).json({
         success: false,
         message: 'No hay una cuenta registrada con este email. Por favor regístrese primero.'
       });
     }
 
-    // 2. Verificar si la cuenta está activa
+    // 2. Verificar si la cuenta está activa (CONFIRMACIÓN LOCAL)
     if (!usuarioExistente.cuenta_activa) {
-      console.log('❌ Cuenta desactivada encontrada');
+      console.log('. Cuenta no confirmada encontrada');
       return res.status(401).json({
         success: false,
-        message: 'Cuenta desactivada. Contacte al administrador.'
+        message: 'Por favor confirma tu email antes de iniciar sesión. Revisa tu bandeja de entrada.'
       });
     }
 
-    console.log('✅ Usuario válido encontrado en tabla usuarios, procediendo con autenticación...');
+    console.log('. Usuario válido y confirmado encontrado en tabla usuarios, procediendo con autenticación...');
 
     // 3. Autenticar con Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -55,13 +55,33 @@ const login = async (req, res) => {
     });
 
     if (authError) {
-      console.error('❌ Error en Supabase Auth:', authError);
+      console.error('. Error en Supabase Auth:', authError);
       
       let errorMessage = 'Credenciales inválidas';
       if (authError.message.includes('Invalid login credentials')) {
         errorMessage = 'Email o contraseña incorrectos';
       } else if (authError.message.includes('Email not confirmed')) {
-        errorMessage = 'Email no confirmado';
+        // Si el email no está confirmado en Auth pero SÍ en nuestra tabla, permitir login
+        console.log('. Email no confirmado en Auth, pero usuario confirmado localmente. Continuando...');
+        
+        // Crear una sesión manual para el usuario
+        const userProfile = {
+          id: usuarioExistente.id,
+          email: usuarioExistente.email,
+          nombre_completo: usuarioExistente.nombre_completo,
+          rol: usuarioExistente.rol,
+          cuenta_activa: true
+        };
+
+        return res.json({
+          success: true,
+          message: 'Login exitoso (confirmación local)',
+          data: {
+            user: userProfile,
+            profile: userProfile,
+            localAuth: true // Indicar que es autenticación local
+          }
+        });
       }
       
       return res.status(401).json({
@@ -70,44 +90,90 @@ const login = async (req, res) => {
       });
     }
 
-    console.log('✅ Login exitoso en Auth, ID:', authData.user.id);
+    console.log('. Login exitoso en Auth, ID:', authData.user.id);
 
-    // 4. Verificar consistencia entre Auth ID y nuestro ID de usuario
-    if (authData.user.id !== usuarioExistente.id) {
-      console.warn('⚠️ Inconsistencia de IDs:', {
-        authId: authData.user.id,
-        nuestraId: usuarioExistente.id
+    // 4. . VERIFICAR INCONSISTENCIA DE IDs Y CORREGIRLA
+    const authUserId = authData.user.id;
+    const nuestraUserId = usuarioExistente.id;
+
+    if (authUserId !== nuestraUserId) {
+      console.warn('. INCONSISTENCIA DE IDs DETECTADA:', {
+        authId: authUserId,
+        nuestraId: nuestraUserId,
+        email: email
       });
+
+      // . CORREGIR: Actualizar nuestro ID al de Auth para mantener consistencia
+      console.log('🔄 Corrigiendo inconsistencia de IDs...');
       
-      // Actualizar nuestro ID al de Auth para mantener consistencia
       const { error: updateError } = await supabaseAdmin
         .from('usuarios')
-        .update({ id: authData.user.id })
-        .eq('id', usuarioExistente.id);
+        .update({ id: authUserId })
+        .eq('id', nuestraUserId);
 
       if (updateError) {
-        console.error('❌ Error actualizando ID:', updateError);
-        // Continuar pero marcar advertencia
+        console.error('. Error corrigiendo ID en tabla usuarios:', updateError);
+        // Continuar pero usar el ID de Auth para la búsqueda
       } else {
-        console.log('✅ ID actualizado para mantener consistencia');
+        console.log('. ID corregido exitosamente en tabla usuarios');
+        
+        // . ACTUALIZAR TABLAS RELACIONADAS
+        try {
+          // Actualizar tabla solicitantes si existe
+          await supabaseAdmin
+            .from('solicitantes')
+            .update({ id: authUserId })
+            .eq('id', nuestraUserId);
+
+          console.log('. ID actualizado en tabla solicitantes');
+        } catch (solicitanteError) {
+          console.warn('. Error actualizando tabla solicitantes:', solicitanteError.message);
+        }
       }
     }
 
-    // 5. Obtener perfil completo del usuario
+    // 5. Obtener perfil completo del usuario (usar ID de Auth después de la corrección)
     const { data: userProfile, error: profileError } = await supabase
       .from('usuarios')
       .select('*')
-      .eq('id', authData.user.id)
+      .eq('id', authUserId) // . Usar ID de Auth después de la corrección
       .single();
 
     if (profileError) {
-      console.error('❌ Error obteniendo perfil completo:', profileError);
-      throw profileError;
+      console.error('. Error obteniendo perfil completo:', profileError);
+      
+      // . SI FALLA, INTENTAR CON EL EMAIL COMO FALLBACK
+      console.log('🔄 Intentando obtener perfil por email como fallback...');
+      const { data: fallbackProfile, error: fallbackError } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (fallbackError || !fallbackProfile) {
+        console.error('. Error obteniendo perfil incluso por email:', fallbackError);
+        throw new Error('No se pudo obtener el perfil del usuario');
+      }
+
+      console.log('. Perfil obtenido por email exitosamente');
+      
+      // 6. Respuesta exitosa con perfil obtenido por email
+      res.json({
+        success: true,
+        message: 'Login exitoso (perfil obtenido por email)',
+        data: {
+          session: authData.session,
+          user: authData.user,
+          profile: fallbackProfile,
+          idInconsistency: true // Indicar que hubo inconsistencia
+        }
+      });
+      return;
     }
 
-    console.log('✅ Login completado exitosamente');
+    console.log('. Login completado exitosamente');
 
-    // 6. Respuesta exitosa
+    // 7. Respuesta exitosa
     res.json({
       success: true,
       message: 'Login exitoso',
@@ -119,11 +185,11 @@ const login = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error en login:', error);
+    console.error('. Error en login:', error);
     
     res.status(500).json({
       success: false,
-      message: 'Error interno del servidor durante el login posible causa credenciales incorrectas'
+      message: 'Error interno del servidor durante el login'
     });
   }
 };
@@ -139,14 +205,13 @@ const logout = async (req, res) => {
       message: 'Sesión cerrada correctamente'
     });
   } catch (error) {
-    console.error('❌ Error en logout:', error);
+    console.error('. Error en logout:', error);
     res.status(500).json({
       success: false,
       message: error.message
     });
   }
 };
-
 const getSession = async (req, res) => {
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
@@ -162,7 +227,7 @@ const getSession = async (req, res) => {
 
     console.log('🔍 Verificando sesión para usuario:', session.user.id);
 
-    // Obtener perfil del usuario
+    // . PRIMERO: Intentar obtener perfil por ID de Auth
     const { data: userProfile, error: profileError } = await supabase
       .from('usuarios')
       .select('*')
@@ -170,8 +235,48 @@ const getSession = async (req, res) => {
       .single();
 
     if (profileError) {
-      console.error('❌ Error obteniendo perfil en getSession:', profileError);
-      throw profileError;
+      console.error('. Error obteniendo perfil por ID en getSession:', profileError);
+      
+      // . SEGUNDO: Intentar por email como fallback
+      console.log('🔄 Intentando obtener perfil por email en getSession...');
+      const { data: fallbackProfile, error: fallbackError } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('email', session.user.email)
+        .single();
+
+      if (fallbackError || !fallbackProfile) {
+        console.error('. Error obteniendo perfil incluso por email en getSession:', fallbackError);
+        return res.status(404).json({
+          success: false,
+          message: 'Perfil de usuario no encontrado. Por favor inicie sesión nuevamente.'
+        });
+      }
+
+      console.log('. Perfil obtenido por email en getSession exitosamente');
+      
+      // . TERCERO: CORREGIR INCONSISTENCIA automáticamente
+      console.log('🔄 Corrigiendo inconsistencia de IDs automáticamente...');
+      await corregirInconsistenciaIDs(session.user.id, fallbackProfile.id, session.user.email);
+      
+      // Verificar si la cuenta está activa
+      if (!fallbackProfile.cuenta_activa) {
+        return res.status(401).json({
+          success: false,
+          message: 'Cuenta desactivada'
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          session,
+          user: session.user,
+          profile: fallbackProfile,
+          idInconsistency: true,
+          autoCorrected: true
+        }
+      });
     }
 
     if (!userProfile) {
@@ -197,14 +302,61 @@ const getSession = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Error en getSession:', error);
+    console.error('. Error en getSession:', error);
     res.status(500).json({
       success: false,
       message: error.message
     });
   }
 };
+const corregirInconsistenciaIDs = async (authId, tablaId, email) => {
+  try {
+    console.log('🔄 Corrigiendo inconsistencia de IDs:', { authId, tablaId, email });
+    
+    // Actualizar ID en tabla usuarios
+    const { error: updateUsuariosError } = await supabaseAdmin
+      .from('usuarios')
+      .update({ id: authId })
+      .eq('id', tablaId);
 
+    if (updateUsuariosError) {
+      console.error('. Error actualizando ID en tabla usuarios:', updateUsuariosError);
+      return false;
+    }
+
+    console.log('. ID actualizado en tabla usuarios');
+
+    // Actualizar ID en tabla solicitantes si existe
+    const { error: updateSolicitantesError } = await supabaseAdmin
+      .from('solicitantes')
+      .update({ id: authId })
+      .eq('id', tablaId);
+
+    if (updateSolicitantesError) {
+      console.warn('. No se pudo actualizar tabla solicitantes (puede no existir):', updateSolicitantesError.message);
+    } else {
+      console.log('. ID actualizado en tabla solicitantes');
+    }
+
+    // Actualizar ID en tabla operadores si existe
+    const { error: updateOperadoresError } = await supabaseAdmin
+      .from('operadores')
+      .update({ id: authId })
+      .eq('id', tablaId);
+
+    if (updateOperadoresError) {
+      console.warn('. No se pudo actualizar tabla operadores (puede no existir):', updateOperadoresError.message);
+    } else {
+      console.log('. ID actualizado en tabla operadores');
+    }
+
+    console.log('. Inconsistencia de IDs corregida exitosamente');
+    return true;
+  } catch (error) {
+    console.error('. Error en corregirInconsistenciaIDs:', error);
+    return false;
+  }
+};
 module.exports = {
   login,
   logout,

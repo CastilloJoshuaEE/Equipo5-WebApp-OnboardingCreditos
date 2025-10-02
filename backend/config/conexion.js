@@ -6,7 +6,7 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
 // Validar que las variables de entorno estén configuradas
 if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ Error: SUPABASE_URL o SUPABASE_ANON_KEY no están configuradas en las variables de entorno');
+  console.error('. Error: SUPABASE_URL o SUPABASE_ANON_KEY no están configuradas en las variables de entorno');
   process.exit(1);
 }
 
@@ -21,16 +21,16 @@ const verificarConexion = async () => {
     if (error) {
       // Si la tabla no existe, es normal al principio
       if (error.code === '42P01') {
-        console.log('⚠️  La tabla usuarios no existe aún. Se creará con los datos iniciales.');
+        console.log('.  La tabla usuarios no existe aún. Se creará con los datos iniciales.');
         return true;
       }
       throw error;
     }
     
-    console.log('✅ Conexión a Supabase establecida correctamente');
+    console.log('. Conexión a Supabase establecida correctamente');
     return true;
   } catch (error) {
-    console.error('❌ Error conectando a Supabase:', error.message);
+    console.error('. Error conectando a Supabase:', error.message);
     return false;
   }
 };

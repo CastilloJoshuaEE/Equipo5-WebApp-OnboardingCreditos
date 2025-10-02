@@ -46,17 +46,17 @@ const iniciarServidor = async () => {
       throw new Error('No se pudo conectar a Supabase. Verifica las credenciales.');
     }
 
-    console.log('✅ Conectado a Supabase PostgreSQL');
+    console.log('. Conectado a Supabase PostgreSQL');
 
     // Ejecutar datos iniciales (manejar errores sin detener el servidor)
     console.log('📥 Cargando datos iniciales...');
     try {
       const datosInicialesExitosos = await datosIniciales();
       if (!datosInicialesExitosos) {
-        console.log('⚠️  Datos iniciales no se cargaron completamente, pero el servidor continuará');
+        console.log('.  Datos iniciales no se cargaron completamente, pero el servidor continuará');
       }
     } catch (error) {
-      console.log('⚠️  Error en datos iniciales, continuando sin ellos:', error.message);
+      console.log('.  Error en datos iniciales, continuando sin ellos:', error.message);
     }
 
     // Usar rutas API
@@ -96,40 +96,39 @@ const iniciarServidor = async () => {
     
     // Iniciar servidor
     const server = app.listen(PORT, () => {
-      console.log(`\n🎉 ¡Servidor ejecutándose correctamente!`);
-      console.log(`📍 Puerto: ${PORT}`);
-      console.log(`🌐 URL: http://localhost:${PORT}`);
-      console.log(`\n📚 Endpoints disponibles:`);
+      console.log(`\n ¡Servidor ejecutándose correctamente!`);
+      console.log(`Puerto: ${PORT}`);
+      console.log(` URL: http://localhost:${PORT}`);
+      console.log(`\n Endpoints disponibles:`);
       console.log(`   Health:    GET  http://localhost:${PORT}/api/health`);
       console.log(`   Registro:  POST http://localhost:${PORT}/api/usuarios/registro`);
       console.log(`   Login:     POST http://localhost:${PORT}/api/usuarios/login`);
       console.log(`   Session:   GET  http://localhost:${PORT}/api/usuarios/session`);
       console.log(`   Perfil:    GET  http://localhost:${PORT}/api/usuario/perfil`);
-      console.log(`\n👥 Usuarios creados:`);
-      console.log(`   - Carlos@hotmail.com (operador) - contraseña: operador1234`);
-      console.log(`   - Mario@hotmail.com (operador) - contraseña: operador123`);
-      console.log(`   - figueroa@hotmail.com (solicitante) - contraseña: cliente123`);
+      console.log(`\n Usuarios creados:`);
+      console.log(`   - jomeregildo64@gmail.com (operador) - contraseña: operador1234`);
+      console.log(`   - joshuamerejildo846@gmail.com (solicitante) - contraseña: cliente123`);
     });
 
     // Manejo elegante de cierre
     process.on('SIGTERM', () => {
-      console.log('🛑 Recibido SIGTERM, cerrando servidor...');
+      console.log('Recibido SIGTERM, cerrando servidor...');
       server.close(() => {
-        console.log('✅ Servidor cerrado correctamente');
+        console.log('. Servidor cerrado correctamente');
         process.exit(0);
       });
     });
 
     process.on('SIGINT', () => {
-      console.log('🛑 Recibido SIGINT, cerrando servidor...');
+      console.log(' Recibido SIGINT, cerrando servidor...');
       server.close(() => {
-        console.log('✅ Servidor cerrado correctamente');
+        console.log('. Servidor cerrado correctamente');
         process.exit(0);
       });
     });
 
   } catch (error) {
-    console.error('❌ Error crítico iniciando servidor:', error.message);
+    console.error('. Error crítico iniciando servidor:', error.message);
     
     console.log('\n🔧 Solución de problemas:');
     console.log('   1. Verifica que SUPABASE_URL y SUPABASE_ANON_KEY estén correctas');
@@ -143,11 +142,11 @@ const iniciarServidor = async () => {
 
 // Manejar errores no capturados
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Promise rechazada no manejada:', reason);
+  console.error('. Promise rechazada no manejada:', reason);
 });
 
 process.on('uncaughtException', (error) => {
-  console.error('❌ Excepción no capturada:', error);
+  console.error('. Excepción no capturada:', error);
   if (process.env.NODE_ENV === 'production') {
     process.exit(1);
   }

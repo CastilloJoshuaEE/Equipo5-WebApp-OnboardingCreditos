@@ -14,6 +14,13 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- =========================================
 -- TABLA USUARIOS (Base para herencia)
 -- Almacena datos comunes de solicitantes y operadores
+-- Agregar columnas para tokens de confirmación (opcional)
+-- ALTER TABLE usuarios 
+-- ADD COLUMN IF NOT EXISTS token_confirmacion TEXT,
+-- ADD COLUMN IF NOT EXISTS token_expiracion TIMESTAMPTZ;
+
+-- Crear índice para búsquedas por token
+-- CREATE INDEX IF NOT EXISTS idx_usuarios_token_confirmacion ON usuarios(token_confirmacion);
 -- =========================================
 CREATE TABLE usuarios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -25,7 +32,9 @@ CREATE TABLE usuarios (
     rol VARCHAR(50) NOT NULL CHECK (rol IN ('solicitante', 'operador')), -- Tipo de usuario
     cuenta_activa BOOLEAN DEFAULT TRUE,              -- Para soft delete
     created_at TIMESTAMPTZ DEFAULT NOW(),            -- Timestamp de registro
-    updated_at TIMESTAMPTZ DEFAULT NOW()             -- Última modificación
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    token_confirmacion TEXT DEFAULT NULL,            -- Token de confirmación
+    token_expiracion TIMESTAMPTZ DEFAULT NULL,                -- Última modificación
 );
 
 -- =========================================
@@ -43,6 +52,7 @@ CREATE TABLE solicitantes (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
 -- =========================================
 -- TABLA OPERADORES
 -- Personal de la entidad financiera que procesa solicitudes
@@ -58,6 +68,9 @@ CREATE TABLE operadores (
 
 CREATE INDEX idx_usuarios_email ON usuarios(email);
 CREATE INDEX idx_usuarios_rol ON usuarios(rol);
+
+-- Crear índice para búsquedas por token
+CREATE INDEX IF NOT EXISTS idx_usuarios_token_confirmacion ON usuarios(token_confirmacion);
 CREATE OR REPLACE FUNCTION update_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -79,3 +92,22 @@ CREATE POLICY "solicitantes_propios_datos" ON solicitantes
 
 COMMENT ON TABLE usuarios IS 'Usuarios del sistema (solicitantes y operadores)';
 COMMENT ON TABLE solicitantes IS 'PYMES que solicitan créditos';
+-- Trigger para insertar en tablas hijas según rol
+CREATE OR REPLACE FUNCTION insertar_en_tabla_hija()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.rol = 'solicitante' THEN
+    INSERT INTO solicitantes(id, tipo, nombre_empresa, representante_legal, domicilio)
+    VALUES (NEW.id, 'empresa', 'Empresa de ' || split_part(NEW.nombre_completo, ' ', 1),
+            NEW.nombre_completo, 'Dirección de ' || split_part(NEW.nombre_completo, ' ', 1));
+  ELSIF NEW.rol = 'operador' THEN
+    INSERT INTO operadores(id, nivel, permisos)
+    VALUES (NEW.id, 'analista', ARRAY['revision','aprobacion','rechazo']);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_insertar_tabla_hija
+AFTER INSERT ON usuarios
+FOR EACH ROW EXECUTE FUNCTION insertar_en_tabla_hija();

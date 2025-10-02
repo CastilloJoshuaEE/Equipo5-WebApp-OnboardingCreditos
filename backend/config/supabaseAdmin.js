@@ -4,7 +4,7 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseServiceKey) {
-  console.error('❌ SUPABASE_SERVICE_ROLE_KEY no configurada en .env');
+  console.error('. SUPABASE_SERVICE_ROLE_KEY no configurada en .env');
   process.exit(1);
 }
 
@@ -34,4 +34,4 @@ const getUserByEmail = async (email) => {
 module.exports = { 
   supabaseAdmin,
   getUserByEmail
-};
+}; 

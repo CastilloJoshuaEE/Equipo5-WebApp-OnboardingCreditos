@@ -49,4 +49,4 @@ class UsuarioSupabase {
   }
 }
 
-module.exports = UsuarioSupabase;
+module.exports = UsuarioSupabase; 

@@ -73,6 +73,6 @@ SELECT
 SELECT 
   CASE 
     WHEN (SELECT COUNT(*) FROM usuarios WHERE email = 'joshuacastillom004@hotmail.com') = 0 
-    THEN '✅ Usuario eliminado completamente de las tablas personalizadas'
-    ELSE '❌ Error: El usuario aún existe en alguna tabla'
+    THEN '. Usuario eliminado completamente de las tablas personalizadas'
+    ELSE '. Error: El usuario aún existe en alguna tabla'
   END as resultado;

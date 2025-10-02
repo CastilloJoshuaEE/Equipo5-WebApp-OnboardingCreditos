@@ -2,15 +2,30 @@ const express = require('express');
 const { proteger, autorizar } = require('../middleware/auth');
 const authController = require('../controladores/authController');
 const usuariosController = require('../controladores/usuariosController');
+const confirmacionController = require('../controladores/confirmacionController');
+const { validateEmailBeforeAuth, verifyEmailOnly } = require('../middleware/emailValidation');
 const router = express.Router();
 
+// ==================== RUTAS DE CONFIRMACIÓN ====================
+router.get('/auth/confirmar', confirmacionController.confirmarEmail);
+router.post('/auth/reenviar-confirmacion', confirmacionController.reenviarConfirmacion);
+router.post('/usuarios/verificar-email', verifyEmailOnly, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Verificación de email completada',
+    validation: req.emailValidation
+  });
+});
 // ==================== RUTAS PÚBLICAS ====================
-router.post('/usuarios/registro', usuariosController.registrar);
+router.post('/usuarios/registro', validateEmailBeforeAuth, usuariosController.registrar);
 router.post('/usuarios/login', authController.login);
 router.post('/usuarios/logout', authController.logout);
 router.get('/usuarios/session', authController.getSession);
 
 // ==================== RUTAS PROTEGIDAS ====================
+// Ruta para verificar estado de confirmación
+router.get('/usuario/estado-confirmacion', proteger, confirmacionController.estadoConfirmacionEmail);
+
 // Ruta para obtener perfil del usuario autenticado
 router.get('/usuario/perfil', proteger, usuariosController.obtenerPerfil);
 
