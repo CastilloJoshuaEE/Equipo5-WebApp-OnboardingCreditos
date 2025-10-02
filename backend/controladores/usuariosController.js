@@ -42,7 +42,7 @@ const registrar = async (req, res) => {
       nombre_completo: nombre_completo.substring(0, 10) + '...' 
     });
 
-    // ✅ NUEVO: Mostrar resultado de validación de email
+    // . NUEVO: Mostrar resultado de validación de email
     if (req.emailValidation) {
       console.log('📊 Resultado de validación de email:', {
         isValid: req.emailValidation.isValid,
@@ -59,7 +59,7 @@ const registrar = async (req, res) => {
       .maybeSingle();
 
     if (usuarioError && usuarioError.code !== 'PGRST116') {
-      console.error('❌ Error verificando usuario existente:', usuarioError);
+      console.error('. Error verificando usuario existente:', usuarioError);
     }
 
     // Si el usuario existe pero está inactivo, reactivar en lugar de crear nuevo
@@ -107,12 +107,12 @@ const registrar = async (req, res) => {
         const { data: existingAuthUser, error: getAuthError } = await getUserByEmail(email);
         
         if (getAuthError || !existingAuthUser || !existingAuthUser.user) {
-          console.error('❌ Error obteniendo usuario existente:', getAuthError);
+          console.error('. Error obteniendo usuario existente:', getAuthError);
           throw new Error('No se pudo verificar el estado del usuario existente');
         }
 
         const existingUserId = existingAuthUser.user.id;
-        console.log(`✅ Usuario encontrado en Auth con ID: ${existingUserId}`);
+        console.log(`. Usuario encontrado en Auth con ID: ${existingUserId}`);
 
         // Verificar si existe en nuestra tabla personalizada
         const { data: userInTable, error: tableError } = await supabaseAdmin
@@ -122,7 +122,7 @@ const registrar = async (req, res) => {
           .maybeSingle();
 
         if (tableError && tableError.code !== 'PGRST116') {
-          console.error('❌ Error verificando tabla usuarios:', tableError);
+          console.error('. Error verificando tabla usuarios:', tableError);
         }
 
         // Si no existe en nuestra tabla o está inactivo, proceder
@@ -143,12 +143,12 @@ const registrar = async (req, res) => {
 
     // REGISTRO NORMAL EXITOSO
     if (authData && authData.user) {
-      console.log('✅ Usuario creado en Auth, insertando en tablas personalizadas...');
+      console.log('. Usuario creado en Auth, insertando en tablas personalizadas...');
       return await completarRegistroNuevoUsuario(req, res, authData.user);
     }
 
   } catch (error) {
-    console.error('❌ Error en registro:', error);
+    console.error('. Error en registro:', error);
     res.status(400).json({
       success: false,
       message: error.message || 'Error en el registro del usuario'

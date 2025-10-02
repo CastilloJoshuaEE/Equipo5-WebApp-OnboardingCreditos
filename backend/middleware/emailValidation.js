@@ -42,14 +42,14 @@ const validateEmailBeforeAuth = async (req, res, next) => {
 
     // Email válido, agregar resultado a la request
     req.emailValidation = fullValidation;
-    console.log(`✅ Email validado exitosamente: ${email}`);
+    console.log(`. Email validado exitosamente: ${email}`);
     next();
 
   } catch (error) {
-    console.error('❌ Error en validación de email:', error);
+    console.error('. Error en validación de email:', error);
     
     // En caso de error, permitir el registro pero con advertencia
-    console.warn('⚠️ Error en validación, permitiendo registro con advertencia');
+    console.warn('. Error en validación, permitiendo registro con advertencia');
     req.emailValidation = {
       email: req.body.email,
       isValid: true,
@@ -74,7 +74,7 @@ const verifyEmailOnly = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.log('⚠️ Verificación de email falló, continuando...');
+    console.log('. Verificación de email falló, continuando...');
     next();
   }
 };
