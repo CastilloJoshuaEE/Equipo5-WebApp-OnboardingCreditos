@@ -3,11 +3,58 @@ const express = require("express");
 const path = require("path");
 const cors = require("cors");
 const bodyParser = require("body-parser");
+const swaggerUI = require("swagger-ui-express");
+const swaggerJsDoc = require("swagger-jsdoc");
 const routes = require("./routes/routes");
 const datosIniciales = require("./datos_iniciales");
 const { verificarConexion } = require("./config/conexion");
 
 const app = express();
+
+// Configuración de Swagger
+const swaggerOptions = {
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "API Sistema de Créditos",
+      version: "1.0.0",
+      description: "API para el sistema de onboarding y gestión de créditos",
+      contact: {
+        name: "Equipo de Desarrollo",
+        email: "castle2004josh2@gmail.com",
+      },
+      servers: [
+        {
+          url:
+            process.env.NODE_ENV === "production"
+              ? "https://tu-dominio.com/api"
+              : `http://localhost:${process.env.PORT || 3000}/api`,
+          description:
+            process.env.NODE_ENV === "production"
+              ? "Servidor de Producción"
+              : "Servidor de Desarrollo",
+        },
+      ],
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
+  },
+  apis: ["./routes/*.js", "./controladores/*.js"], // Archivos donde están las rutas documentadas
+};
+
+const swaggerSpec = swaggerJsDoc(swaggerOptions);
 
 // Configurar CORS
 app.use(
@@ -23,6 +70,16 @@ app.use(
 // Middleware para parsear JSON
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// Configurar Swagger UI
+app.use(
+  "/api-docs",
+  swaggerUI.serve,
+  swaggerUI.setup(swaggerSpec, {
+    customCss: ".swagger-ui .topbar { display: none }",
+    customSiteTitle: "API Sistema de Créditos",
+  })
+);
 
 // Servir archivos estáticos
 app.use("/img", express.static(path.join(__dirname, "../frontend/public/img")));
@@ -109,10 +166,11 @@ const iniciarServidor = async () => {
 
     // Iniciar servidor
     const server = app.listen(PORT, () => {
-      console.log(`\n ¡Servidor ejecutándose correctamente!`);
-      console.log(`Puerto: ${PORT}`);
-      console.log(` URL: http://localhost:${PORT}`);
-      console.log(`\n Endpoints disponibles:`);
+      console.log(`\n✅ ¡Servidor ejecutándose correctamente!`);
+      console.log(`📍 Puerto: ${PORT}`);
+      console.log(`🌐 URL: http://localhost:${PORT}`);
+      console.log(`📚 Documentación API: http://localhost:${PORT}/api-docs`);
+      console.log(`\n📋 Endpoints disponibles:`);
       console.log(`   Health:    GET  http://localhost:${PORT}/api/health`);
       console.log(
         `   Registro:  POST http://localhost:${PORT}/api/usuarios/registro`
