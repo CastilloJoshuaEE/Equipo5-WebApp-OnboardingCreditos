@@ -94,6 +94,6 @@ export default function Home() {
   );
 } */
 
-  export default function Home (){
-    <h2>CREDITO PARA PYMEs</h2>
-  }
+export default function Home() {
+  return <h2>CREDITO PARA PYMEs</h2>;
+}
