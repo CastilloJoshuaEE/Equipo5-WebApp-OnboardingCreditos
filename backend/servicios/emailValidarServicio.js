@@ -29,7 +29,7 @@ class emailValidarServicio {
         };
       }
     } catch (error) {
-      console.log('. HubSpot validation failed, trying next service...');
+      console.log('⚠️ HubSpot validation failed, trying next service...');
       return null;
     }
   }
@@ -54,19 +54,19 @@ class emailValidarServicio {
         };
       }
     } catch (error) {
-      console.log('. Email Hunter validation failed, trying next service...');
+      console.log('⚠️ Email Hunter validation failed, trying next service...');
       return null;
     }
   }
 
-  // . SERVICIO 3 CORREGIDO: Abstract API
+  // ✅ SERVICIO 3 CORREGIDO: Abstract API
   async verifyEmailAbstract(email) {
     try {
       const apiKey = process.env.ABSTRACT_API_KEY;
       
       // Si no hay API key válida, saltar este servicio
       if (!apiKey || apiKey.includes('http') || apiKey.length < 10) {
-        console.log('. Abstract API key no válida, usando validación básica');
+        console.log('⚠️ Abstract API key no válida, usando validación básica');
         return null;
       }
 
@@ -85,7 +85,7 @@ class emailValidarServicio {
       if (response.data) {
         const data = response.data;
         
-        // . NUEVA LÓGICA MEJORADA según la documentación
+        // ✅ NUEVA LÓGICA MEJORADA según la documentación
         const isValid = data.deliverability === 'DELIVERABLE' && 
                        data.is_valid_format?.value === true &&
                        data.quality_score > 0.5;
@@ -98,7 +98,7 @@ class emailValidarServicio {
         };
       }
     } catch (error) {
-      console.log('. Abstract API validation failed:', error.message);
+      console.log('❌ Abstract API validation failed:', error.message);
       if (error.response) {
         console.log('📋 Detalles del error:', {
           status: error.response.status,
@@ -178,10 +178,10 @@ class emailValidarServicio {
         const result = await service.call(this, email);
         if (result) {
           validationResults.push(result);
-          console.log(`   ${result.service}: ${result.valid ? '.' : '.'} - ${result.reason}`);
+          console.log(`   ${result.service}: ${result.valid ? '✅' : '❌'} - ${result.reason}`);
         }
       } catch (error) {
-        console.log(`   . ${service.name} failed: ${error.message}`);
+        console.log(`   ⚠️ ${service.name} failed: ${error.message}`);
       }
     }
 
@@ -198,14 +198,14 @@ class emailValidarServicio {
 
     const finalResult = {
       email: email,
-      isValid: validResults.length > 0, // . Cambiado: Solo necesita un servicio válido
+      isValid: validResults.length > 0, // ✅ Cambiado: Solo necesita un servicio válido
       confidence: validResults.length / validationResults.length,
       servicesUsed: validationResults.length,
       details: validationResults,
       timestamp: new Date().toISOString()
     };
 
-    console.log(`📊 Resultado final: ${finalResult.isValid ? '. VÁLIDO' : '. INVÁLIDO'} (confianza: ${Math.round(finalResult.confidence * 100)}%)`);
+    console.log(`📊 Resultado final: ${finalResult.isValid ? '✅ VÁLIDO' : '❌ INVÁLIDO'} (confianza: ${Math.round(finalResult.confidence * 100)}%)`);
 
     return finalResult;
   }

@@ -410,9 +410,131 @@ router.post("/usuarios/logout", authController.logout);
  *               $ref: '#/components/schemas/Error'
  */
 router.get("/usuarios/session", authController.getSession);
+/**
+ * @swagger
+ * /api/usuario/cambiar-contrasena:
+ *   put:
+ *     summary: Cambiar contraseña de usuario
+ *     tags: [Usuarios]
+ *     description: Permite a un usuario autenticado cambiar su contraseña actual por una nueva.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - contrasenaActual
+ *               - nuevaContrasena
+ *             properties:
+ *               contrasenaActual:
+ *                 type: string
+ *                 description: Contraseña actual del usuario
+ *               nuevaContrasena:
+ *                 type: string
+ *                 description: Nueva contraseña a establecer
+ *             example:
+ *               contrasenaActual: "123456"
+ *               nuevaContrasena: "NuevaPass@2025"
+ *     responses:
+ *       200:
+ *         description: Contraseña cambiada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Response'
+ *       400:
+ *         description: Datos inválidos o contraseña actual incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.put('/usuario/cambiar-contrasena', proteger, usuariosController.cambiarContrasena);
 
-// ==================== RUTAS PROTEGIDAS ====================
+// ==================== RUTAS PÚBLICAS ====================
 
+/**
+ * @swagger
+ * /api/usuarios/recuperar-contrasena:
+ *   post:
+ *     summary: Recuperar contraseña
+ *     tags: [Usuarios]
+ *     description: Permite restablecer la contraseña de un usuario mediante un token de recuperación enviado por correo.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - nuevaContrasena
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: Token de recuperación recibido por email
+ *               nuevaContrasena:
+ *                 type: string
+ *                 description: Nueva contraseña que se desea establecer
+ *             example:
+ *               token: "abcd1234token"
+ *               nuevaContrasena: "NuevaPass@2025"
+ *     responses:
+ *       200:
+ *         description: Contraseña restablecida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Response'
+ *       400:
+ *         description: Token inválido o expirado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/usuarios/recuperar-contrasena', usuariosController.recuperarContrasena);
+
+/**
+ * @swagger
+ * /api/usuarios/solicitar-recuperacion:
+ *   post:
+ *     summary: Solicitar enlace de recuperación
+ *     tags: [Usuarios]
+ *     description: Envía un correo con un enlace o token para recuperar la contraseña.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email del usuario registrado
+ *             example:
+ *               email: "usuario@ejemplo.com"
+ *     responses:
+ *       200:
+ *         description: Enlace de recuperación enviado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Response'
+ *       400:
+ *         description: Email no registrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/usuarios/solicitar-recuperacion', usuariosController.solicitarRecuperacionContrasena);
 /**
  * @swagger
  * /api/usuario/estado-confirmacion:
