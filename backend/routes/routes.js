@@ -412,10 +412,59 @@ router.post("/usuarios/logout", authController.logout);
 router.get("/usuarios/session", authController.getSession);
 /**
  * @swagger
+ * /api/usuarios/recuperar-contrasena:
+ *   post:
+ *     summary: Recuperar contraseña
+ *     tags: [Contraseña]
+ *     description: Permite restablecer la contraseña de un usuario sin necesidad de autenticación.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - nueva_contrasena
+ *               - confirmar_contrasena
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email del usuario
+ *               nueva_contrasena:
+ *                 type: string
+ *                 description: Nueva contraseña
+ *               confirmar_contrasena:
+ *                 type: string
+ *                 description: Confirmación de la nueva contraseña
+ *             example:
+ *               email: "usuario@ejemplo.com"
+ *               nueva_contrasena: "nueva1234"
+ *               confirmar_contrasena: "nueva1234"
+ *     responses:
+ *       200:
+ *         description: Contraseña recuperada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Response'
+ *       400:
+ *         description: Error en la recuperación (email inválido o contraseñas no coinciden)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/usuarios/recuperar-contrasena', usuariosController.recuperarContrasena);
+
+
+/**
+ * @swagger
  * /api/usuario/cambiar-contrasena:
  *   put:
- *     summary: Cambiar contraseña de usuario
- *     tags: [Usuarios]
+ *     summary: Cambiar contraseña (usuario autenticado)
+ *     tags: [Contraseña]
  *     description: Permite a un usuario autenticado cambiar su contraseña actual por una nueva.
  *     security:
  *       - bearerAuth: []
@@ -426,18 +475,23 @@ router.get("/usuarios/session", authController.getSession);
  *           schema:
  *             type: object
  *             required:
- *               - contrasenaActual
- *               - nuevaContrasena
+ *               - contrasena_actual
+ *               - nueva_contrasena
+ *               - confirmar_contrasena
  *             properties:
- *               contrasenaActual:
+ *               contrasena_actual:
  *                 type: string
- *                 description: Contraseña actual del usuario
- *               nuevaContrasena:
+ *                 description: Contraseña actual
+ *               nueva_contrasena:
  *                 type: string
- *                 description: Nueva contraseña a establecer
+ *                 description: Nueva contraseña
+ *               confirmar_contrasena:
+ *                 type: string
+ *                 description: Confirmación de la nueva contraseña
  *             example:
- *               contrasenaActual: "123456"
- *               nuevaContrasena: "NuevaPass@2025"
+ *               contrasena_actual: "vieja123"
+ *               nueva_contrasena: "nueva456"
+ *               confirmar_contrasena: "nueva456"
  *     responses:
  *       200:
  *         description: Contraseña cambiada exitosamente
@@ -446,7 +500,13 @@ router.get("/usuarios/session", authController.getSession);
  *             schema:
  *               $ref: '#/components/schemas/Response'
  *       400:
- *         description: Datos inválidos o contraseña actual incorrecta
+ *         description: Error en el cambio de contraseña
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Usuario no autenticado
  *         content:
  *           application/json:
  *             schema:
@@ -454,57 +514,14 @@ router.get("/usuarios/session", authController.getSession);
  */
 router.put('/usuario/cambiar-contrasena', proteger, usuariosController.cambiarContrasena);
 
-// ==================== RUTAS PÚBLICAS ====================
-
-/**
- * @swagger
- * /api/usuarios/recuperar-contrasena:
- *   post:
- *     summary: Recuperar contraseña
- *     tags: [Usuarios]
- *     description: Permite restablecer la contraseña de un usuario mediante un token de recuperación enviado por correo.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - token
- *               - nuevaContrasena
- *             properties:
- *               token:
- *                 type: string
- *                 description: Token de recuperación recibido por email
- *               nuevaContrasena:
- *                 type: string
- *                 description: Nueva contraseña que se desea establecer
- *             example:
- *               token: "abcd1234token"
- *               nuevaContrasena: "NuevaPass@2025"
- *     responses:
- *       200:
- *         description: Contraseña restablecida exitosamente
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Response'
- *       400:
- *         description: Token inválido o expirado
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.post('/usuarios/recuperar-contrasena', usuariosController.recuperarContrasena);
 
 /**
  * @swagger
  * /api/usuarios/solicitar-recuperacion:
  *   post:
- *     summary: Solicitar enlace de recuperación
- *     tags: [Usuarios]
- *     description: Envía un correo con un enlace o token para recuperar la contraseña.
+ *     summary: Solicitar recuperación de contraseña
+ *     tags: [Contraseña]
+ *     description: Envía un email con un enlace de recuperación de contraseña. No requiere autenticación.
  *     requestBody:
  *       required: true
  *       content:
@@ -517,24 +534,25 @@ router.post('/usuarios/recuperar-contrasena', usuariosController.recuperarContra
  *               email:
  *                 type: string
  *                 format: email
- *                 description: Email del usuario registrado
+ *                 description: Email del usuario
  *             example:
  *               email: "usuario@ejemplo.com"
  *     responses:
  *       200:
- *         description: Enlace de recuperación enviado
+ *         description: Email de recuperación enviado exitosamente
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Response'
  *       400:
- *         description: Email no registrado
+ *         description: Email inválido o usuario no encontrado
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/usuarios/solicitar-recuperacion', usuariosController.solicitarRecuperacionContrasena);
+
 /**
  * @swagger
  * /api/usuario/estado-confirmacion:
