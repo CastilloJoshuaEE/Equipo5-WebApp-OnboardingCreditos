@@ -3,7 +3,6 @@
 import React, { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-
 import LoginForm from '@/components/auth/LoginForm';
 import { Box, CircularProgress } from '@mui/material';
 import { UserRole } from '@/types/auth.types';
@@ -12,25 +11,36 @@ export default function LoginPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Redirección si el usuario ya está autenticado (protección del lado del cliente)
   useEffect(() => {
     if (status === 'authenticated' && session?.user?.rol) {
-      const role = session.user.rol as UserRole;
-      const path = role === UserRole.SOLICITANTE ? '/solicitante/dashboard' : '/operador/dashboard';
-      router.push(path);
+      // ROLES CON NUEVA CARPETA
+      const dashboardPath = {
+        [UserRole.SOLICITANTE]: '/dashboard/solicitante',
+        [UserRole.OPERADOR]: '/dashboard/operador'
+      }[session.user.rol];
+
+      if (dashboardPath) {
+        router.push(dashboardPath);
+      }
     }
   }, [status, session, router]);
 
-  if (status === 'loading' || status === 'authenticated') {
+  
+  if (status === 'loading') {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
         <CircularProgress />
       </Box>
     );
   }
 
+  // AUTENTICADO REDIRIGE
+  if (status === 'authenticated') {
+    return null;
+  }
+
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', py: 4 }}>
+    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
       <LoginForm />
     </Box>
   );

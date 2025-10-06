@@ -1,8 +1,48 @@
-export type UserRole = 'solicitante' | 'operador';
-export interface Session {  user: User; expires: string;}
+export enum UserRole {
+  SOLICITANTE = 'solicitante',
+  OPERADOR = 'operador'
+}
 
-export interface Token {  id: string;   email: string;   nombre_completo: string;   rol: UserRole;}
-export interface LoginCredentials {   email: string;   password: string; }
-export interface User {id: string; email: string; nombre_completo: string; rol: UserRole; cuit?: string; }
-export interface AuthResponse { access_token: string; token?: string; user: User;}
+export interface AuthUser {
+  id: number;
+  email: string;
+  nombre_completo: string;
+  dni: string;
+  telefono: string;
+  rol: UserRole;
+  email_confirmado: boolean;
+  activo: boolean;
+  fecha_creacion: string;
+}
 
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterSolicitante {
+  email: string;
+  password: string;
+  nombre_completo: string;
+  dni: string;
+  telefono: string;
+  rol: UserRole.SOLICITANTE;
+  nombre_empresa: string;
+  cuit: string;
+  representante_legal: string;
+  domicilio: string;
+}
+
+export interface RegisterOperador {
+  email: string;
+  password: string;
+  nombre_completo: string;
+  dni: string;
+  telefono: string;
+  rol: UserRole.OPERADOR;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+  token: string;
+}

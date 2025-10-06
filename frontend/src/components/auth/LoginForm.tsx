@@ -4,92 +4,87 @@ import React, { useState } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { Box, Button, TextField, Typography, Alert } from '@mui/material';
 
-import { LoginSchema, LoginSchemaType } from '@/schemas/auth.schema';
-import { Box, Button, Typography, Alert } from '@mui/material';
-import Input from '@/components/ui/Input';
+import { loginSchema } from '@/schemas/auth.schema';
+import type { LoginInput } from '@/types/auth.types';
 
-
-const LoginForm: React.FC = () => {
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
+export default function LoginForm() {
+  const [error, setError] = useState('');
+  const router = useRouter();
+  
   const { 
     register, 
     handleSubmit, 
     formState: { errors, isSubmitting } 
-  } = useForm<LoginSchemaType>({
-    resolver: zodResolver(LoginSchema),
+  } = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema)
   });
 
-  const onSubmit: SubmitHandler<LoginSchemaType> = async (data) => {
-    setErrorMessage(null);
+  const onSubmit: SubmitHandler<LoginInput> = async (data) => {
+    try {
+      const result = await signIn('credentials', {
+        redirect: false,
+        email: data.email,
+        password: data.password
+      });
 
-    const result = await signIn('credentials', {
-      email: data.email,
-      password: data.password,
-     
-      redirect: true,
-      callbackUrl: '/', // Se redirigira desde middleware/layout cada rol
-    });
+      if (result?.error) {
+        setError('Credenciales inválidas');
+        return;
+      }
 
-    if (result?.error) {
-    
-      setErrorMessage('Credenciales inválidas. Por favor, verifica tu email y contraseña.');
+      router.refresh();
+      //!! error dice que esta definida pero no usada volver a ver
+    } catch (error) {
+      setError('Error al iniciar sesión');
     }
-    // Si no hay error, NextAuth maneja la redirección a la callbackUrl ('/') 
-    // y luego el middleware lo lleva al dashboard correcto.
   };
 
   return (
-    <Box sx={{ p: 4, maxWidth: 400, mx: 'auto', mt: 8, boxShadow: 3, borderRadius: 2, bgcolor: 'background.paper' }}>
-      <Typography variant="h5" component="h1" gutterBottom align="center">
-        Inicio de Sesión
+    <Box component="form" onSubmit={handleSubmit(onSubmit)} width="100%" maxWidth={400} p={3}>
+      <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
+        Iniciar Sesión
       </Typography>
 
-      {errorMessage && <Alert severity="error" sx={{ mb: 2 }}>{errorMessage}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <Input
-          label="Email"
-          placeholder="email@ejemplo.com"
-          {...register('email')}
-          register={register('email')}
-          error={!!errors.email}
-          helperText={errors.email?.message}
-        />
-        <Input
-          label="Contraseña"
-          type="password"
-          {...register('password')}
-          register={register('password')}
-          error={!!errors.password}
-          helperText={errors.password?.message}
-        />
+      <TextField
+        {...register('email')}
+        label="Correo electrónico"
+        fullWidth
+        margin="normal"
+        error={!!errors.email}
+        helperText={errors.email?.message}
+      />
 
-        <Button 
-          type="submit" 
-          variant="contained" 
-          color="primary" 
-          fullWidth 
-          sx={{ mt: 3 }}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Iniciando...' : 'Entrar'}
-        </Button>
-        
-        <Box textAlign="center" mt={2}>
-            <Typography variant="body2">
-                ¿Olvidaste tu contraseña? <a href="/forgot-password">Recuperar</a>
-            </Typography>
-            <Typography variant="body2">
-                ¿No tienes cuenta? <a href="/register">Regístrate aquí</a>
-            </Typography>
-        </Box>
-      </form>
+      <TextField
+        {...register('password')}
+        type="password"
+        label="Contraseña"
+        fullWidth
+        margin="normal"
+        error={!!errors.password}
+        helperText={errors.password?.message}
+      />
+
+      <Button
+        type="submit"
+        variant="contained"
+        fullWidth
+        size="large"
+        disabled={isSubmitting}
+        sx={{ mt: 2 }}
+      >
+        {isSubmitting ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+      </Button>
     </Box>
   );
-};
-
-export default LoginForm;
+}
 
 
