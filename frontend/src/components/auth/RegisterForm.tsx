@@ -4,17 +4,23 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Box, Button, TextField, Typography, Alert, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
-import { registerSchema } from '@/schemas/auth.schema';
-import type { RegisterInput } from '@/types/auth.types';
+import { registerSchema, RegisterInput } from '@/schemas/auth.schema';
 import { UserRole } from '@/types/auth.types';
 
 export default function RegisterForm() {
   const [error, setError] = useState('');
+  const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const router = useRouter();
   
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<RegisterInput>({
-    resolver: zodResolver(registerSchema)
+  const { register, handleSubmit, formState: { errors, isSubmitting }, watch, setValue } = useForm<RegisterInput>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      rol: undefined
+    },
+    mode: 'onBlur' //para que valide al salir del campo
   });
+
+  const rol = watch('rol');
 
   const onSubmit = async (data: RegisterInput) => {
     try {
@@ -25,7 +31,8 @@ export default function RegisterForm() {
       });
 
       if (!response.ok) {
-        throw new Error('Error en el registro');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error en el registro');
       }
 
       const result = await signIn('credentials', {
@@ -41,12 +48,12 @@ export default function RegisterForm() {
 
       router.refresh();
     } catch (error) {
-      setError('Error al registrar usuario');
+      setError(error instanceof Error ? error.message : 'Error al registrar usuario');
     }
   };
 
   return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)} width="100%" maxWidth={400} p={3}>
+    <Box component="form" onSubmit={handleSubmit(onSubmit)} width="100%" maxWidth={500} p={3}>
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
         Registro de Usuario
       </Typography>
@@ -56,6 +63,28 @@ export default function RegisterForm() {
           {error}
         </Alert>
       )}
+
+      <FormControl fullWidth margin="normal">
+        <InputLabel>Rol</InputLabel>
+        <Select
+          value={rol || ''}
+          onChange={(e) => {
+            const value = e.target.value as UserRole;
+            setValue('rol', value);
+            setSelectedRole(value);
+          }}
+          label="Rol"
+          error={!!errors.rol}
+        >
+          <MenuItem value={UserRole.SOLICITANTE}>Solicitante PYME</MenuItem>
+          <MenuItem value={UserRole.OPERADOR}>Operador</MenuItem>
+        </Select>
+        {errors.rol && (
+          <Typography color="error" variant="caption" sx={{ mt: 0.5, ml: 2 }}>
+            {errors.rol.message}
+          </Typography>
+        )}
+      </FormControl>
 
       <TextField
         {...register('nombre_completo')}
@@ -93,17 +122,51 @@ export default function RegisterForm() {
         helperText={errors.telefono?.message}
       />
 
-      <FormControl fullWidth margin="normal">
-        <InputLabel>Rol</InputLabel>
-        <Select
-          {...register('rol')}
-          label="Rol"
-          error={!!errors.rol}
-        >
-          <MenuItem value={UserRole.SOLICITANTE}>Solicitante PYME</MenuItem>
-          <MenuItem value={UserRole.OPERADOR}>Operador</MenuItem>
-        </Select>
-      </FormControl>
+      {/* Campos adicionales para Solicitante PYME */}
+      {rol === UserRole.SOLICITANTE && (
+        <>
+          <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+            Datos de la Empresa
+          </Typography>
+
+          <TextField
+            {...register('nombre_empresa')}
+            label="Nombre de la Empresa"
+            fullWidth
+            margin="normal"
+            error={!!errors.nombre_empresa}
+            helperText={errors.nombre_empresa?.message}
+          />
+
+          <TextField
+            {...register('cuit')}
+            label="CUIT (ej: 30-12345678-9)"
+            fullWidth
+            margin="normal"
+            error={!!errors.cuit}
+            helperText={errors.cuit?.message}
+            placeholder="30-12345678-9"
+          />
+
+          <TextField
+            {...register('representante_legal')}
+            label="Representante Legal"
+            fullWidth
+            margin="normal"
+            error={!!errors.representante_legal}
+            helperText={errors.representante_legal?.message}
+          />
+
+          <TextField
+            {...register('domicilio')}
+            label="Domicilio de la Empresa"
+            fullWidth
+            margin="normal"
+            error={!!errors.domicilio}
+            helperText={errors.domicilio?.message}
+          />
+        </>
+      )}
 
       <TextField
         {...register('password')}
@@ -124,6 +187,15 @@ export default function RegisterForm() {
         sx={{ mt: 2 }}
       >
         {isSubmitting ? 'Registrando...' : 'Registrarse'}
+      </Button>
+
+      <Button
+        variant="text"
+        fullWidth
+        sx={{ mt: 1 }}
+        onClick={() => router.push('/login')}
+      >
+        ¿Ya tienes cuenta? Inicia sesión
       </Button>
     </Box>
   );
