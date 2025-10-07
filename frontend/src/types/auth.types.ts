@@ -1,16 +1,17 @@
+// /types/auth.ts
 export enum UserRole {
   SOLICITANTE = 'solicitante',
-  OPERADOR = 'operador'
+  OPERADOR = 'operador',
 }
 
 export interface AuthUser {
-  id: string; // Cambiado de number a string (UUID)
+  id: string;
   email: string;
   nombre_completo: string;
   dni: string;
   telefono: string;
   rol: UserRole;
-  cuenta_activa: boolean; // Cambiado de email_confirmado a cuenta_activa
+  cuenta_activa: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -52,7 +53,6 @@ export interface AuthResponse {
   };
 }
 
-// Tipo para LoginInput
 export type LoginInput = {
   email: string;
   password: string;
