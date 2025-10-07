@@ -6,7 +6,7 @@ const { validateEmailBeforeAuth } = require('../middleware/emailValidation');
 
 const registrar = async (req, res) => {
   try {
-    console.log('📨 Body recibido:', req.body);
+    console.log('Body recibido:', req.body);
 
     if (!req.body) {
       return res.status(400).json({
@@ -35,16 +35,23 @@ const registrar = async (req, res) => {
         message: 'Faltan campos obligatorios: email, password, nombre_completo, dni'
       });
     }
-
-    console.log('📝 Registrando nuevo usuario:', { 
+   if (rol === 'solicitante') {
+      if (!nombre_empresa || !cuit || !representante_legal || !domicilio) {
+        return res.status(400).json({
+          success: false,
+          message: 'Para rol solicitante, se requieren: nombre_empresa, cuit, representante_legal y domicilio'
+        });
+      }
+    }
+    console.log(' Registrando nuevo usuario:', { 
       email, 
       rol, 
       nombre_completo: nombre_completo.substring(0, 10) + '...' 
     });
 
-    // ✅ NUEVO: Mostrar resultado de validación de email
+    //  NUEVO: Mostrar resultado de validación de email
     if (req.emailValidation) {
-      console.log('📊 Resultado de validación de email:', {
+      console.log(' Resultado de validación de email:', {
         isValid: req.emailValidation.isValid,
         confidence: req.emailValidation.confidence,
         servicesUsed: req.emailValidation.servicesUsed

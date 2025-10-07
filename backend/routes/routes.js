@@ -915,4 +915,5 @@ router.get("/admin/dashboard", proteger, autorizar("operador"), (req, res) => {
   });
 });
 
+router.get("/auth/confirmar", confirmacionController.confirmarEmail);
 module.exports = router;

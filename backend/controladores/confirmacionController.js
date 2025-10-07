@@ -24,18 +24,23 @@ const estadoConfirmacionEmail = async (req, res) => {
   }
 };
 
-// Confirmar email del usuario
+// Confirmar email del usuario - VERSIÓN MEJORADA
 const confirmarEmail = async (req, res) => {
   try {
     const { token } = req.query;
     
-    console.log('🔐 Procesando confirmación de email con token:', token);
+    console.log(' Procesando confirmación de email con token:', token);
 
     if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: 'Token de confirmación no proporcionado'
-      });
+      // Si es una API call, responder con JSON
+      if (req.headers['content-type']?.includes('application/json') || req.headers['accept']?.includes('application/json')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Token de confirmación no proporcionado'
+        });
+      }
+      // Si es un navegador, redirigir con error
+      return res.redirect(`${FRONTEND_URL}/auth/error?message=Token no proporcionado`);
     }
 
     // Decodificar el token
@@ -50,10 +55,18 @@ const confirmarEmail = async (req, res) => {
     const diferenciaHoras = (ahora - tiempoToken) / (1000 * 60 * 60);
     
     if (diferenciaHoras > 24) {
-      return res.status(400).json({
-        success: false,
-        message: 'El enlace de confirmación ha expirado. Solicita uno nuevo.'
-      });
+      const errorMessage = 'El enlace de confirmación ha expirado. Solicita uno nuevo.';
+      
+      // Respuesta JSON para API calls
+      if (req.headers['content-type']?.includes('application/json') || req.headers['accept']?.includes('application/json')) {
+        return res.status(400).json({
+          success: false,
+          message: errorMessage
+        });
+      }
+      
+      // Redirección para navegador
+      return res.redirect(`${FRONTEND_URL}/auth/error?message=${encodeURIComponent(errorMessage)}`);
     }
 
     // . PRIMERO: Verificar si el usuario existe en nuestra tabla
@@ -65,7 +78,13 @@ const confirmarEmail = async (req, res) => {
 
     if (usuarioError || !usuarioExistente) {
       console.error('. Usuario no encontrado en tabla usuarios:', usuarioError);
-      throw new Error('Usuario no encontrado en el sistema');
+      const errorMessage = 'Usuario no encontrado en el sistema';
+      
+      if (req.headers['content-type']?.includes('application/json') || req.headers['accept']?.includes('application/json')) {
+        throw new Error(errorMessage);
+      }
+      
+      return res.redirect(`${FRONTEND_URL}/auth/error?message=${encodeURIComponent(errorMessage)}`);
     }
 
     console.log('. Usuario encontrado en tabla usuarios:', usuarioExistente.email);
@@ -101,129 +120,61 @@ const confirmarEmail = async (req, res) => {
 
     if (updateError) {
       console.error('. Error actualizando usuario:', updateError);
-      throw new Error('No se pudo activar la cuenta');
+      const errorMessage = 'No se pudo activar la cuenta';
+      
+      if (req.headers['content-type']?.includes('application/json') || req.headers['accept']?.includes('application/json')) {
+        throw new Error(errorMessage);
+      }
+      
+      return res.redirect(`${FRONTEND_URL}/auth/error?message=${encodeURIComponent(errorMessage)}`);
     }
 
     console.log('. Cuenta activada exitosamente en tabla usuarios para:', email);
 
     // . ENVIAR EMAIL DE BIENVENIDA DESPUÉS DE LA CONFIRMACIÓN
     try {
-      console.log('📧 Enviando email de bienvenida después de confirmación...');
+      console.log(' Enviando email de bienvenida después de confirmación...');
       await enviarEmailBienvenida(email, usuarioExistente.nombre_completo, usuarioExistente.rol);
-      console.log('🎉 Email de bienvenida enviado exitosamente');
+      console.log(' Email de bienvenida enviado exitosamente');
     } catch (emailError) {
       console.warn('. Error enviando email de bienvenida:', emailError.message);
       // No fallar la confirmación por error en email de bienvenida
     }
 
-    // Redirigir a una página de éxito
+    // DETERMINAR TIPO DE RESPUESTA
     const mensajeExito = authConfirmed 
       ? 'Tu dirección de email ha sido confirmada correctamente en el sistema.'
       : 'Tu cuenta ha sido activada correctamente. Puedes iniciar sesión con tus credenciales.';
 
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-          <title>Cuenta Activada - Sistema de Créditos</title>
-          <style>
-              body { 
-                  font-family: Arial, sans-serif; 
-                  text-align: center; 
-                  padding: 50px; 
-                  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-                  color: white;
-                  height: 100vh;
-                  display: flex;
-                  flex-direction: column;
-                  justify-content: center;
-                  align-items: center;
-              }
-              .container {
-                  background: white;
-                  color: #333;
-                  padding: 40px;
-                  border-radius: 10px;
-                  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                  max-width: 500px;
-              }
-              .success-icon {
-                  font-size: 48px;
-                  color: #10b981;
-                  margin-bottom: 20px;
-              }
-              .button {
-                  display: inline-block;
-                  background: #2563eb;
-                  color: white;
-                  padding: 12px 24px;
-                  text-decoration: none;
-                  border-radius: 5px;
-                  margin: 15px 0;
-                  font-weight: bold;
-              }
-              .warning {
-                  background: #fef3c7;
-                  border-left: 4px solid #f59e0b;
-                  padding: 10px;
-                  margin: 15px 0;
-                  border-radius: 4px;
-                  color: #92400e;
-                  font-size: 14px;
-              }
-          </style>
-      </head>
-      <body>
-          <div class="container">
-              <div class="success-icon">.</div>
-              <h1>¡Cuenta Activada Exitosamente!</h1>
-              <p>${mensajeExito}</p>
-              
-              ${!authConfirmed ? `
-              <div class="warning">
-                  <p><strong>Nota:</strong> La confirmación se realizó localmente. Si tienes problemas para iniciar sesión, contacta al soporte.</p>
-              </div>
-              ` : ''}
-              
-              <p>Se ha enviado un email de bienvenida con información importante.</p>
-              <p>Ahora puedes iniciar sesión en el sistema con tus credenciales.</p>
-              <a href="${FRONTEND_URL}/api/login" class="button">Ir al Login</a>
-          </div>
-      </body>
-      </html>
-    `);
+    // Si es una llamada API (desde el frontend), responder con JSON
+    if (req.headers['content-type']?.includes('application/json') || req.headers['accept']?.includes('application/json')) {
+      return res.json({
+        success: true,
+        message: mensajeExito,
+        data: {
+          userId: userId,
+          email: email,
+          authConfirmed: authConfirmed
+        }
+      });
+    }
+
+    // Si es un navegador directo, redirigir a página de éxito
+    return res.redirect(`${FRONTEND_URL}/confirmacion?success=true&message=${encodeURIComponent(mensajeExito)}`);
 
   } catch (error) {
     console.error('. Error en confirmación de email:', error);
     
-    res.status(400).send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-          <title>Error de Confirmación</title>
-          <style>
-              body { 
-                  font-family: Arial, sans-serif; 
-                  text-align: center; 
-                  padding: 50px; 
-                  background: #fef2f2;
-                  color: #dc2626;
-              }
-              .error-icon {
-                  font-size: 48px;
-                  margin-bottom: 20px;
-              }
-          </style>
-      </head>
-      <body>
-          <div class="error-icon">.</div>
-          <h1>Error al Activar Cuenta</h1>
-          <p>${error.message || 'Ha ocurrido un error al activar tu cuenta.'}</p>
-          <p>Por favor, intenta nuevamente o contacta al soporte.</p>
-          <a href="${FRONTEND_URL}/api/login" style="color: #2563eb; text-decoration: none;">Volver al Inicio</a>
-      </body>
-      </html>
-    `);
+    // Manejar error según el tipo de request
+    if (req.headers['content-type']?.includes('application/json') || req.headers['accept']?.includes('application/json')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Ha ocurrido un error al activar tu cuenta.'
+      });
+    }
+    
+    // Redirección para navegador
+    res.redirect(`${FRONTEND_URL}/auth/error?message=${encodeURIComponent(error.message || 'Ha ocurrido un error al activar tu cuenta.')}`);
   }
 };
 
@@ -239,7 +190,7 @@ const reenviarConfirmacion = async (req, res) => {
       });
     }
 
-    console.log('🔄 Reenviando confirmación a:', email);
+    console.log(' Reenviando confirmación a:', email);
 
     // Buscar usuario
     const { data: usuario, error } = await supabaseAdmin
