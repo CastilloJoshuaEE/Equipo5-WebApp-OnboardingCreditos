@@ -1,13 +1,14 @@
-import { NextAuthOptions } from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
+import { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { UserRole } from "@/types/auth.types";
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Contraseña", type: "password" }
+        password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
         try {
@@ -15,26 +16,31 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-          
+          const API_URL =
+            process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
           const response = await fetch(`${API_URL}/usuarios/login`, {
-            method: 'POST',
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               email: credentials.email,
-              password: credentials.password
+              password: credentials.password,
             }),
           });
 
           if (!response.ok) {
-            console.error('Login failed:', response.status, response.statusText);
+            console.error(
+              "Login failed:",
+              response.status,
+              response.statusText
+            );
             return null;
           }
 
           const data = await response.json();
-          
+
           if (data.success && data.data?.profile) {
             const user = data.data.profile;
             return {
@@ -45,18 +51,18 @@ export const authOptions: NextAuthOptions = {
               email_confirmado: user.cuenta_activa,
             };
           }
-          
+
           return null;
         } catch (error) {
-          console.error('Authorize error:', error);
+          console.error("Authorize error:", error);
           return null;
         }
-      }
-    })
+      },
+    }),
   ],
   pages: {
-    signIn: '/login',
-    newUser: '/register',
+    signIn: "/login",
+    newUser: "/register",
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -68,11 +74,11 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.rol = token.rol as string;
+        session.user.rol = token.rol as UserRole;
         session.user.id = token.id as string;
       }
       return session;
-    }
+    },
   },
   session: {
     strategy: "jwt",
