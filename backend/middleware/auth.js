@@ -36,7 +36,7 @@ const proteger = async (req, res, next) => {
       console.error('. Error obteniendo perfil en middleware:', profileError);
       
       // . Intentar por email como fallback
-      console.log('🔄 Intentando obtener perfil por email en middleware...');
+      console.log('. Intentando obtener perfil por email en middleware...');
       const { data: fallbackProfile, error: fallbackError } = await supabase
         .from('usuarios')
         .select('*')
@@ -94,10 +94,10 @@ const proteger = async (req, res, next) => {
   }
 };
 
-// . Función de corrección mejorada
+// . Función de corrección .
 const corregirInconsistenciaIDs = async (authId, tablaId, email) => {
   try {
-    console.log('🔄 [Middleware] Corrigiendo inconsistencia de IDs...');
+    console.log('. [Middleware] Corrigiendo inconsistencia de IDs...');
     console.log(`   Auth ID: ${authId}`);
     console.log(`   Tabla ID: ${tablaId}`);
     console.log(`   Email: ${email}`);

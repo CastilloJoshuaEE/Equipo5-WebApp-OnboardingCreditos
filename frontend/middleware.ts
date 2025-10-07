@@ -1,65 +1,52 @@
-import { withAuth } from 'next-auth/middleware';
-import { NextResponse } from 'next/server';
-import { UserRole } from './src/types/auth.types';
+import { getToken } from 'next-auth/jwt'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
+export async function middleware(request: NextRequest) {
+  const token = await getToken({ 
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET
+  })
+  
+  const isAuthPage = request.nextUrl.pathname.startsWith('/login') || 
+                    request.nextUrl.pathname.startsWith('/register')
 
-const rolePermissions = {
-  [UserRole.SOLICITANTE]: '/solicitante', 
-  [UserRole.OPERADOR]: '/operador',
-};
+  const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard')
 
-// Rutas que no necesitan autenticar
-const publicRoutes = ['/', '/login', '/register', '/api/auth'];
+  // Redirigir a login si no está autenticado y quiere acceder al dashboard
+  if (!token && isDashboardPage) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
 
-export default withAuth(
-  // Fx principal del middleware
-  function middleware(req) {
-    const token = req.nextauth.token;
-    const { pathname } = req.nextUrl;
+  // Redirigir al dashboard si está autenticado y quiere acceder a login/register
+  if (token && isAuthPage) {
+    const dashboardPath = token.rol === 'solicitante' ? '/dashboard/solicitante' : '/dashboard/operador'
+    return NextResponse.redirect(new URL(dashboardPath, request.url))
+  }
 
-    // Si el usuario no tiene token o rol, pero intenta acceder a una ruta protegida
-    if (!token && !publicRoutes.includes(pathname) && !pathname.startsWith('/api/auth')) {
-      // Redirigir a login
-      return NextResponse.redirect(new URL('/login', req.url));
+  // Protección de rutas de dashboard por rol
+  if (token && isDashboardPage) {
+    const isSolicitantePath = request.nextUrl.pathname.startsWith('/dashboard/solicitante')
+    const isOperadorPath = request.nextUrl.pathname.startsWith('/dashboard/operador')
+
+    if (isSolicitantePath && token.rol !== 'solicitante') {
+      return NextResponse.redirect(new URL('/operador', request.url))
     }
 
-     
-    if (token) {
-      const userRole = token.rol as UserRole;
-      const expectedBasePath = rolePermissions[userRole];
-
-      
-      if (pathname.startsWith('/solicitante') && userRole !== UserRole.SOLICITANTE) {
-        return NextResponse.redirect(new URL(expectedBasePath + '/dashboard', req.url));
-      }
-      if (pathname.startsWith('/operador') && userRole !== UserRole.OPERADOR) {
-        return NextResponse.redirect(new URL(expectedBasePath + '/dashboard', req.url));
-      }
-      
-       
-      if (pathname === '/login') {
-        return NextResponse.redirect(new URL(expectedBasePath + '/dashboard', req.url));
-      }
-    }
-
-    return NextResponse.next();
-  },
-  {
-    callbacks: {
-      // Si el usuario no esta logueado y no es ruta publica lleva a login, 
-      
-      authorized: ({ token, req }) => {
-       
-        if (publicRoutes.some(route => req.nextUrl.pathname.startsWith(route))) {
-            return true;
-        }
-        // Permitir acceso si hay un token
-        return !!token; 
-      },
-    },
-    // Definimos la ruta de la API de NextAuth.js v4 (importante para que sepa dónde buscar)
-    pages: {
-        signIn: '/login',
+    if (isOperadorPath && token.rol !== 'operador') {
+      return NextResponse.redirect(new URL('/solicitante', request.url))
     }
   }
-);
+
+  return NextResponse.next()
+}
+
+// Rutas protegidas
+export const config = {
+  matcher: [
+    '/dashboard/:path*', 
+    '/login', 
+    '/register',
+    '/api/auth/session'
+  ]
+}

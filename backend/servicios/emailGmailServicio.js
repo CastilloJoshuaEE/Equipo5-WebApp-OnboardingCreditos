@@ -177,7 +177,7 @@ const crearPlantillaBienvenida = (nombre, rol) => {
                 <p>3. Explora todas las funcionalidades disponibles</p>
                 
                 <p style="text-align: center;">
-                  <a href="${FRONTEND_URL}/login" class="button">Iniciar Sesión en el Sistema</a>
+                  <a href="${FRONTEND_URL}/api/login" class="button">Iniciar Sesión en el Sistema</a>
                 </p>
             </div>
         </div>

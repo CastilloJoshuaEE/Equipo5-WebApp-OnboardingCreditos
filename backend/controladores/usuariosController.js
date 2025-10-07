@@ -6,7 +6,7 @@ const { validateEmailBeforeAuth } = require('../middleware/emailValidation');
 
 const registrar = async (req, res) => {
   try {
-    console.log('Body recibido:', req.body);
+    console.log('📨 Body recibido:', req.body);
 
     if (!req.body) {
       return res.status(400).json({
@@ -35,23 +35,16 @@ const registrar = async (req, res) => {
         message: 'Faltan campos obligatorios: email, password, nombre_completo, dni'
       });
     }
-   if (rol === 'solicitante') {
-      if (!nombre_empresa || !cuit || !representante_legal || !domicilio) {
-        return res.status(400).json({
-          success: false,
-          message: 'Para rol solicitante, se requieren: nombre_empresa, cuit, representante_legal y domicilio'
-        });
-      }
-    }
-    console.log(' Registrando nuevo usuario:', { 
+
+    console.log('📝 Registrando nuevo usuario:', { 
       email, 
       rol, 
       nombre_completo: nombre_completo.substring(0, 10) + '...' 
     });
 
-    //  NUEVO: Mostrar resultado de validación de email
+    // . NUEVO: Mostrar resultado de validación de email
     if (req.emailValidation) {
-      console.log(' Resultado de validación de email:', {
+      console.log('📊 Resultado de validación de email:', {
         isValid: req.emailValidation.isValid,
         confidence: req.emailValidation.confidence,
         servicesUsed: req.emailValidation.servicesUsed
@@ -66,12 +59,12 @@ const registrar = async (req, res) => {
       .maybeSingle();
 
     if (usuarioError && usuarioError.code !== 'PGRST116') {
-      console.error('❌ Error verificando usuario existente:', usuarioError);
+      console.error('. Error verificando usuario existente:', usuarioError);
     }
 
     // Si el usuario existe pero está inactivo, reactivar en lugar de crear nuevo
     if (usuarioExistente && !usuarioExistente.cuenta_activa) {
-      console.log('🔄 Usuario existente inactivo encontrado, reactivando...');
+      console.log('. Usuario existente inactivo encontrado, reactivando...');
       return await reactivarUsuario(req, res, usuarioExistente.id);
     }
 
@@ -108,18 +101,18 @@ const registrar = async (req, res) => {
           authError.code === 'email_exists' ||
           authError.status === 422) {
         
-        console.log('🔄 Usuario existe en Auth, verificando estado...');
+        console.log('. Usuario existe en Auth, verificando estado...');
         
         // Buscar el usuario existente en Auth
         const { data: existingAuthUser, error: getAuthError } = await getUserByEmail(email);
         
         if (getAuthError || !existingAuthUser || !existingAuthUser.user) {
-          console.error('❌ Error obteniendo usuario existente:', getAuthError);
+          console.error('. Error obteniendo usuario existente:', getAuthError);
           throw new Error('No se pudo verificar el estado del usuario existente');
         }
 
         const existingUserId = existingAuthUser.user.id;
-        console.log(`✅ Usuario encontrado en Auth con ID: ${existingUserId}`);
+        console.log(`. Usuario encontrado en Auth con ID: ${existingUserId}`);
 
         // Verificar si existe en nuestra tabla personalizada
         const { data: userInTable, error: tableError } = await supabaseAdmin
@@ -129,12 +122,12 @@ const registrar = async (req, res) => {
           .maybeSingle();
 
         if (tableError && tableError.code !== 'PGRST116') {
-          console.error('❌ Error verificando tabla usuarios:', tableError);
+          console.error('. Error verificando tabla usuarios:', tableError);
         }
 
         // Si no existe en nuestra tabla o está inactivo, proceder
         if (!userInTable || !userInTable.cuenta_activa) {
-          console.log('🔄 Continuando con registro para usuario existente en Auth...');
+          console.log('. Continuando con registro para usuario existente en Auth...');
           return await completarRegistroUsuarioExistente(
             req, res, existingUserId, existingAuthUser.user
           );
@@ -150,12 +143,12 @@ const registrar = async (req, res) => {
 
     // REGISTRO NORMAL EXITOSO
     if (authData && authData.user) {
-      console.log('✅ Usuario creado en Auth, insertando en tablas personalizadas...');
+      console.log('. Usuario creado en Auth, insertando en tablas personalizadas...');
       return await completarRegistroNuevoUsuario(req, res, authData.user);
     }
 
   } catch (error) {
-    console.error('❌ Error en registro:', error);
+    console.error('. Error en registro:', error);
     res.status(400).json({
       success: false,
       message: error.message || 'Error en el registro del usuario'
@@ -198,7 +191,7 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
       
       // Si es error de duplicado, puede ser por inconsistencia previa
       if (userError.code === '23505') { // unique_violation
-        console.log('🔄 ID ya existe, actualizando registro existente...');
+        console.log('. ID ya existe, actualizando registro existente...');
         
         const { data: updatedUser, error: updateError } = await supabaseAdmin
           .from('usuarios')
@@ -291,7 +284,7 @@ const completarRegistroUsuarioExistente = async (req, res, userId, authUser) => 
 
     if (existingUser) {
       // Actualizar usuario existente
-      console.log('🔄 Actualizando usuario existente inactivo...');
+      console.log('. Actualizando usuario existente inactivo...');
       const { data: updatedUser, error: updateError } = await supabaseAdmin
         .from('usuarios')
         .update({
@@ -309,7 +302,7 @@ const completarRegistroUsuarioExistente = async (req, res, userId, authUser) => 
       userData = updatedUser[0];
     } else {
       // Insertar nuevo registro
-      console.log('🔄 Insertando nuevo registro para usuario Auth existente...');
+      console.log('. Insertando nuevo registro para usuario Auth existente...');
       const usuarioData = {
         id: userId,
         nombre_completo,
@@ -368,7 +361,7 @@ const reactivarUsuario = async (req, res, userId) => {
   } = req.body;
 
   try {
-    console.log(`🔄 Reactivando usuario ID: ${userId}`);
+    console.log(`. Reactivando usuario ID: ${userId}`);
 
     // Actualizar usuario en tabla principal
     const { data: updatedUser, error: updateError } = await supabaseAdmin
@@ -733,14 +726,14 @@ const cambiarContrasena = async (req, res) => {
   try {
     const { contrasena_actual, nueva_contrasena, confirmar_contrasena} = req.body;
 
-    console.log('🔐 Solicitando cambio de contraseña para usuario ID:', req.usuario.id);
+    console.log('. Solicitando cambio de contraseña para usuario ID:', req.usuario.id);
     console.log('📝 Datos recibidos:', { 
       contrasena_actual: !!contrasena_actual, 
       nueva_contrasena: !!nueva_contrasena, 
       confirmar_contrasena: !!confirmar_contrasena
     });
 
-    // ✅ CORRECCIÓN: Aceptar ambos nombres de campo para mayor compatibilidad
+    // . CORRECCIÓN: Aceptar ambos nombres de campo para mayor compatibilidad
     const confirmacion = confirmar_contrasena || confirmar_contrasena;
 
     // Validar campos obligatorios
@@ -784,7 +777,7 @@ const cambiarContrasena = async (req, res) => {
       });
     }
 
-    console.log('🔐 Verificando contraseña actual para:', req.usuario.email);
+    console.log('. Verificando contraseña actual para:', req.usuario.email);
 
     // Verificar contraseña actual con Supabase Auth
     const { data: verifyData, error: verifyError } = await supabase.auth.signInWithPassword({
@@ -793,7 +786,7 @@ const cambiarContrasena = async (req, res) => {
     });
 
     if (verifyError) {
-      console.error('❌ Error verificando contraseña actual:', verifyError);
+      console.error('. Error verificando contraseña actual:', verifyError);
       
       // Mensajes de error más específicos
       let errorMessage = 'La contraseña actual es incorrecta';
@@ -809,7 +802,7 @@ const cambiarContrasena = async (req, res) => {
       });
     }
 
-    console.log('✅ Contraseña actual verificada, actualizando...');
+    console.log('. Contraseña actual verificada, actualizando...');
 
     // Actualizar contraseña en Supabase Auth
     const { data: updateData, error: updateError } = await supabase.auth.updateUser({
@@ -817,7 +810,7 @@ const cambiarContrasena = async (req, res) => {
     });
 
     if (updateError) {
-      console.error('❌ Error actualizando contraseña en Auth:', updateError);
+      console.error('. Error actualizando contraseña en Auth:', updateError);
       
       let errorMessage = 'Error al actualizar la contraseña';
       if (updateError.message.includes('password should be different')) {
@@ -832,7 +825,7 @@ const cambiarContrasena = async (req, res) => {
       });
     }
 
-    console.log('✅ Contraseña actualizada exitosamente para:', req.usuario.email);
+    console.log('. Contraseña actualizada exitosamente para:', req.usuario.email);
 
     res.json({
       success: true,
@@ -840,7 +833,7 @@ const cambiarContrasena = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error en cambiarContrasena:', error);
+    console.error('. Error en cambiarContrasena:', error);
     res.status(400).json({
       success: false,
       message: error.message || 'Error al cambiar la contraseña'
@@ -956,7 +949,7 @@ const solicitarRecuperacionContrasena = async (req, res) => {
       });
     }
 
-    console.log(`✅ Usuario encontrado: ${usuarioExistente.nombre_completo}`);
+    console.log(`. Usuario encontrado: ${usuarioExistente.nombre_completo}`);
 
     // OPCIÓN 1: Usar email personalizado (recomendado)
     let emailPersonalizadoEnviado = false;
@@ -969,7 +962,7 @@ const solicitarRecuperacionContrasena = async (req, res) => {
       );
 
       if (emailResult.success) {
-        console.log('✅ Email de recuperación personalizado enviado exitosamente a:', email);
+        console.log('. Email de recuperación personalizado enviado exitosamente a:', email);
         emailPersonalizadoEnviado = true;
         return res.json({
           success: true,
@@ -977,12 +970,12 @@ const solicitarRecuperacionContrasena = async (req, res) => {
           tipo: 'personalizado'
         });
       } else {
-        console.warn('⚠️ No se pudo enviar email personalizado:', emailResult.error);
-        console.log('🔄 Usando Supabase Auth como fallback...');
+        console.warn('. No se pudo enviar email personalizado:', emailResult.error);
+        console.log('. Usando Supabase Auth como fallback...');
       }
     } catch (emailError) {
-      console.warn('⚠️ Error en email personalizado:', emailError.message);
-      console.log('🔄 Usando Supabase Auth como fallback...');
+      console.warn('. Error en email personalizado:', emailError.message);
+      console.log('. Usando Supabase Auth como fallback...');
     }
 
     // OPCIÓN 2: Usar Supabase Auth (fallback)
@@ -992,11 +985,11 @@ const solicitarRecuperacionContrasena = async (req, res) => {
     });
 
     if (resetError) {
-      console.error('❌ Error enviando email de recuperación:', resetError);
+      console.error('. Error enviando email de recuperación:', resetError);
       throw resetError;
     }
 
-    console.log('✅ Email de recuperación (Supabase Auth) enviado exitosamente a:', email);
+    console.log('. Email de recuperación (Supabase Auth) enviado exitosamente a:', email);
 
     res.json({
       success: true,
@@ -1005,7 +998,7 @@ const solicitarRecuperacionContrasena = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error en solicitarRecuperacionContrasena:', error);
+    console.error('. Error en solicitarRecuperacionContrasena:', error);
     res.status(400).json({
       success: false,
       message: error.message || 'Error al solicitar recuperación de contraseña'

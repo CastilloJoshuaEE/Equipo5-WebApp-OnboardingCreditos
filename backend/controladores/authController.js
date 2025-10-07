@@ -1,3 +1,4 @@
+// controladores/authController.js - VERSIÓN COMPLETA Y CORREGIDA
 const { supabase } = require('../config/conexion.js');
 const { supabaseAdmin } = require('../config/supabaseAdmin.js');
 
@@ -5,7 +6,7 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    console.log('🔐 Intentando login para:', email);
+    console.log('. Backend: Procesando login para:', email);
 
     // Validar campos obligatorios
     if (!email || !password) {
@@ -48,7 +49,7 @@ const login = async (req, res) => {
 
     console.log('. Usuario válido y confirmado encontrado en tabla usuarios, procediendo con autenticación...');
 
-    // 3. Autenticar con Supabase Auth
+    // 3. Autenticar con Supabase Auth (ESTO GENERA LOS TOKENS)
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -79,7 +80,13 @@ const login = async (req, res) => {
           data: {
             user: userProfile,
             profile: userProfile,
-            localAuth: true // Indicar que es autenticación local
+            session: {
+              access_token: 'local_auth_no_token',
+              refresh_token: 'local_auth_no_token',
+              expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hora
+              user: { id: usuarioExistente.id, email: usuarioExistente.email }
+            },
+            localAuth: true
           }
         });
       }
@@ -90,9 +97,9 @@ const login = async (req, res) => {
       });
     }
 
-    console.log('. Login exitoso en Auth, ID:', authData.user.id);
+    console.log('. Login exitoso en Supabase Auth, ID:', authData.user.id);
 
-    // 4. . VERIFICAR INCONSISTENCIA DE IDs Y CORREGIRLA
+    // 4. VERIFICAR INCONSISTENCIA DE IDs Y CORREGIRLA
     const authUserId = authData.user.id;
     const nuestraUserId = usuarioExistente.id;
 
@@ -103,8 +110,8 @@ const login = async (req, res) => {
         email: email
       });
 
-      // . CORREGIR: Actualizar nuestro ID al de Auth para mantener consistencia
-      console.log('🔄 Corrigiendo inconsistencia de IDs...');
+      // CORREGIR: Actualizar nuestro ID al de Auth para mantener consistencia
+      console.log('. Corrigiendo inconsistencia de IDs...');
       
       const { error: updateError } = await supabaseAdmin
         .from('usuarios')
@@ -117,7 +124,7 @@ const login = async (req, res) => {
       } else {
         console.log('. ID corregido exitosamente en tabla usuarios');
         
-        // . ACTUALIZAR TABLAS RELACIONADAS
+        // ACTUALIZAR TABLAS RELACIONADAS
         try {
           // Actualizar tabla solicitantes si existe
           await supabaseAdmin
@@ -136,14 +143,14 @@ const login = async (req, res) => {
     const { data: userProfile, error: profileError } = await supabase
       .from('usuarios')
       .select('*')
-      .eq('id', authUserId) // . Usar ID de Auth después de la corrección
+      .eq('id', authUserId)
       .single();
 
     if (profileError) {
       console.error('. Error obteniendo perfil completo:', profileError);
       
-      // . SI FALLA, INTENTAR CON EL EMAIL COMO FALLBACK
-      console.log('🔄 Intentando obtener perfil por email como fallback...');
+      // SI FALLA, INTENTAR CON EL EMAIL COMO FALLBACK
+      console.log('. Intentando obtener perfil por email como fallback...');
       const { data: fallbackProfile, error: fallbackError } = await supabase
         .from('usuarios')
         .select('*')
@@ -157,39 +164,104 @@ const login = async (req, res) => {
 
       console.log('. Perfil obtenido por email exitosamente');
       
-      // 6. Respuesta exitosa con perfil obtenido por email
-      res.json({
+      // Respuesta exitosa con perfil obtenido por email
+      return res.json({
         success: true,
         message: 'Login exitoso (perfil obtenido por email)',
         data: {
-          session: authData.session,
           user: authData.user,
           profile: fallbackProfile,
-          idInconsistency: true // Indicar que hubo inconsistencia
+          session: {
+            access_token: authData.session.access_token,
+            refresh_token: authData.session.refresh_token,
+            expires_at: authData.session.expires_at,
+            user: {
+              id: authData.user.id,
+              email: authData.user.email
+            }
+          },
+          idInconsistency: true
         }
       });
-      return;
     }
 
     console.log('. Login completado exitosamente');
 
-    // 7. Respuesta exitosa
-    res.json({
+    // . ESTRUCTURA OPTIMIZADA PARA NEXT AUTH
+    const responseData = {
       success: true,
       message: 'Login exitoso',
       data: {
-        session: authData.session,
         user: authData.user,
-        profile: userProfile
+        profile: userProfile,
+        session: {
+          // 🔑 TOKENS DE SUPABASE QUE NEXT AUTH NECESITA
+          access_token: authData.session.access_token,
+          refresh_token: authData.session.refresh_token,
+          expires_at: authData.session.expires_at,
+          user: {
+            id: authData.user.id,
+            email: authData.user.email
+          }
+        }
+      }
+    };
+
+    console.log('. Login completado, enviando tokens a NextAuth');
+    res.json(responseData);
+
+  } catch (error) {
+    console.error('. Error en login:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor durante el login'
+    });
+  }
+};
+
+// . FUNCIÓN DE REFRESH TOKEN
+const refreshToken = async (req, res) => {
+  try {
+    const { refresh_token } = req.body;
+
+    if (!refresh_token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Refresh token es requerido'
+      });
+    }
+
+    console.log('. Refrescando token...');
+
+    const { data, error } = await supabase.auth.refreshSession({
+      refresh_token
+    });
+
+    if (error) {
+      console.error('. Error refrescando token:', error);
+      return res.status(401).json({
+        success: false,
+        message: 'Sesión expirada, por favor inicia sesión nuevamente'
+      });
+    }
+
+    console.log('. Token refrescado exitosamente');
+
+    res.json({
+      success: true,
+      message: 'Token refrescado',
+      data: {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_at: data.session.expires_at
       }
     });
 
   } catch (error) {
-    console.error('. Error en login:', error);
-    
+    console.error('. Error en refreshToken:', error);
     res.status(500).json({
       success: false,
-      message: 'Error interno del servidor durante el login'
+      message: 'Error interno del servidor'
     });
   }
 };
@@ -212,6 +284,7 @@ const logout = async (req, res) => {
     });
   }
 };
+
 const getSession = async (req, res) => {
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
@@ -227,7 +300,7 @@ const getSession = async (req, res) => {
 
     console.log('🔍 Verificando sesión para usuario:', session.user.id);
 
-    // . PRIMERO: Intentar obtener perfil por ID de Auth
+    // PRIMERO: Intentar obtener perfil por ID de Auth
     const { data: userProfile, error: profileError } = await supabase
       .from('usuarios')
       .select('*')
@@ -237,8 +310,8 @@ const getSession = async (req, res) => {
     if (profileError) {
       console.error('. Error obteniendo perfil por ID en getSession:', profileError);
       
-      // . SEGUNDO: Intentar por email como fallback
-      console.log('🔄 Intentando obtener perfil por email en getSession...');
+      // SEGUNDO: Intentar por email como fallback
+      console.log('. Intentando obtener perfil por email en getSession...');
       const { data: fallbackProfile, error: fallbackError } = await supabase
         .from('usuarios')
         .select('*')
@@ -255,8 +328,8 @@ const getSession = async (req, res) => {
 
       console.log('. Perfil obtenido por email en getSession exitosamente');
       
-      // . TERCERO: CORREGIR INCONSISTENCIA automáticamente
-      console.log('🔄 Corrigiendo inconsistencia de IDs automáticamente...');
+      // TERCERO: CORREGIR INCONSISTENCIA automáticamente
+      console.log('. Corrigiendo inconsistencia de IDs automáticamente...');
       await corregirInconsistenciaIDs(session.user.id, fallbackProfile.id, session.user.email);
       
       // Verificar si la cuenta está activa
@@ -309,9 +382,10 @@ const getSession = async (req, res) => {
     });
   }
 };
+
 const corregirInconsistenciaIDs = async (authId, tablaId, email) => {
   try {
-    console.log('🔄 Corrigiendo inconsistencia de IDs:', { authId, tablaId, email });
+    console.log('. Corrigiendo inconsistencia de IDs:', { authId, tablaId, email });
     
     // Actualizar ID en tabla usuarios
     const { error: updateUsuariosError } = await supabaseAdmin
@@ -357,8 +431,10 @@ const corregirInconsistenciaIDs = async (authId, tablaId, email) => {
     return false;
   }
 };
+
 module.exports = {
   login,
   logout,
-  getSession
+  getSession,
+  refreshToken  // ← AGREGAR ESTA LÍNEA
 };

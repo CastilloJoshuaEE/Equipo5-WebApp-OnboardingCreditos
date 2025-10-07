@@ -1,72 +1,155 @@
- 
-import { NextAuthOptions } from 'next-auth';
+// lib/auth.ts - . SIN ERRORES
+import { NextAuthOptions, User } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { AuthService } from '../services/auth.service';
-import { LoginCredentials, UserRole } from '../types/auth.types'; 
- 
-export const authOptions: NextAuthOptions = { 
-    session: {
-        strategy: 'jwt',
-    },
-    
-    
-    providers: [
-        CredentialsProvider({
-            name: 'Credentials',
-            credentials: {                 
-                email: { label: 'Email', type: 'text' },
-                password: { label: 'Password', type: 'password' },
+
+// Extender tipos de NextAuth
+declare module 'next-auth' {
+  interface User {
+    rol: string;
+    accessToken?: string;
+    refreshToken?: string;
+    expiresAt?: number;
+    supabaseUserId?: string;
+  }
+
+  interface Session {
+    user: {
+      id: string;
+      email?: string | null;
+      name?: string | null;
+      image?: string | null;
+      rol?: string;
+    };
+    accessToken?: string;
+    refreshToken?: string;
+    expiresAt?: number;
+    supabaseUserId?: string;
+  }
+
+  interface JWT {
+    rol?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    expiresAt?: number;
+    supabaseUserId?: string;
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    rol: string;
+    accessToken?: string;
+    refreshToken?: string;
+    expiresAt?: number;
+    supabaseUserId?: string;
+  }
+}
+
+export const authOptions: NextAuthOptions = {
+  providers: [
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Contraseña", type: "password" }
+      },
+      async authorize(credentials) {
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            throw new Error('Email y contraseña son requeridos');
+          }
+
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+          
+          console.log('. NextAuth llamando a backend...');
+          const response = await fetch(`${API_URL}/usuarios/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-                         
-            async authorize(credentials, _req) { 
-                
-                const creds = credentials as LoginCredentials; 
+            body: JSON.stringify({
+              email: credentials.email,
+              password: credentials.password
+            }),
+          });
 
-                if (!creds || !creds.email || !creds.password) return null;
+          const data = await response.json();
+          
+          if (!data.success) {
+            console.error('. Error del backend:', data.message);
+            throw new Error(data.message || 'Error en autenticación');
+          }
 
-                try {
-             
-                    const authData = await AuthService.login(creds);
-                    if (authData && authData.user) {
-                        return {
-                            id: authData.user.id,
-                            email: authData.user.email,
-                            rol: authData.user.rol,                
-                            name: authData.user.nombre_completo,                              
-                            token: authData.access_token,
-                        }; 
-                    }
-                } catch (error) {
-                    console.error('Error de autenticación:', error);
-                    return null;  
-                }
-                return null;
-            }
-        })
-    ],
-    
-    // Callbacks para gestionar la sesión y el token JWT
-    callbacks: {
-         
-        async jwt({ token, user }) {
-         
-            if (user) {
-                token.id = user.id;
-                token.rol = user.rol;
-            }
-            return token;
-        },
+          // . ESTRUCTURA CORREGIDA - Incluir tokens de Supabase
+          if (data.data?.profile && data.data?.session) {
+            const user = data.data.profile;
+            const session = data.data.session;
+            
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.nombre_completo,
+              rol: user.rol,
+              // 🔑 TOKENS DE SUPABASE CRÍTICOS
+              accessToken: session.access_token,
+              refreshToken: session.refresh_token,
+              expiresAt: session.expires_at,
+              supabaseUserId: session.user?.id
+            } as User;
+          }
+          
+          throw new Error('Estructura de respuesta inválida');
+        } catch (error: any) {
+          console.error('. Authorize error:', error);
+          throw new Error(error.message || 'Error de autenticación');
+        }
+      }
+    })
+  ],
+  pages: {
+    signIn: '/login',
+    // CORRECCIÓN: 'signUp' no existe, usar 'newUser' en su lugar
+    newUser: '/register',
+    error: '/auth/error',
+  },
+  callbacks: {
+    async jwt({ token, user, account }) {
+      // . PERSISTIR TOKENS DE SUPABASE EN JWT
+      if (user) {
+        token.rol = user.rol;
+        token.id = user.id;
+        token.accessToken = user.accessToken;
+        token.refreshToken = user.refreshToken;
+        token.expiresAt = user.expiresAt;
+        token.supabaseUserId = user.supabaseUserId;
+      }
 
-        async session({ session, token }) {
-       
-            if (session.user && token.id && token.rol) {
-                session.user.id = token.id;
-                session.user.rol = token.rol as UserRole;
-            }
-            return session;
-        },
+      // . Verificar si el token está por expirar
+      if (token.expiresAt && typeof token.expiresAt === 'number') {
+        const expiresAtMs = token.expiresAt * 1000;
+        if (Date.now() > expiresAtMs - 60000) {
+          console.log('. Token cerca de expirar, necesitaría refresh...');
+        }
+      }
+
+      return token;
     },
-    
-     
-    secret: process.env.NEXTAUTH_SECRET,
+    async session({ session, token }) {
+      // . HACER TOKENS DISPONIBLES EN FRONTEND
+      if (session.user) {
+        session.user.rol = token.rol as string;
+        session.user.id = token.id as string;
+        session.accessToken = token.accessToken as string;
+        session.refreshToken = token.refreshToken as string;
+        session.expiresAt = token.expiresAt as number;
+        session.supabaseUserId = token.supabaseUserId as string;
+      }
+      return session;
+    }
+  },
+  session: {
+    strategy: "jwt",
+    maxAge: 24 * 60 * 60, // 24 horas
+  },
+  secret: process.env.NEXTAUTH_SECRET,
 };
