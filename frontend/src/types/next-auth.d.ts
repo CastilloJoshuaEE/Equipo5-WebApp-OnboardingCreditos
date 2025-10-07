@@ -1,13 +1,15 @@
-import { DefaultSession } from 'next-auth';
-import { UserRole } from './auth.types';
+import { DefaultSession } from "next-auth";
+import { UserRole } from "./auth.types";
 
-declare module 'next-auth' {
+declare module "next-auth" {
   interface Session {
     user: {
       id: string;
       rol: UserRole;
       email_confirmado: boolean;
-    } & DefaultSession['user']
+      accessToken?: string;
+    } & DefaultSession["user"];
+    accessToken?: string;
   }
 
   interface User {
@@ -17,10 +19,11 @@ declare module 'next-auth' {
     nombre_completo?: string;
     dni?: string;
     telefono?: string;
+    accessToken?: string;
   }
 }
 
-declare module 'next-auth/jwt' {
+declare module "next-auth/jwt" {
   interface JWT {
     id: string;
     rol: UserRole;

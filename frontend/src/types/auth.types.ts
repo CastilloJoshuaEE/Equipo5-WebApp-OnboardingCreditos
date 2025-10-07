@@ -1,6 +1,6 @@
 export enum UserRole {
-  SOLICITANTE = 'solicitante',
-  OPERADOR = 'operador'
+  SOLICITANTE = "solicitante",
+  OPERADOR = "operador",
 }
 
 export interface AuthUser {
@@ -48,7 +48,7 @@ export interface AuthResponse {
   data: {
     user: AuthUser;
     profile: AuthUser;
-    session?: any;
+    session?: Record<string, unknown>;
   };
 }
 

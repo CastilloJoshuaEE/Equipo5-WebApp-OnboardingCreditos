@@ -1,61 +1,85 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { Box, Button, TextField, Typography, Alert, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
-import { registerSchema, RegisterInput } from '@/schemas/auth.schema';
-import { UserRole } from '@/types/auth.types';
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Alert,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+} from "@mui/material";
+import { registerSchema, RegisterInput } from "@/schemas/auth.schema";
+import { UserRole } from "@/types/auth.types";
 
 export default function RegisterForm() {
-  const [error, setError] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
+  const [error, setError] = useState("");
   const router = useRouter();
-  
-  const { register, handleSubmit, formState: { errors, isSubmitting }, watch, setValue } = useForm<RegisterInput>({
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    watch,
+    setValue,
+  } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      rol: undefined
+      rol: undefined,
     },
-    mode: 'onBlur' //para que valide al salir del campo
+    mode: "onBlur", //para que valide al salir del campo
   });
 
-  const rol = watch('rol');
+  const rol = watch("rol");
 
-const onSubmit = async (data: RegisterInput) => {
-  try {
-    setError('');
-    
-    // USAR LA URL COMPLETA CON EL PUERTO CORRECTO
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    const response = await fetch(`${API_URL}/usuarios/registro`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
+  const onSubmit = async (data: RegisterInput) => {
+    try {
+      setError("");
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error en el registro');
+      // USAR LA URL COMPLETA CON EL PUERTO CORRECTO
+      const API_URL =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+      const response = await fetch(`${API_URL}/usuarios/registro`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error en el registro");
+      }
+
+      const result = await response.json();
+      console.log(" Registro exitoso:", result);
+
+      // Mostrar mensaje de éxito y redirigir
+      alert(
+        " Registro exitoso. Por favor revisa tu email para confirmar tu cuenta."
+      );
+      router.push("/login");
+    } catch (error) {
+      console.error(" Error en registro:", error);
+      setError(
+        error instanceof Error ? error.message : "Error al registrar usuario"
+      );
     }
-
-    const result = await response.json();
-    console.log(' Registro exitoso:', result);
-    
-    // Mostrar mensaje de éxito y redirigir
-    alert(' Registro exitoso. Por favor revisa tu email para confirmar tu cuenta.');
-    router.push('/login');
-
-  } catch (error) {
-    console.error(' Error en registro:', error);
-    setError(error instanceof Error ? error.message : 'Error al registrar usuario');
-  }
-};
+  };
 
   return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)} width="100%" maxWidth={500} p={3}>
+    <Box
+      component="form"
+      onSubmit={handleSubmit(onSubmit)}
+      width="100%"
+      maxWidth={500}
+      p={3}
+    >
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
         Registro de Usuario
       </Typography>
@@ -69,11 +93,10 @@ const onSubmit = async (data: RegisterInput) => {
       <FormControl fullWidth margin="normal">
         <InputLabel>Rol</InputLabel>
         <Select
-          value={rol || ''}
+          value={rol || ""}
           onChange={(e) => {
             const value = e.target.value as UserRole;
-            setValue('rol', value);
-            setSelectedRole(value);
+            setValue("rol", value);
           }}
           label="Rol"
           error={!!errors.rol}
@@ -89,7 +112,7 @@ const onSubmit = async (data: RegisterInput) => {
       </FormControl>
 
       <TextField
-        {...register('nombre_completo')}
+        {...register("nombre_completo")}
         label="Nombre Completo"
         fullWidth
         margin="normal"
@@ -98,7 +121,7 @@ const onSubmit = async (data: RegisterInput) => {
       />
 
       <TextField
-        {...register('email')}
+        {...register("email")}
         label="Correo electrónico"
         fullWidth
         margin="normal"
@@ -107,7 +130,7 @@ const onSubmit = async (data: RegisterInput) => {
       />
 
       <TextField
-        {...register('dni')}
+        {...register("dni")}
         label="DNI"
         fullWidth
         margin="normal"
@@ -116,7 +139,7 @@ const onSubmit = async (data: RegisterInput) => {
       />
 
       <TextField
-        {...register('telefono')}
+        {...register("telefono")}
         label="Teléfono"
         fullWidth
         margin="normal"
@@ -132,7 +155,7 @@ const onSubmit = async (data: RegisterInput) => {
           </Typography>
 
           <TextField
-            {...register('nombre_empresa')}
+            {...register("nombre_empresa")}
             label="Nombre de la Empresa"
             fullWidth
             margin="normal"
@@ -141,7 +164,7 @@ const onSubmit = async (data: RegisterInput) => {
           />
 
           <TextField
-            {...register('cuit')}
+            {...register("cuit")}
             label="CUIT (ej: 30-12345678-9)"
             fullWidth
             margin="normal"
@@ -151,7 +174,7 @@ const onSubmit = async (data: RegisterInput) => {
           />
 
           <TextField
-            {...register('representante_legal')}
+            {...register("representante_legal")}
             label="Representante Legal"
             fullWidth
             margin="normal"
@@ -160,7 +183,7 @@ const onSubmit = async (data: RegisterInput) => {
           />
 
           <TextField
-            {...register('domicilio')}
+            {...register("domicilio")}
             label="Domicilio de la Empresa"
             fullWidth
             margin="normal"
@@ -171,7 +194,7 @@ const onSubmit = async (data: RegisterInput) => {
       )}
 
       <TextField
-        {...register('password')}
+        {...register("password")}
         type="password"
         label="Contraseña"
         fullWidth
@@ -188,14 +211,14 @@ const onSubmit = async (data: RegisterInput) => {
         disabled={isSubmitting}
         sx={{ mt: 2 }}
       >
-        {isSubmitting ? 'Registrando...' : 'Registrarse'}
+        {isSubmitting ? "Registrando..." : "Registrarse"}
       </Button>
 
       <Button
         variant="text"
         fullWidth
         sx={{ mt: 1 }}
-        onClick={() => router.push('/login')}
+        onClick={() => router.push("/login")}
       >
         ¿Ya tienes cuenta? Inicia sesión
       </Button>
