@@ -1,51 +1,59 @@
 export enum UserRole {
   SOLICITANTE = 'solicitante',
-  OPERADOR = 'operador',
+  OPERADOR = 'operador'
 }
 
+export interface AuthUser {
+  id: string; // Cambiado de number a string (UUID)
+  email: string;
+  nombre_completo: string;
+  dni: string;
+  telefono: string;
+  rol: UserRole;
+  cuenta_activa: boolean; // Cambiado de email_confirmado a cuenta_activa
+  created_at?: string;
+  updated_at?: string;
+}
 
 export interface LoginCredentials {
   email: string;
-  password: string; 
+  password: string;
 }
 
-// Interfaz usuario autenticado 
-export interface AuthUser {
-  id: string;
+export interface RegisterSolicitante {
   email: string;
+  password: string;
   nombre_completo: string;
-  rol: UserRole;
-  
-  cuit?: string; 
+  dni: string;
+  telefono: string;
+  rol: UserRole.SOLICITANTE;
+  nombre_empresa: string;
+  cuit: string;
+  representante_legal: string;
+  domicilio: string;
 }
-
-// Interfaz ok del back 
-
-export interface AuthResponse {
-user_metadata: Record<string, unknown> ;
-   access_token: string;
-   token?: string;
-  user: AuthUser;
-}
-
-// --- Interfaces de Registro ---
-
 
 export interface RegisterOperador {
   email: string;
   password: string;
   nombre_completo: string;
+  dni: string;
   telefono: string;
-  cedula_identidad: string; // Cédula/DNI
   rol: UserRole.OPERADOR;
 }
 
- 
-export interface RegisterSolicitante extends Omit<RegisterOperador, 'rol'> {
-  // Datos de la PYME/Empresa
-  nombre_empresa: string;
-  cuit: string; 
-  representante_legal: string;
-  domicilio: string;
-  rol: UserRole.SOLICITANTE;
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  data: {
+    user: AuthUser;
+    profile: AuthUser;
+    session?: any;
+  };
 }
+
+// Tipo para LoginInput
+export type LoginInput = {
+  email: string;
+  password: string;
+};

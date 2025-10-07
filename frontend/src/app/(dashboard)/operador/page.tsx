@@ -1,12 +1,33 @@
 'use client';
 
-import React from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Box, Typography, Button } from '@mui/material';
-import { signOut, useSession } from 'next-auth/react';
+import { UserRole } from '@/types/auth.types';
 
-// Página de prueba para verificar el flujo de rol 'operador'
-export default function OperadorDashboardPage() {
-  const { data: session } = useSession();
+export default function DashboardOperador() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+    
+    if (session?.user?.rol !== UserRole.OPERADOR) {
+      router.push('/dashboard/solicitante');
+    }
+  }, [status, session, router]);
+
+  if (status === 'loading') {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <Typography>Cargando...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 4, bgcolor: '#f0f4f8' }}>
