@@ -1,35 +1,39 @@
 'use client';
 
-import { Inter } from 'next/font/google';
-import { SessionProvider } from 'next-auth/react';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import theme from '@/styles/theme';
-//castellano
-const inter = Inter({ subsets: ['latin'] });
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { Box, CircularProgress } from '@mui/material';
 
-interface RootLayoutProps {children: React.ReactNode;}
+interface DashboardLayoutProps {
+  children: React.ReactNode;
+}
 
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
 
-export default function RootLayout({ children }: RootLayoutProps) {
+  if (status === 'loading') {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!session) {
+    return null;
+  }
+
   return (
-    <html lang="es">
-      <body className={inter.className}>
-        <SessionProvider>
-          <ThemeProvider theme={theme}>
-            <CssBaseline />
-            {children}
-          </ThemeProvider>
-        </SessionProvider>
-      </body>
-    </html>
-
+    <Box>
+      {children}
+    </Box>
   );
 }
-//metas 
-export const metadata = {
-  title: 'Sistema de Créditos PYME',
-  description: 'Plataforma de gestión de créditos para PYMES',
-  icons: { icon: '/favicon.ico'     },
-};

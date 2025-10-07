@@ -13,8 +13,8 @@ export default function HomePage() {
     if (session) {
       
       const path = session.user?.rol === UserRole.SOLICITANTE 
-        ? '/dashboard/solicitante' 
-        : '/dashboard/operador';
+        ? '/solicitante' 
+        : '/operador';
       router.push(path);
     } else {
       router.push('/login');

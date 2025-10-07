@@ -1,7 +1,5 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { loginSchema } from '@/schemas/auth.schema';
-import { AuthService } from '@/services/auth.service';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,31 +11,44 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         try {
-          if (!credentials) return null;
+          if (!credentials?.email || !credentials?.password) {
+            return null;
+          }
+
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
           
-          // Validar credenciales
-          const validCredentials = loginSchema.safeParse(credentials);
-          if (!validCredentials.success) return null;
+          const response = await fetch(`${API_URL}/usuarios/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: credentials.email,
+              password: credentials.password
+            }),
+          });
 
-          // Autenticar usuario - AuthService.login retorna AuthResponse
-          const authResponse = await AuthService.login(credentials);
-          if (!authResponse || !authResponse.user) return null;
+          if (!response.ok) {
+            console.error('Login failed:', response.status, response.statusText);
+            return null;
+          }
 
-          // Extraer el usuario del response
-          const { user } = authResponse;
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.nombre_completo,
-            rol: user.rol,
-            email_confirmado: user.email_confirmado,
-            nombre_completo: user.nombre_completo,
-            dni: user.dni,
-            telefono: user.telefono
-          };
+          const data = await response.json();
+          
+          if (data.success && data.data?.profile) {
+            const user = data.data.profile;
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.nombre_completo,
+              rol: user.rol,
+              email_confirmado: user.cuenta_activa,
+            };
+          }
+          
+          return null;
         } catch (error) {
-          console.error('Error en authorize:', error);
+          console.error('Authorize error:', error);
           return null;
         }
       }
@@ -51,21 +62,21 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.rol = user.rol;
-        token.id = parseInt(user.id as string);
+        token.id = user.id;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.rol = token.rol;
-        session.user.id = token.id as number;
+        session.user.rol = token.rol as string;
+        session.user.id = token.id as string;
       }
       return session;
     }
   },
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60, // sesión expira en 24hs
+    maxAge: 24 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

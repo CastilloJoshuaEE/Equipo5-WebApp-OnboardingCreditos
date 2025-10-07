@@ -10,22 +10,23 @@ const axiosInstance = axios.create({
   },
 });
 
-
 axiosInstance.interceptors.request.use(
   async (config) => {
     const session = await getSession();
-    
-    if (session?.user) {
-      config.headers['Authorization'] = `Bearer ${session.accessToken}`;
+
+    // Accedemos al token correctamente según tu configuración de next-auth
+    const token = (session as any)?.accessToken || (session?.user as any)?.accessToken;
+
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
     }
-    
+
     return config;
   },
   (error) => {
     return Promise.reject(error);
   }
 );
-
 
 axiosInstance.interceptors.response.use(
   (response) => response,
@@ -34,12 +35,18 @@ axiosInstance.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
         const session = await getSession();
+        const token = (session as any)?.accessToken || (session?.user as any)?.accessToken;
+
+        if (token) {
+          originalRequest.headers['Authorization'] = `Bearer ${token}`;
+        }
+
         return axiosInstance(originalRequest);
-      } catch (error) {
-        return Promise.reject(error);
+      } catch (err) {
+        return Promise.reject(err);
       }
     }
 

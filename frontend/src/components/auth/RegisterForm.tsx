@@ -22,35 +22,37 @@ export default function RegisterForm() {
 
   const rol = watch('rol');
 
-  const onSubmit = async (data: RegisterInput) => {
-    try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+const onSubmit = async (data: RegisterInput) => {
+  try {
+    setError('');
+    
+    // USAR LA URL COMPLETA CON EL PUERTO CORRECTO
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const response = await fetch(`${API_URL}/usuarios/registro`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error en el registro');
-      }
-
-      const result = await signIn('credentials', {
-        redirect: false,
-        email: data.email,
-        password: data.password
-      });
-
-      if (result?.error) {
-        setError('Error al iniciar sesión automáticamente');
-        return;
-      }
-
-      router.refresh();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Error al registrar usuario');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Error en el registro');
     }
-  };
+
+    const result = await response.json();
+    console.log(' Registro exitoso:', result);
+    
+    // Mostrar mensaje de éxito y redirigir
+    alert(' Registro exitoso. Por favor revisa tu email para confirmar tu cuenta.');
+    router.push('/login');
+
+  } catch (error) {
+    console.error(' Error en registro:', error);
+    setError(error instanceof Error ? error.message : 'Error al registrar usuario');
+  }
+};
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} width="100%" maxWidth={500} p={3}>

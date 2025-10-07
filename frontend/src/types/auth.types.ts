@@ -4,15 +4,15 @@ export enum UserRole {
 }
 
 export interface AuthUser {
-  id: number;
+  id: string; // Cambiado de number a string (UUID)
   email: string;
   nombre_completo: string;
   dni: string;
   telefono: string;
   rol: UserRole;
-  email_confirmado: boolean;
-  activo: boolean;
-  fecha_creacion: string;
+  cuenta_activa: boolean; // Cambiado de email_confirmado a cuenta_activa
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface LoginCredentials {
@@ -43,6 +43,17 @@ export interface RegisterOperador {
 }
 
 export interface AuthResponse {
-  user: AuthUser;
-  token: string;
+  success: boolean;
+  message: string;
+  data: {
+    user: AuthUser;
+    profile: AuthUser;
+    session?: any;
+  };
 }
+
+// Tipo para LoginInput
+export type LoginInput = {
+  email: string;
+  password: string;
+};

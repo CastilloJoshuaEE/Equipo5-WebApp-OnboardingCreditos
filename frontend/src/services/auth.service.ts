@@ -7,10 +7,9 @@ export const AuthService = {
   },
 
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/api/usuarios/login', credentials);
+    const response = await api.post('/api/usuarios/login', credentials);
     return response.data;
   },
-
   forgotPassword: async (email: string) => {
     return api.post<void>('/api/usuarios/recuperar-contrasena', { email });
   },

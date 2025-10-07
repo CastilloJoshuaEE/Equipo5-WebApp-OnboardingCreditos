@@ -4,25 +4,25 @@ import { UserRole } from './auth.types';
 declare module 'next-auth' {
   interface Session {
     user: {
-      id: number;
+      id: string;
       rol: UserRole;
       email_confirmado: boolean;
     } & DefaultSession['user']
   }
 
   interface User {
-    id: number;
+    id: string;
     rol: UserRole;
     email_confirmado: boolean;
-    nombre_completo: string;
-    dni: string;
-    telefono: string;
+    nombre_completo?: string;
+    dni?: string;
+    telefono?: string;
   }
 }
 
 declare module 'next-auth/jwt' {
   interface JWT {
-    id: number;
+    id: string;
     rol: UserRole;
     email_confirmado: boolean;
   }

@@ -16,8 +16,8 @@ export default function RegisterPage() {
     if (status === 'authenticated' && session?.user?.rol) {
       // REDIRIGE NUEVAS CARPETAS
       const dashboardPath = {
-        [UserRole.SOLICITANTE]: '/dashboard/solicitante',
-        [UserRole.OPERADOR]: '/dashboard/operador'
+        [UserRole.SOLICITANTE]: '/solicitante',
+        [UserRole.OPERADOR]: '/operador'
       }[session.user.rol];
 
       if (dashboardPath) {
