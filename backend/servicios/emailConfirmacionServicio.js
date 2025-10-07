@@ -1,5 +1,6 @@
 const { enviarEmailGmail } = require('./emailGmailServicio');
 const { supabaseAdmin } = require('../config/supabaseAdmin.js'); // . AGREGAR ESTA IMPORTACIÓN
+const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
 
 // Generar token de confirmación
 const generarTokenConfirmacion = (userId, email) => {
@@ -8,7 +9,7 @@ const generarTokenConfirmacion = (userId, email) => {
 
 // Plantilla de email con botón de confirmación
 const crearPlantillaConfirmacion = (nombre, tokenConfirmacion) => {
-  const enlaceConfirmacion = `http://localhost:3000/api/auth/confirmar?token=${tokenConfirmacion}`;
+  const enlaceConfirmacion = `${FRONTEND_URL}/api/auth/confirmar?token=${tokenConfirmacion}`;
   
   return {
     asunto: 'Confirma tu email - Sistema de Créditos',
