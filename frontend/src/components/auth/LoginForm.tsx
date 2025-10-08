@@ -27,7 +27,7 @@ export default function LoginForm() {
       setIsLoading(true);
       setError('');
 
-      console.log('🔐 Enviando credenciales:', data.email);
+      console.log('. Enviando credenciales:', data.email);
 
       const result = await signIn('credentials', {
         email: data.email,
@@ -38,18 +38,18 @@ export default function LoginForm() {
       console.log('📋 Resultado del signIn:', result);
 
       if (result?.error) {
-        console.error('❌ Error en signIn:', result.error);
+        console.error('. Error en signIn:', result.error);
         setError('Credenciales inválidas. Por favor verifica tu email y contraseña.');
         return;
       }
 
       // Login exitoso
-      console.log('✅ Login exitoso, redirigiendo...');
+      console.log('. Login exitoso, redirigiendo...');
       router.refresh();
       router.push('/');
       
     } catch (error) {
-      console.error('❌ Login error:', error);
+      console.error('. Login error:', error);
       setError('Error al iniciar sesión. Por favor intenta nuevamente.');
     } finally {
       setIsLoading(false);

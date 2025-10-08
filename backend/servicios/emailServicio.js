@@ -8,7 +8,7 @@ const {
   enviarEmailConfirmacion 
 } = require('./emailConfirmacionServicio');
 
-// Función principal mejorada
+// Función principal .
 const enviarEmailBienvenida = async (email, nombre, rol) => {
   try {
     console.log(`📧 [GMAIL] Intentando enviar email de bienvenida a: ${email}`);
@@ -184,7 +184,7 @@ const crearPlantillaRecuperacion = (nombre, enlaceRecuperacion) => {
   <body>
     <div class="container">
       <div class="header">
-        <div class="logo">🔐 Sistema de Créditos</div>
+        <div class="logo">. Sistema de Créditos</div>
         <h1>Recuperación de Contraseña</h1>
       </div>
       <div class="content">
@@ -200,7 +200,7 @@ const crearPlantillaRecuperacion = (nombre, enlaceRecuperacion) => {
           </div>
           
           <div class="warning">
-            <p><strong>⚠️ Importante:</strong></p>
+            <p><strong>. Importante:</strong></p>
             <p>Si no solicitaste este cambio, puedes ignorar este email. Tu contraseña actual permanecerá segura.</p>
           </div>
           
@@ -220,7 +220,7 @@ const crearPlantillaRecuperacion = (nombre, enlaceRecuperacion) => {
         </div>
       </div>
       <div class="footer">
-        <p><strong>🔐 Sistema de Créditos</strong></p>
+        <p><strong>. Sistema de Créditos</strong></p>
         <p>Este es un mensaje automático de seguridad, por favor no responder este email.</p>
         <p>Si tienes alguna pregunta o necesitas asistencia, contacta a nuestro equipo de soporte.</p>
         <p>&copy; ${new Date().getFullYear()} Sistema de Créditos. Todos los derechos reservados.</p>
@@ -240,7 +240,7 @@ Información de la solicitud:
 • Solicitado: ${new Date().toLocaleString('es-ES')}
 • Expira: En 1 hora
 
-⚠️ Importante:
+. Importante:
 Si no solicitaste este cambio, puedes ignorar este email. Tu contraseña actual permanecerá segura.
 
 Para restablecer tu contraseña, haz clic en el siguiente enlace:
@@ -264,7 +264,7 @@ const enviarEmailRecuperacionPersonalizado = async (email, nombre, enlaceRecuper
     
     const plantilla = crearPlantillaRecuperacion(nombre, enlaceRecuperacion);
     
-    // ✅ CORRECCIÓN: usar enviarEmailGmail que ahora está importado
+    // . CORRECCIÓN: usar enviarEmailGmail que ahora está importado
     const resultado = await enviarEmailGmail(
       email, 
       plantilla.asunto, 
@@ -273,15 +273,15 @@ const enviarEmailRecuperacionPersonalizado = async (email, nombre, enlaceRecuper
     );
     
     if (resultado.success) {
-      console.log('✅ Email de recuperación enviado exitosamente');
+      console.log('. Email de recuperación enviado exitosamente');
     } else {
-      console.warn('⚠️ Email de recuperación no enviado:', resultado.error);
+      console.warn('. Email de recuperación no enviado:', resultado.error);
     }
     
     return resultado;
     
   } catch (error) {
-    console.error('❌ Error en enviarEmailRecuperacionPersonalizado:', error);
+    console.error('. Error en enviarEmailRecuperacionPersonalizado:', error);
     return {
       success: false,
       error: error.message
@@ -298,7 +298,7 @@ const enviarEmailRecuperacionContrasena = async (email, nombre, userId) => {
     const configuracionValida = await verificarConexionGmail();
     
     if (!configuracionValida) {
-      console.warn('⚠️ Configuración de Gmail no válida, no se enviará email de recuperación');
+      console.warn('. Configuración de Gmail no válida, no se enviará email de recuperación');
       return {
         success: false,
         error: 'Configuración de email no disponible',
@@ -318,13 +318,13 @@ const enviarEmailRecuperacionContrasena = async (email, nombre, userId) => {
     if (resultado.success) {
       console.log('🎉 Email de recuperación enviado exitosamente');
     } else {
-      console.warn('⚠️ Email de recuperación no enviado:', resultado.error);
+      console.warn('. Email de recuperación no enviado:', resultado.error);
     }
     
     return resultado;
     
   } catch (error) {
-    console.error('❌ Error en enviarEmailRecuperacionContrasena:', error);
+    console.error('. Error en enviarEmailRecuperacionContrasena:', error);
     return {
       success: false,
       error: error.message,

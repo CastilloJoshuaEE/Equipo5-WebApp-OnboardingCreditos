@@ -8,6 +8,7 @@ const {
   verifyEmailOnly,
 } = require("../middleware/emailValidation");
 const router = express.Router();
+router.post("/auth/refresh", authController.refreshToken);
 
 /**
  * @swagger
@@ -915,5 +916,4 @@ router.get("/admin/dashboard", proteger, autorizar("operador"), (req, res) => {
   });
 });
 
-router.get("/auth/confirmar", confirmacionController.confirmarEmail);
 module.exports = router;
