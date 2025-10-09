@@ -11,59 +11,92 @@ const crearTransporter = () => {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_APP_PASSWORD,
     },
+    // MEJORAS: Configuraciones para evitar timeout
+    connectionTimeout: 30000, // 30 segundos
+    socketTimeout: 45000, // 45 segundos
+    greetingTimeout: 30000,
+    debug: process.env.NODE_ENV === 'development',
+    logger: process.env.NODE_ENV === 'development',
     tls: {
-      rejectUnauthorized: false
+      rejectUnauthorized: false,
+      minVersion: 'TLSv1.2'
     }
   });
 };
 
 // Verificar conexión con Gmail
-const verificarConexionGmail = async () => {
-  try {
-    const transporter = crearTransporter();
-    await transporter.verify();
-    console.log('. Conexión con Gmail SMTP establecida correctamente');
-    return true;
-  } catch (error) {
-    console.error('. Error conectando a Gmail SMTP:', error.message);
-    return false;
+const verificarConexionGmail = async (maxRetries = 3) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[GMAIL] Intentando conexión (intento ${attempt}/${maxRetries})...`);
+      
+      const transporter = crearTransporter();
+      await transporter.verify();
+      
+      console.log('. Conexión con Gmail SMTP establecida correctamente');
+      return true;
+    } catch (error) {
+      console.error(`. Error en intento ${attempt}:`, error.message);
+      
+      if (attempt === maxRetries) {
+        console.error('. Error conectando a Gmail SMTP después de', maxRetries, 'intentos');
+        return false;
+      }
+      
+      // Esperar antes del próximo intento
+      await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+    }
   }
 };
 
-// Función principal para enviar emails
-const enviarEmailGmail = async (destinatario, asunto, contenidoHTML, contenidoTexto = '') => {
-  try {
-    console.log(`📧 Intentando enviar email a: ${destinatario}`);
-    
-    const transporter = crearTransporter();
-    
-    const mailOptions = {
-      from: `"${process.env.EMAIL_FROM_NAME || 'Sistema de Créditos'}" <${process.env.GMAIL_USER}>`,
-      to: destinatario,
-      subject: asunto,
-      html: contenidoHTML,
-      text: contenidoTexto || contenidoHTML.replace(/<[^>]*>/g, '')
-    };
+// Función principal para enviar emails con reintentos
+const enviarEmailGmail = async (destinatario, asunto, contenidoHTML, contenidoTexto = '', maxRetries = 2) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📧 [GMAIL] Intentando enviar email a: ${destinatario} (intento ${attempt}/${maxRetries})`);
+      
+      const transporter = crearTransporter();
+      
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME || 'Sistema de Créditos'}" <${process.env.GMAIL_USER}>`,
+        to: destinatario,
+        subject: asunto,
+        html: contenidoHTML,
+        text: contenidoTexto || contenidoHTML.replace(/<[^>]*>/g, ''),
+        // Prioridad normal
+        priority: 'normal'
+      };
 
-    const resultado = await transporter.sendMail(mailOptions);
-    
-    console.log('. Email enviado exitosamente a:', destinatario);
-    console.log('📨 ID del mensaje:', resultado.messageId);
-    
-    return {
-      success: true,
-      messageId: resultado.messageId,
-      response: resultado.response
-    };
-    
-  } catch (error) {
-    console.error('. Error enviando email con Gmail:', error);
-    
-    return {
-      success: false,
-      error: error.message,
-      code: error.code
-    };
+      const resultado = await transporter.sendMail(mailOptions);
+      
+      console.log('. Email enviado exitosamente a:', destinatario);
+      console.log('📨 ID del mensaje:', resultado.messageId);
+      
+      return {
+        success: true,
+        messageId: resultado.messageId,
+        response: resultado.response,
+        attempt: attempt
+      };
+      
+    } catch (error) {
+      console.error(`. Error en intento ${attempt}:`, error.message);
+      
+      if (attempt === maxRetries) {
+        console.error('. Error enviando email después de', maxRetries, 'intentos');
+        return {
+          success: false,
+          error: error.message,
+          code: error.code,
+          attempt: attempt
+        };
+      }
+      
+      // Esperar antes del próximo intento (backoff exponencial)
+      const waitTime = 3000 * attempt;
+      console.log(`. Esperando ${waitTime}ms antes del próximo intento...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
   }
 };
 

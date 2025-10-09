@@ -113,7 +113,7 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user}) {
       // . PERSISTIR TOKENS DE SUPABASE EN JWT
       if (user) {
         token.rol = user.rol;

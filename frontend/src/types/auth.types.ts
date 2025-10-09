@@ -49,7 +49,15 @@ export interface AuthResponse {
   data: {
     user: AuthUser;
     profile: AuthUser;
-    session?: any;
+    session?: {
+      access_token: string;
+      refresh_token: string;
+      expires_at: number;
+      user: {
+        id: string;
+        email: string;
+      };
+    };
   };
 }
 
