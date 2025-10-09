@@ -8,7 +8,6 @@ const {
   verifyEmailOnly,
 } = require("../middleware/emailValidation");
 const router = express.Router();
-router.post("/auth/refresh", authController.refreshToken);
 
 /**
  * @swagger
@@ -181,12 +180,6 @@ router.post("/auth/refresh", authController.refreshToken);
  *       example:
  *         success: false
  *         message: "Error en la operación"
- *
- *   securitySchemes:
- *     bearerAuth:
- *       type: http
- *       scheme: bearer
- *       bearerFormat: JWT
  */
 
 // ==================== RUTAS DE CONFIRMACIÓN ====================
@@ -988,5 +981,6 @@ router.get("/admin/dashboard", proteger, autorizar("operador"), (req, res) => {
     },
   });
 });
+router.post("/auth/refresh", authController.refreshToken);
 
 module.exports = router;
