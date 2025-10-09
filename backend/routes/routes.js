@@ -278,15 +278,15 @@ router.post("/usuarios/verificar-email", verifyEmailOnly, (req, res) => {
  *             solicitante:
  *               summary: Registro de solicitante
  *               value:
- *                 email: "joshua.castillomer@ug.edu.ec"
+ *                 email: "juan@hotmail.com"
  *                 password: "tucontrasena123"
  *                 nombre_completo: "Joshúa Castillo"
- *                 telefono: "0939850142"
- *                 dni: "0943802926"
+ *                 telefono: "0111111111"
+ *                 dni: "0111111111"
  *                 rol: "solicitante"
  *                 nombre_empresa: "mi empresa SA"
  *                 cuit: "30-12345678-9"
- *                 representante_legal: "Joshúa Javier Castillo Merejildo"
+ *                 representante_legal: "Joshúa Castillo"
  *                 domicilio: "Calle 123"
  *             operador:
  *               summary: Registro de operador
