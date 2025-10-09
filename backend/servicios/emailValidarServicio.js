@@ -59,7 +59,7 @@ class emailValidarServicio {
     }
   }
 
-  // . SERVICIO 3 CORREGIDO: Abstract API
+  // . SERVICIO 3 .: Abstract API
   async verifyEmailAbstract(email) {
     try {
       const apiKey = process.env.ABSTRACT_API_KEY;

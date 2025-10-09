@@ -483,7 +483,7 @@ const obtenerPerfil = async (req, res) => {
   try {
     console.log('👤 Obteniendo perfil para usuario ID:', req.usuario.id);
     
-    // . Usar el ID del middleware (ya corregido si era necesario)
+    // . Usar el ID del middleware (ya . si era necesario)
     let userProfile;
     const { data: profileData, error } = await supabase
       .from('usuarios')

@@ -206,7 +206,7 @@ const crearPlantillaRecuperacion = (nombre, enlaceRecuperacion) => {
           
           <p style="text-align: center;">
             <a href="${enlaceRecuperacion}" class="button" style="color: white;">
-              🔑 Restablecer Contraseña
+              . Restablecer Contraseña
             </a>
           </p>
           
