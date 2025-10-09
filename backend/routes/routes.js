@@ -9,6 +9,7 @@ const {
 } = require("../middleware/emailValidation");
 const router = express.Router();
 router.post("/auth/refresh", authController.refreshToken);
+
 /**
  * @swagger
  * components:
@@ -46,7 +47,6 @@ router.post("/auth/refresh", authController.refreshToken);
  *           type: string
  *           format: date-time
  *           description: Fecha de creación del usuario
- *         // Campos específicos para solicitantes
  *         nombre_empresa:
  *           type: string
  *           description: Nombre de la empresa (solo solicitantes)
@@ -105,7 +105,6 @@ router.post("/auth/refresh", authController.refreshToken);
  *           enum: [solicitante, operador]
  *           default: solicitante
  *           description: Rol del usuario
- *         // Campos opcionales para solicitantes
  *         nombre_empresa:
  *           type: string
  *           description: Nombre de la empresa (requerido si rol es solicitante)
@@ -129,7 +128,67 @@ router.post("/auth/refresh", authController.refreshToken);
  *         cuit: "30-87654321-9"
  *         representante_legal: "María García"
  *         domicilio: "Av. Principal 456"
+ *
+ *     Login:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: Email del usuario
+ *         password:
+ *           type: string
+ *           description: Contraseña del usuario
+ *       example:
+ *         email: "usuario@ejemplo.com"
+ *         password: "password123"
+ *
+ *     Response:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           description: Indica si la operación fue exitosa
+ *         message:
+ *           type: string
+ *           description: Mensaje descriptivo del resultado
+ *         data:
+ *           type: object
+ *           description: Datos de respuesta (opcional)
+ *         token:
+ *           type: string
+ *           description: Token JWT (solo en login exitoso)
+ *       example:
+ *         success: true
+ *         message: "Operación exitosa"
+ *         data: {}
+ *
+ *     Error:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *           description: Mensaje de error
+ *         error:
+ *           type: string
+ *           description: Detalles técnicos del error (opcional)
+ *       example:
+ *         success: false
+ *         message: "Error en la operación"
+ *
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
  */
+
 // ==================== RUTAS DE CONFIRMACIÓN ====================
 
 /**
@@ -259,6 +318,7 @@ router.post("/usuarios/verificar-email", verifyEmailOnly, (req, res) => {
     validation: req.emailValidation,
   });
 });
+
 // ==================== RUTAS PÚBLICAS ====================
 
 /**
@@ -413,6 +473,7 @@ router.post("/usuarios/logout", authController.logout);
  *               $ref: '#/components/schemas/Error'
  */
 router.get("/usuarios/session", authController.getSession);
+
 /**
  * @swagger
  * /api/usuarios/recuperar-contrasena:
@@ -460,7 +521,6 @@ router.get("/usuarios/session", authController.getSession);
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/usuarios/recuperar-contrasena', usuariosController.recuperarContrasena);
-
 
 /**
  * @swagger
@@ -516,7 +576,6 @@ router.post('/usuarios/recuperar-contrasena', usuariosController.recuperarContra
  *               $ref: '#/components/schemas/Error'
  */
 router.put('/usuario/cambiar-contrasena', proteger, usuariosController.cambiarContrasena);
-
 
 /**
  * @swagger
@@ -626,6 +685,7 @@ router.get(
  *               $ref: '#/components/schemas/Error'
  */
 router.get("/usuario/perfil", proteger, usuariosController.obtenerPerfil);
+
 /**
  * @swagger
  * /api/usuario/perfil:
@@ -651,7 +711,6 @@ router.get("/usuario/perfil", proteger, usuariosController.obtenerPerfil);
  *               dni:
  *                 type: string
  *                 description: Documento de identidad
- *               // Campos específicos para solicitantes
  *               nombre_empresa:
  *                 type: string
  *                 description: Nombre de la empresa (solo solicitantes)
@@ -815,7 +874,7 @@ router.get(
  *               telefono:
  *                 type: string
  *                 description: Número de teléfono
- *               documento_identidad:
+ *               dni:
  *                 type: string
  *                 description: Documento de identidad
  *               rol:
@@ -828,7 +887,7 @@ router.get(
  *             example:
  *               nombre_completo: "Usuario Actualizado"
  *               telefono: "+573001234567"
- *               documento_identidad: "12345678"
+ *               dni: "12345678"
  *               rol: "solicitante"
  *               activo: true
  *     responses:
