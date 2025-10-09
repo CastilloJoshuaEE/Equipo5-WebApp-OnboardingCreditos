@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Box, Typography, CircularProgress, Alert, Button } from '@mui/material';
 
-export default function ConfirmacionPage() {
+function ConfirmacionContent() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const searchParams = useSearchParams();
@@ -32,7 +32,6 @@ export default function ConfirmacionPage() {
           setStatus('success');
           setMessage('¡Email confirmado exitosamente! Ya puedes iniciar sesión.');
           
-          // Redirigir al login después de 3 segundos
           setTimeout(() => {
             router.push('/login');
           }, 3000);
@@ -69,7 +68,7 @@ export default function ConfirmacionPage() {
         sx={{ width: '100%', maxWidth: 500 }}
       >
         <Typography variant="h6" gutterBottom>
-          {status === 'success' ? '. Confirmación Exitosa' : '. Error de Confirmación'}
+          {status === 'success' ? '✅ Confirmación Exitosa' : '❌ Error de Confirmación'}
         </Typography>
         <Typography>
           {message}
@@ -91,5 +90,20 @@ export default function ConfirmacionPage() {
         </Button>
       </Box>
     </Box>
+  );
+}
+
+export default function ConfirmacionPage() {
+  return (
+    <Suspense fallback={
+      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={3}>
+        <CircularProgress size={60} />
+        <Typography variant="h5" textAlign="center">
+          Cargando...
+        </Typography>
+      </Box>
+    }>
+      <ConfirmacionContent />
+    </Suspense>
   );
 }
