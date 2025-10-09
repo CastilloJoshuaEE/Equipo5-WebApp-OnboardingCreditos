@@ -212,7 +212,7 @@ const iniciarServidor = async () => {
   } catch (error) {
     console.error(". Error crítico iniciando servidor:", error.message);
 
-    console.log("\n🔧 Solución de problemas:");
+    console.log("\n. Solución de problemas:");
     console.log(
       "   1. Verifica que SUPABASE_URL y SUPABASE_ANON_KEY estén correctas"
     );

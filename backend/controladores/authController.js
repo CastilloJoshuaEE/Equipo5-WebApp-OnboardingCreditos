@@ -122,7 +122,7 @@ const login = async (req, res) => {
         console.error('. Error corrigiendo ID en tabla usuarios:', updateError);
         // Continuar pero usar el ID de Auth para la búsqueda
       } else {
-        console.log('. ID corregido exitosamente en tabla usuarios');
+        console.log('. ID . exitosamente en tabla usuarios');
         
         // ACTUALIZAR TABLAS RELACIONADAS
         try {
@@ -195,7 +195,7 @@ const login = async (req, res) => {
         user: authData.user,
         profile: userProfile,
         session: {
-          // 🔑 TOKENS DE SUPABASE QUE NEXT AUTH NECESITA
+          // . TOKENS DE SUPABASE QUE NEXT AUTH NECESITA
           access_token: authData.session.access_token,
           refresh_token: authData.session.refresh_token,
           expires_at: authData.session.expires_at,

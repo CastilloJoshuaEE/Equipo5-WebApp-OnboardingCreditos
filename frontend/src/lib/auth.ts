@@ -1,4 +1,4 @@
-// lib/auth.ts - . SIN ERRORES
+// lib/auth.ts
 import { NextAuthOptions, User } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
@@ -90,7 +90,7 @@ export const authOptions: NextAuthOptions = {
               email: user.email,
               name: user.nombre_completo,
               rol: user.rol,
-              // 🔑 TOKENS DE SUPABASE CRÍTICOS
+              // . TOKENS DE SUPABASE CRÍTICOS
               accessToken: session.access_token,
               refreshToken: session.refresh_token,
               expiresAt: session.expires_at,
@@ -99,9 +99,14 @@ export const authOptions: NextAuthOptions = {
           }
           
           throw new Error('Estructura de respuesta inválida');
-        } catch (error: any) {
+        } catch (error) {
           console.error('. Authorize error:', error);
-          throw new Error(error.message || 'Error de autenticación');
+          // . CORRECCIÓN: Usar type guard en lugar de 'any'
+          if (error instanceof Error) {
+            throw new Error(error.message || 'Error de autenticación');
+          } else {
+            throw new Error('Error de autenticación desconocido');
+          }
         }
       }
     })
@@ -113,7 +118,7 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   callbacks: {
-    async jwt({ token, user}) {
+    async jwt({ token, user }) {
       // . PERSISTIR TOKENS DE SUPABASE EN JWT
       if (user) {
         token.rol = user.rol;

@@ -167,7 +167,7 @@ const crearUsuariosAuth = async () => {
   const usuariosAuthIds = {};
   
   try {
-    console.log('🔑 Usando service_role key para crear usuarios en Auth...');
+    console.log('. Usando service_role key para crear usuarios en Auth...');
 
     const usuariosAuth = [
       {
@@ -238,7 +238,7 @@ const crearUsuariosAuth = async () => {
           // Usar el nombre del email sin dominio como clave
           const clave = usuario.email.split('@')[0];
           usuariosAuthIds[clave] = userId;
-          console.log(`🔑 Asignado: ${clave} -> ${userId}`);
+          console.log(`. Asignado: ${clave} -> ${userId}`);
         } else {
           console.error(`. No se pudo obtener ID para: ${usuario.email}`);
         }
