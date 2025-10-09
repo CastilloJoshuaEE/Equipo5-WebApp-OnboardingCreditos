@@ -115,7 +115,7 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
     // CORRECCIÓN: 'signUp' no existe, usar 'newUser' en su lugar
     newUser: '/register',
-    error: '/auth/error',
+    error: '/error',
   },
   callbacks: {
     async jwt({ token, user }) {
