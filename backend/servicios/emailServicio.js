@@ -62,6 +62,13 @@ const enviarEmailConfirmacionCuenta = async (email, nombre, userId) => {
       };
     }
 
+    // CORREGIR: Usar FRONTEND_URL para el enlace
+    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const tokenConfirmacion = generarTokenConfirmacion(userId, email);
+    const enlaceConfirmacion = `${FRONTEND_URL}/api/auth/confirmar?token=${tokenConfirmacion}`;
+    
+    console.log(`🔗 Enlace de confirmación generado: ${enlaceConfirmacion}`);
+
     const resultado = await enviarEmailConfirmacion(email, nombre, userId);
     
     if (resultado.success) {
@@ -73,7 +80,7 @@ const enviarEmailConfirmacionCuenta = async (email, nombre, userId) => {
     return resultado;
     
   } catch (error) {
-    console.error('. Error en servicio de confirmación:', error);
+    console.error('. Error en enviarEmailConfirmacionCuenta:', error);
     return {
       success: false,
       error: error.message,

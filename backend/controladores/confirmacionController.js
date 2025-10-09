@@ -32,10 +32,21 @@ const confirmarEmail = async (req, res) => {
     console.log('. Procesando confirmación de email con token:', token);
 
     if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: 'Token de confirmación no proporcionado'
-      });
+      // Si es API request, responder con JSON
+      if (req.headers['content-type']?.includes('application/json')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Token de confirmación no proporcionado'
+        });
+      }
+      // Si es browser redirect, mostrar HTML
+      return res.status(400).send(`
+        <html><body>
+          <h1>Error de Confirmación</h1>
+          <p>Token no proporcionado</p>
+          <a href="${FRONTEND_URL}">Volver al inicio</a>
+        </body></html>
+      `);
     }
 
     // Decodificar el token
@@ -195,7 +206,12 @@ const confirmarEmail = async (req, res) => {
 
   } catch (error) {
     console.error('. Error en confirmación de email:', error);
-    
+    if (req.headers['content-type']?.includes('application/json')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }    
     res.status(400).send(`
       <!DOCTYPE html>
       <html>
