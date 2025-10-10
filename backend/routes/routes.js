@@ -46,6 +46,7 @@ const {
   obtenerDocumentosSolicitud,
   validarDocumento
 } = require('../controladores/documentosController');
+
 /**
  * @swagger
  * components:
@@ -283,9 +284,9 @@ const {
  *           format: date-time
  *           description: Fecha de decisión
  *       example:
- *         id: "111111111"
+ *         id: "123e4567-e89b-12d3-a456-426614174000"
  *         numero_solicitud: "SOL-2024-001"
- *         solicitante_id: "1111111111222"
+ *         solicitante_id: "123e4567-e89b-12d3-a456-426614174001"
  *         monto: 50000.00
  *         moneda: "ARS"
  *         plazo_meses: 12
@@ -338,11 +339,11 @@ const {
  *           format: date-time
  *           description: Fecha de validación
  *       example:
- *         id: "121111112"
- *         solicitud_id: "1211111112"
+ *         id: "123e4567-e89b-12d3-a456-426614174002"
+ *         solicitud_id: "123e4567-e89b-12d3-a456-426614174000"
  *         tipo: "dni"
- *         nombre_archivo: "dni_frontal.pdf"
- *         ruta_storage: "/documentos/solicitud_001/dni_frontal.pdf"
+ *         nombre_archivo: "dni_frontal.jpg"
+ *         ruta_storage: "/documentos/solicitud_001/dni_frontal.jpg"
  *         tamanio_bytes: 2048576
  *         estado: "validado"
  *         created_at: "2024-01-01T00:00:00Z"
@@ -353,6 +354,7 @@ const {
  *       scheme: bearer
  *       bearerFormat: JWT
  */
+
 // ==================== RUTAS DE CONFIRMACIÓN ====================
 
 /**
@@ -382,7 +384,7 @@ const {
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Response'
+ *               $ref: '#/components/schemas/SuccessResponse'
  *       400:
  *         description: Token inválido o expirado
  *         content:
@@ -420,7 +422,7 @@ router.get("/auth/confirmar", confirmacionController.confirmarEmail);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Response'
+ *               $ref: '#/components/schemas/SuccessResponse'
  *       400:
  *         description: Email no válido o ya confirmado
  *         content:
@@ -462,7 +464,7 @@ router.post(
  *           application/json:
  *             schema:
  *               allOf:
- *                 - $ref: '#/components/schemas/Response'
+ *                 - $ref: '#/components/schemas/SuccessResponse'
  *                 - type: object
  *                   properties:
  *                     validation:
@@ -528,7 +530,7 @@ router.post("/usuarios/verificar-email", verifyEmailOnly, (req, res) => {
  *           application/json:
  *             schema:
  *               allOf:
- *                 - $ref: '#/components/schemas/Response'
+ *                 - $ref: '#/components/schemas/SuccessResponse'
  *                 - type: object
  *                   properties:
  *                     data:
@@ -569,7 +571,7 @@ router.post(
  *           application/json:
  *             schema:
  *               allOf:
- *                 - $ref: '#/components/schemas/Response'
+ *                 - $ref: '#/components/schemas/SuccessResponse'
  *                 - type: object
  *                   properties:
  *                     token:
@@ -602,7 +604,7 @@ router.post("/usuarios/login", authController.login);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Response'
+ *               $ref: '#/components/schemas/SuccessResponse'
  */
 router.post("/usuarios/logout", authController.logout);
 
@@ -621,7 +623,7 @@ router.post("/usuarios/logout", authController.logout);
  *           application/json:
  *             schema:
  *               allOf:
- *                 - $ref: '#/components/schemas/Response'
+ *                 - $ref: '#/components/schemas/SuccessResponse'
  *                 - type: object
  *                   properties:
  *                     data:
@@ -676,7 +678,7 @@ router.get("/usuarios/session", authController.getSession);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Response'
+ *               $ref: '#/components/schemas/SuccessResponse'
  *       400:
  *         description: Error en la recuperación (email inválido o contraseñas no coinciden)
  *         content:
@@ -725,7 +727,7 @@ router.post('/usuarios/recuperar-contrasena', usuariosController.recuperarContra
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Response'
+ *               $ref: '#/components/schemas/SuccessResponse'
  *       400:
  *         description: Error en el cambio de contraseña
  *         content:
@@ -769,7 +771,7 @@ router.put('/usuario/cambiar-contrasena', proteger, usuariosController.cambiarCo
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Response'
+ *               $ref: '#/components/schemas/SuccessResponse'
  *       400:
  *         description: Email inválido o usuario no encontrado
  *         content:
@@ -795,7 +797,7 @@ router.post('/usuarios/solicitar-recuperacion', usuariosController.solicitarRecu
  *           application/json:
  *             schema:
  *               allOf:
- *                 - $ref: '#/components/schemas/Response'
+ *                 - $ref: '#/components/schemas/SuccessResponse'
  *                 - type: object
  *                   properties:
  *                     data:
@@ -833,7 +835,7 @@ router.get(
  *           application/json:
  *             schema:
  *               allOf:
- *                 - $ref: '#/components/schemas/Response'
+ *                 - $ref: '#/components/schemas/SuccessResponse'
  *                 - type: object
  *                   properties:
  *                     data:
@@ -898,7 +900,7 @@ router.get("/usuario/perfil", proteger, usuariosController.obtenerPerfil);
  *           application/json:
  *             schema:
  *               allOf:
- *                 - $ref: '#/components/schemas/Response'
+ *                 - $ref: '#/components/schemas/SuccessResponse'
  *                 - type: object
  *                   properties:
  *                     data:
@@ -936,7 +938,7 @@ router.put("/usuario/perfil", proteger, usuariosController.actualizarPerfil);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Response'
+ *               $ref: '#/components/schemas/SuccessResponse'
  *       401:
  *         description: No autorizado
  *         content:
@@ -975,7 +977,7 @@ router.put(
  *           application/json:
  *             schema:
  *               allOf:
- *                 - $ref: '#/components/schemas/Response'
+ *                 - $ref: '#/components/schemas/SuccessResponse'
  *                 - type: object
  *                   properties:
  *                     data:
@@ -1061,7 +1063,7 @@ router.get(
  *           application/json:
  *             schema:
  *               allOf:
- *                 - $ref: '#/components/schemas/Response'
+ *                 - $ref: '#/components/schemas/SuccessResponse'
  *                 - type: object
  *                   properties:
  *                     data:
@@ -1117,7 +1119,7 @@ router.put(
  *           application/json:
  *             schema:
  *               allOf:
- *                 - $ref: '#/components/schemas/Response'
+ *                 - $ref: '#/components/schemas/SuccessResponse'
  *                 - type: object
  *                   properties:
  *                     data:
@@ -1199,6 +1201,7 @@ router.get("/admin/dashboard", proteger, autorizar("operador"), (req, res) => {
  *         description: Refresh token inválido o expirado
  */
 router.post("/auth/refresh", authController.refreshToken);
+
 // ==================== RUTAS DE SOLICITUDES ====================
 
 /**
@@ -1318,7 +1321,8 @@ router.post("/auth/refresh", authController.refreshToken);
  *       403:
  *         description: Sin permisos (para operadores)
  */
-router.post('/solicitudes', proteger, crearSolicitud); // Crear solicitud
+router.post('/solicitudes', proteger, crearSolicitud);
+router.get('/solicitudes', proteger, obtenerMisSolicitudes);
 
 /**
  * @swagger
@@ -1346,7 +1350,6 @@ router.post('/solicitudes', proteger, crearSolicitud); // Crear solicitud
  *       401:
  *         description: No autorizado
  */
-
 router.get('/solicitudes/mis-solicitudes', proteger, obtenerMisSolicitudes);
 
 /**
@@ -1385,7 +1388,8 @@ router.get('/solicitudes/mis-solicitudes', proteger, obtenerMisSolicitudes);
  *       404:
  *         description: Solicitud no encontrada
  */
-router.put('/solicitudes/:solicitud_id/enviar', proteger, enviarSolicitud); // Enviar solicitud
+router.put('/solicitudes/:solicitud_id/enviar', proteger, enviarSolicitud);
+
 /**
  * @swagger
  * /api/solicitudes/{solicitud_id}:
@@ -1422,9 +1426,7 @@ router.put('/solicitudes/:solicitud_id/enviar', proteger, enviarSolicitud); // E
  *       404:
  *         description: Solicitud no encontrada
  */
-router.get('/solicitudes', proteger, obtenerMisSolicitudes); // Listar mis solicitudes
-
-router.get('/solicitudes/:solicitud_id', proteger, obtenerSolicitudDetalle); // Detalle
+router.get('/solicitudes/:solicitud_id', proteger, obtenerSolicitudDetalle);
 
 /**
  * @swagger
@@ -1518,9 +1520,7 @@ router.get('/solicitudes/:solicitud_id', proteger, obtenerSolicitudDetalle); // 
  *       413:
  *         description: Archivo demasiado grande
  */
-
 router.get('/solicitudes/:solicitud_id/documentos', proteger, obtenerDocumentosSolicitud);
-
 router.post(
   '/solicitudes/:solicitud_id/documentos',
   proteger,
@@ -1583,7 +1583,6 @@ router.get('/solicitudes', proteger, autorizar('operador'), obtenerTodasSolicitu
  *       404:
  *         description: Solicitud no encontrada
  */
-
 router.put('/solicitudes/:solicitud_id/asignar', proteger, autorizar('operador'), asignarOperador);
 
 /**
@@ -1686,8 +1685,8 @@ router.put('/solicitudes/:solicitud_id/aprobar', proteger, autorizar('operador')
  *       404:
  *         description: Solicitud no encontrada
  */
-
 router.put('/solicitudes/:solicitud_id/rechazar', proteger, autorizar('operador'), rechazarSolicitud);
+
 /**
  * @swagger
  * /api/solicitudes/{solicitud_id}/solicitar-info:
