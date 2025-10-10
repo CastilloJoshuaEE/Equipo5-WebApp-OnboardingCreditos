@@ -198,7 +198,7 @@ const confirmarEmail = async (req, res) => {
               
               <p>Se ha enviado un email de bienvenida con información importante.</p>
               <p>Ahora puedes iniciar sesión en el sistema con tus credenciales.</p>
-              <a href="${FRONTEND_URL}/api/login" class="button">Ir al Login</a>
+              <a href="${FRONTEND_URL}/login" class="button">Ir al Login</a>
           </div>
       </body>
       </html>
@@ -236,7 +236,7 @@ const confirmarEmail = async (req, res) => {
           <h1>Error al Activar Cuenta</h1>
           <p>${error.message || 'Ha ocurrido un error al activar tu cuenta.'}</p>
           <p>Por favor, intenta nuevamente o contacta al soporte.</p>
-          <a href="${FRONTEND_URL}/api/login" style="color: #2563eb; text-decoration: none;">Volver al Inicio</a>
+          <a href="${FRONTEND_URL}/login" style="color: #2563eb; text-decoration: none;">Volver al Inicio</a>
       </body>
       </html>
     `);

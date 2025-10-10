@@ -8,9 +8,9 @@ const generarTokenConfirmacion = (userId, email) => {
 
 // Plantilla de email con botón de confirmación
 const crearPlantillaConfirmacion = (nombre, tokenConfirmacion) => {
+    const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
   const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-  const enlaceConfirmacion = `${FRONTEND_URL}/api/auth/confirmar?token=${tokenConfirmacion}`;
-  
+  const enlaceConfirmacion = `${BACKEND_URL}/api/auth/confirmar?token=${tokenConfirmacion}`;
   return {
     asunto: 'Confirma tu email - Sistema de Créditos',
     html: `

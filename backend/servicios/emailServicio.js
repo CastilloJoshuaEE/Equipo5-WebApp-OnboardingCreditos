@@ -61,14 +61,6 @@ const enviarEmailConfirmacionCuenta = async (email, nombre, userId) => {
         skip: true
       };
     }
-
-    // CORREGIR: Usar FRONTEND_URL para el enlace
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const tokenConfirmacion = generarTokenConfirmacion(userId, email);
-    const enlaceConfirmacion = `${FRONTEND_URL}/api/auth/confirmar?token=${tokenConfirmacion}`;
-    
-    console.log(`. Enlace de confirmación generado: ${enlaceConfirmacion}`);
-
     const resultado = await enviarEmailConfirmacion(email, nombre, userId);
     
     if (resultado.success) {
