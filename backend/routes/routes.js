@@ -1056,9 +1056,6 @@ router.get("/admin/dashboard", proteger, autorizar("operador"), (req, res) => {
 *           type: string
 *           format: date-time
 *           description: Fecha de última actualización
-*/
-
-/*
 *     SolicitudCredito:
 *       type: object
 *       properties:
@@ -1121,6 +1118,19 @@ router.get("/admin/dashboard", proteger, autorizar("operador"), (req, res) => {
 *           type: string
 *           format: date-time
 *           description: Fecha de decisión
+*       example:
+*         id: "1111111"
+*         numero_solicitud: "SOL-2024-001"
+*         solicitante_id: "1111111"
+*         monto: 50000.00
+*         moneda: "ARS"
+*         plazo_meses: 12
+*         proposito: "Capital de trabajo"
+*         estado: "en_revision"
+*         nivel_riesgo: "medio"
+*         created_at: "2024-01-01T00:00:00Z"
+*         updated_at: "2024-01-01T00:00:00Z"
+*
 *     Documento:
 *       type: object
 *       properties:
@@ -1163,32 +1173,21 @@ router.get("/admin/dashboard", proteger, autorizar("operador"), (req, res) => {
 *           type: string
 *           format: date-time
 *           description: Fecha de validación
-
-*     Error:
-*       type: object
-*       properties:
-*         success:
-*           type: boolean
-*           example: false
-*         message:
-*           type: string
-*           description: Mensaje de error
-*         error:
-*           type: string
-*           description: Detalles técnicos del error
-
-*     SuccessResponse:
-*       type: object
-*       properties:
-*         success:
-*           type: boolean
-*           example: true
-*         message:
-*           type: string
-*           description: Mensaje de éxito
-*         data:
-*           type: object
-*           description: Datos de respuesta
+*       example:
+*         id: "1111111111"
+*         solicitud_id: "1111111"
+*         tipo: "dni"
+*         nombre_archivo: "dni_frontal.jpg"
+*         ruta_storage: "/documentos/solicitud_001/dni_frontal.pdf"
+*         tamanio_bytes: 2048576
+*         estado: "validado"
+*         created_at: "2024-01-01T00:00:00Z"
+*
+*   securitySchemes:
+*     bearerAuth:
+*       type: http
+*       scheme: bearer
+*       bearerFormat: JWT
 */
 // ==================== RUTAS DE AUTENTICACIÓN ====================
 
