@@ -3,12 +3,49 @@ const { proteger, autorizar } = require("../middleware/auth");
 const authController = require("../controladores/authController");
 const usuariosController = require("../controladores/usuariosController");
 const confirmacionController = require("../controladores/confirmacionController");
+const solicitudesController = require('../controladores/solicitudesController');
+const { descargarDocumento } = require('../controladores/documentosController');
 const {
   validateEmailBeforeAuth,
   verifyEmailOnly,
 } = require("../middleware/emailValidation");
+const {
+  crearSolicitud,
+  enviarSolicitud,
+  obtenerMisSolicitudes,
+  obtenerTodasSolicitudes,
+  obtenerSolicitudDetalle,
+  asignarOperador,
+  aprobarSolicitud,
+  rechazarSolicitud,
+  solicitarInformacionAdicional,
+  obtenerEstadisticas,
+  iniciarVerificacionKYC
+} = require('../controladores/solicitudesController');
+const { handleDiditWebhook } = require('../controladores/webhooksController');
 const router = express.Router();
+const multer = require('multer');
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB límite
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no permitido. Solo PDF, JPG, JPEG, PNG.'), false);
+    }
+  }
+});
 
+const {
+  subirDocumento,
+  obtenerDocumentosSolicitud,
+  validarDocumento
+} = require('../controladores/documentosController');
 /**
  * @swagger
  * components:
@@ -981,6 +1018,941 @@ router.get("/admin/dashboard", proteger, autorizar("operador"), (req, res) => {
     },
   });
 });
+/*
+* components:
+*   schemas:
+*     Usuario:
+*       type: object
+*       properties:
+*         id:
+*           type: string
+*           format: uuid
+*           description: ID único del usuario
+*         email:
+*           type: string
+*           format: email
+*           description: Email del usuario
+*         nombre_completo:
+*           type: string
+*           description: Nombre completo del usuario
+*         dni:
+*           type: string
+*           description: Documento de identidad
+*         telefono:
+*           type: string
+*           description: Número de teléfono
+*         rol:
+*           type: string
+*           enum: [solicitante, operador]
+*           description: Rol del usuario en el sistema
+*         cuenta_activa:
+*           type: boolean
+*           description: Estado activo del usuario
+*         created_at:
+*           type: string
+*           format: date-time
+*           description: Fecha de creación
+*         updated_at:
+*           type: string
+*           format: date-time
+*           description: Fecha de última actualización
+*/
+
+/*
+*     SolicitudCredito:
+*       type: object
+*       properties:
+*         id:
+*           type: string
+*           format: uuid
+*           description: ID único de la solicitud
+*         numero_solicitud:
+*           type: string
+*           description: Número único de solicitud
+*         solicitante_id:
+*           type: string
+*           format: uuid
+*           description: ID del solicitante
+*         operador_id:
+*           type: string
+*           format: uuid
+*           description: ID del operador asignado
+*         monto:
+*           type: number
+*           format: float
+*           description: Monto solicitado
+*         moneda:
+*           type: string
+*           enum: [ARS, USD]
+*           description: Moneda del crédito
+*         plazo_meses:
+*           type: integer
+*           description: Plazo en meses
+*         proposito:
+*           type: string
+*           description: Propósito del crédito
+*         estado:
+*           type: string
+*           enum: [borrador, enviado, en_revision, pendiente_info, aprobado, rechazado]
+*           description: Estado de la solicitud
+*         nivel_riesgo:
+*           type: string
+*           enum: [bajo, medio, alto]
+*           description: Nivel de riesgo calculado
+*         comentarios:
+*           type: string
+*           description: Comentarios del operador
+*         motivo_rechazo:
+*           type: string
+*           description: Motivo de rechazo
+*         created_at:
+*           type: string
+*           format: date-time
+*           description: Fecha de creación
+*         updated_at:
+*           type: string
+*           format: date-time
+*           description: Fecha de última actualización
+*         fecha_envio:
+*           type: string
+*           format: date-time
+*           description: Fecha de envío
+*         fecha_decision:
+*           type: string
+*           format: date-time
+*           description: Fecha de decisión
+*     Documento:
+*       type: object
+*       properties:
+*         id:
+*           type: string
+*           format: uuid
+*           description: ID único del documento
+*         solicitud_id:
+*           type: string
+*           format: uuid
+*           description: ID de la solicitud
+*         tipo:
+*           type: string
+*           enum: [dni, cuit, comprobante_domicilio, balance_contable, estado_financiero, declaracion_impuestos]
+*           description: Tipo de documento
+*         nombre_archivo:
+*           type: string
+*           description: Nombre del archivo
+*         ruta_storage:
+*           type: string
+*           description: Ruta en storage
+*         tamanio_bytes:
+*           type: integer
+*           description: Tamaño en bytes
+*         estado:
+*           type: string
+*           enum: [pendiente, validado, rechazado]
+*           description: Estado del documento
+*         comentarios:
+*           type: string
+*           description: Comentarios de validación
+*         informacion_extraida:
+*           type: object
+*           description: Información extraída del documento
+*         created_at:
+*           type: string
+*           format: date-time
+*           description: Fecha de subida
+*         validado_en:
+*           type: string
+*           format: date-time
+*           description: Fecha de validación
+
+*     Error:
+*       type: object
+*       properties:
+*         success:
+*           type: boolean
+*           example: false
+*         message:
+*           type: string
+*           description: Mensaje de error
+*         error:
+*           type: string
+*           description: Detalles técnicos del error
+
+*     SuccessResponse:
+*       type: object
+*       properties:
+*         success:
+*           type: boolean
+*           example: true
+*         message:
+*           type: string
+*           description: Mensaje de éxito
+*         data:
+*           type: object
+*           description: Datos de respuesta
+*/
+// ==================== RUTAS DE AUTENTICACIÓN ====================
+
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Refrescar token de acceso
+ *     tags: [Autenticación]
+ *     description: Refresca el token de acceso usando el refresh token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refresh_token
+ *             properties:
+ *               refresh_token:
+ *                 type: string
+ *                 description: Refresh token válido
+ *     responses:
+ *       200:
+ *         description: Token refrescado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         access_token:
+ *                           type: string
+ *                         refresh_token:
+ *                           type: string
+ *                         expires_at:
+ *                           type: integer
+ *       400:
+ *         description: Refresh token no proporcionado
+ *       401:
+ *         description: Refresh token inválido o expirado
+ */
 router.post("/auth/refresh", authController.refreshToken);
+// ==================== RUTAS DE SOLICITUDES ====================
+
+/**
+ * @swagger
+ * /api/solicitudes:
+ *   post:
+ *     summary: Crear nueva solicitud de crédito
+ *     tags: [Solicitudes]
+ *     description: Crea una nueva solicitud de crédito en estado borrador
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - monto
+ *               - plazo_meses
+ *               - proposito
+ *             properties:
+ *               monto:
+ *                 type: number
+ *                 minimum: 0.01
+ *                 description: Monto solicitado
+ *               plazo_meses:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: Plazo en meses
+ *               proposito:
+ *                 type: string
+ *                 minLength: 10
+ *                 description: Propósito del crédito
+ *               moneda:
+ *                 type: string
+ *                 enum: [ARS, USD]
+ *                 default: ARS
+ *     responses:
+ *       201:
+ *         description: Solicitud creada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/SolicitudCredito'
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ * 
+ *   get:
+ *     summary: Obtener mis solicitudes (Solicitante) o todas las solicitudes (Operador)
+ *     tags: [Solicitudes]
+ *     description: Dependiendo del rol, obtiene las solicitudes del usuario o todas las solicitudes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: estado
+ *         schema:
+ *           type: string
+ *           enum: [borrador, enviado, en_revision, pendiente_info, aprobado, rechazado]
+ *         description: Filtrar por estado
+ *       - in: query
+ *         name: nivel_riesgo
+ *         schema:
+ *           type: string
+ *           enum: [bajo, medio, alto]
+ *         description: Filtrar por nivel de riesgo
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Número de página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Límite de resultados por página
+ *     responses:
+ *       200:
+ *         description: Lista de solicitudes obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/SolicitudCredito'
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         page:
+ *                           type: integer
+ *                         limit:
+ *                           type: integer
+ *                         total:
+ *                           type: integer
+ *                         totalPages:
+ *                           type: integer
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Sin permisos (para operadores)
+ */
+router.post('/solicitudes', proteger, crearSolicitud); // Crear solicitud
+
+/**
+ * @swagger
+ * /api/solicitudes/mis-solicitudes:
+ *   get:
+ *     summary: Obtener mis solicitudes (Solicitante)
+ *     tags: [Solicitudes]
+ *     description: Obtiene todas las solicitudes del solicitante autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de solicitudes obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/SolicitudCredito'
+ *       401:
+ *         description: No autorizado
+ */
+
+router.get('/solicitudes/mis-solicitudes', proteger, obtenerMisSolicitudes);
+
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/enviar:
+ *   put:
+ *     summary: Enviar solicitud para revisión
+ *     tags: [Solicitudes]
+ *     description: Envía una solicitud en borrador para revisión por operadores
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Solicitud enviada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/SolicitudCredito'
+ *       400:
+ *         description: Documentos obligatorios faltantes
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Solicitud no encontrada
+ */
+router.put('/solicitudes/:solicitud_id/enviar', proteger, enviarSolicitud); // Enviar solicitud
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}:
+ *   get:
+ *     summary: Obtener detalle de una solicitud
+ *     tags: [Solicitudes]
+ *     description: Obtiene el detalle completo de una solicitud específica
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Detalle de solicitud obtenido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/SolicitudCredito'
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Sin permisos para ver esta solicitud
+ *       404:
+ *         description: Solicitud no encontrada
+ */
+router.get('/solicitudes', proteger, obtenerMisSolicitudes); // Listar mis solicitudes
+
+router.get('/solicitudes/:solicitud_id', proteger, obtenerSolicitudDetalle); // Detalle
+
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/documentos:
+ *   get:
+ *     summary: Obtener documentos de una solicitud
+ *     tags: [Documentos]
+ *     description: Obtiene todos los documentos asociados a una solicitud
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Lista de documentos obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Documento'
+ *       401:
+ *         description: No autorizado
+ * 
+ *   post:
+ *     summary: Subir documento a una solicitud
+ *     tags: [Documentos]
+ *     description: Sube un documento a una solicitud específica
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - archivo
+ *               - tipo
+ *             properties:
+ *               archivo:
+ *                 type: string
+ *                 format: binary
+ *                 description: Archivo a subir (PDF, JPG, JPEG, PNG, máximo 5MB)
+ *               tipo:
+ *                 type: string
+ *                 enum: [dni, cuit, comprobante_domicilio, balance_contable, estado_financiero, declaracion_impuestos]
+ *                 description: Tipo de documento
+ *     responses:
+ *       201:
+ *         description: Documento subido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         documento:
+ *                           $ref: '#/components/schemas/Documento'
+ *                         url_publica:
+ *                           type: string
+ *                         informacion_extraida:
+ *                           type: object
+ *       400:
+ *         description: Datos inválidos o archivo no válido
+ *       401:
+ *         description: No autorizado
+ *       413:
+ *         description: Archivo demasiado grande
+ */
+
+router.get('/solicitudes/:solicitud_id/documentos', proteger, obtenerDocumentosSolicitud);
+
+router.post(
+  '/solicitudes/:solicitud_id/documentos',
+  proteger,
+  autorizar('solicitante'),
+  upload.single('archivo'),
+  subirDocumento 
+);
+
+// Rutas para operadores
+router.get('/solicitudes', proteger, autorizar('operador'), obtenerTodasSolicitudes);
+
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/asignar:
+ *   put:
+ *     summary: Asignar operador a solicitud
+ *     tags: [Operadores]
+ *     description: Asigna un operador a una solicitud para revisión
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - operador_id
+ *             properties:
+ *               operador_id:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID del operador a asignar
+ *     responses:
+ *       200:
+ *         description: Operador asignado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/SolicitudCredito'
+ *       400:
+ *         description: ID de operador no proporcionado
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Sin permisos (solo operadores)
+ *       404:
+ *         description: Solicitud no encontrada
+ */
+
+router.put('/solicitudes/:solicitud_id/asignar', proteger, autorizar('operador'), asignarOperador);
+
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/aprobar:
+ *   put:
+ *     summary: Aprobar solicitud de crédito
+ *     tags: [Operadores]
+ *     description: Aprueba una solicitud de crédito
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               comentarios:
+ *                 type: string
+ *                 description: Comentarios de aprobación
+ *               condiciones:
+ *                 type: object
+ *                 description: Condiciones de aprobación
+ *     responses:
+ *       200:
+ *         description: Solicitud aprobada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/SolicitudCredito'
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Sin permisos (solo operadores)
+ *       404:
+ *         description: Solicitud no encontrada
+ */
+router.put('/solicitudes/:solicitud_id/aprobar', proteger, autorizar('operador'), aprobarSolicitud);
+
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/rechazar:
+ *   put:
+ *     summary: Rechazar solicitud de crédito
+ *     tags: [Operadores]
+ *     description: Rechaza una solicitud de crédito
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - motivo_rechazo
+ *             properties:
+ *               motivo_rechazo:
+ *                 type: string
+ *                 description: Motivo del rechazo
+ *     responses:
+ *       200:
+ *         description: Solicitud rechazada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/SolicitudCredito'
+ *       400:
+ *         description: Motivo de rechazo no proporcionado
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Sin permisos (solo operadores)
+ *       404:
+ *         description: Solicitud no encontrada
+ */
+
+router.put('/solicitudes/:solicitud_id/rechazar', proteger, autorizar('operador'), rechazarSolicitud);
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/solicitar-info:
+ *   put:
+ *     summary: Solicitar información adicional
+ *     tags: [Operadores]
+ *     description: Solicita información adicional al solicitante
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - informacion_solicitada
+ *             properties:
+ *               informacion_solicitada:
+ *                 type: string
+ *                 description: Información solicitada
+ *               plazo_dias:
+ *                 type: integer
+ *                 minimum: 1
+ *                 default: 7
+ *                 description: Plazo en días para responder
+ *     responses:
+ *       200:
+ *         description: Información adicional solicitada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/SolicitudCredito'
+ *       400:
+ *         description: Información solicitada no proporcionada
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Sin permisos (solo operadores)
+ *       404:
+ *         description: Solicitud no encontrada
+ */
+router.put('/solicitudes/:solicitud_id/solicitar-info', proteger, autorizar('operador'), solicitarInformacionAdicional);
+
+/**
+ * @swagger
+ * /api/documentos/{documento_id}/validar:
+ *   put:
+ *     summary: Validar documento (Operador)
+ *     tags: [Documentos]
+ *     description: Valida o rechaza un documento subido
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: documento_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del documento
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - estado
+ *             properties:
+ *               estado:
+ *                 type: string
+ *                 enum: [validado, rechazado]
+ *                 description: Nuevo estado del documento
+ *               comentarios:
+ *                 type: string
+ *                 description: Comentarios de validación
+ *     responses:
+ *       200:
+ *         description: Documento validado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Documento'
+ *       400:
+ *         description: Estado inválido
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Sin permisos (solo operadores)
+ *       404:
+ *         description: Documento no encontrada
+ */
+router.put('/documentos/:documento_id/validar', proteger, autorizar('operador'), validarDocumento);
+
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/verificar-kyc:
+ *   post:
+ *     summary: Iniciar verificación KYC
+ *     tags: [KYC/AML]
+ *     description: Inicia el proceso de verificación KYC con Didit
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Verificación KYC iniciada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         verificationUrl:
+ *                           type: string
+ *                         sessionId:
+ *                           type: string
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Solicitud no encontrada
+ */
+router.post('/solicitudes/:solicitud_id/verificar-kyc', proteger, iniciarVerificacionKYC);
+
+/**
+ * @swagger
+ * /api/estadisticas:
+ *   get:
+ *     summary: Obtener estadísticas del sistema
+ *     tags: [Estadísticas]
+ *     description: Obtiene estadísticas del sistema para el dashboard de operadores
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Estadísticas obtenidas exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         totalSolicitudes:
+ *                           type: integer
+ *                         porEstado:
+ *                           type: object
+ *                         porRiesgo:
+ *                           type: object
+ *                         solicitudesUltimoMes:
+ *                           type: integer
+ *                         montoTotalAprobado:
+ *                           type: number
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Sin permisos (solo operadores)
+ */
+router.get('/estadisticas', proteger, autorizar('operador'), obtenerEstadisticas);
+router.get('/documentos/:documento_id/descargar', proteger, descargarDocumento);
+
+/**
+ * @swagger
+ * /api/webhooks/didit:
+ *   post:
+ *     summary: Webhook para recibir notificaciones de Didit
+ *     tags: [Webhooks]
+ *     description: Endpoint público para recibir webhooks de Didit sobre verificaciones KYC
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               session_id:
+ *                 type: string
+ *                 description: ID de sesión de Didit
+ *               status:
+ *                 type: string
+ *                 description: Estado de la verificación
+ *               webhook_type:
+ *                 type: string
+ *                 description: Tipo de webhook
+ *               decision:
+ *                 type: object
+ *                 description: Decisión de la verificación
+ *     responses:
+ *       200:
+ *         description: Webhook procesado exitosamente
+ *       401:
+ *         description: Firma de webhook inválida
+ *       404:
+ *         description: Verificación no encontrada
+ */
+router.post('/webhooks/didit', handleDiditWebhook);
 
 module.exports = router;

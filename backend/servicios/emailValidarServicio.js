@@ -80,7 +80,7 @@ class emailValidarServicio {
         timeout: 10000 // Aumentar timeout
       });
 
-      console.log('📊 Respuesta de Abstract API:', JSON.stringify(response.data, null, 2));
+      console.log('. Respuesta de Abstract API:', JSON.stringify(response.data, null, 2));
 
       if (response.data) {
         const data = response.data;
@@ -100,7 +100,7 @@ class emailValidarServicio {
     } catch (error) {
       console.log('. Abstract API validation failed:', error.message);
       if (error.response) {
-        console.log('📋 Detalles del error:', {
+        console.log('. Detalles del error:', {
           status: error.response.status,
           data: error.response.data
         });
@@ -168,7 +168,7 @@ class emailValidarServicio {
 
   // Método principal que prueba todos los servicios
   async validateEmail(email) {
-    console.log(`🔍 Validando email: ${email}`);
+    console.log(`. Validando email: ${email}`);
     
     let validationResults = [];
 
@@ -205,7 +205,7 @@ class emailValidarServicio {
       timestamp: new Date().toISOString()
     };
 
-    console.log(`📊 Resultado final: ${finalResult.isValid ? '. VÁLIDO' : '. INVÁLIDO'} (confianza: ${Math.round(finalResult.confidence * 100)}%)`);
+    console.log(`. Resultado final: ${finalResult.isValid ? '. VÁLIDO' : '. INVÁLIDO'} (confianza: ${Math.round(finalResult.confidence * 100)}%)`);
 
     return finalResult;
   }

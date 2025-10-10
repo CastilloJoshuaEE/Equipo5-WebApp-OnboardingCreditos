@@ -10,7 +10,7 @@ export default function ConfirmacionExitosa() {
     <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={3} p={3}>
       <Alert severity="success" sx={{ width: '100%', maxWidth: 500 }}>
         <Typography variant="h6" gutterBottom>
-          ✅ Email Confirmado Exitosamente
+          . Email Confirmado Exitosamente
         </Typography>
         <Typography>
           Tu dirección de email ha sido confirmada correctamente. Ahora puedes iniciar sesión en el sistema.

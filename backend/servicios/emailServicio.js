@@ -11,7 +11,7 @@ const {
 // Función principal .
 const enviarEmailBienvenida = async (email, nombre, rol) => {
   try {
-    console.log(`📧 [GMAIL] Intentando enviar email de bienvenida a: ${email}`);
+    console.log(`. [GMAIL] Intentando enviar email de bienvenida a: ${email}`);
     
     // Verificar configuración de Gmail
     const configuracionValida = await verificarConexionGmail();
@@ -29,7 +29,7 @@ const enviarEmailBienvenida = async (email, nombre, rol) => {
     const resultado = await enviarEmailBienvenidaGmail(email, nombre, rol);
     
     if (resultado.success) {
-      console.log('🎉 Email de bienvenida enviado exitosamente via Gmail');
+      console.log('. Email de bienvenida enviado exitosamente via Gmail');
     } else {
       console.warn('. Email no enviado, pero usuario creado:', resultado.error);
     }
@@ -49,7 +49,7 @@ const enviarEmailBienvenida = async (email, nombre, rol) => {
 // . NUEVA FUNCIÓN: Enviar email de confirmación
 const enviarEmailConfirmacionCuenta = async (email, nombre, userId) => {
   try {
-    console.log(`📧 [CONFIRMACIÓN] Enviando email de confirmación a: ${email}`);
+    console.log(`. [CONFIRMACIÓN] Enviando email de confirmación a: ${email}`);
     
     const configuracionValida = await verificarConexionGmail();
     
@@ -67,12 +67,12 @@ const enviarEmailConfirmacionCuenta = async (email, nombre, userId) => {
     const tokenConfirmacion = generarTokenConfirmacion(userId, email);
     const enlaceConfirmacion = `${FRONTEND_URL}/api/auth/confirmar?token=${tokenConfirmacion}`;
     
-    console.log(`🔗 Enlace de confirmación generado: ${enlaceConfirmacion}`);
+    console.log(`. Enlace de confirmación generado: ${enlaceConfirmacion}`);
 
     const resultado = await enviarEmailConfirmacion(email, nombre, userId);
     
     if (resultado.success) {
-      console.log('🎉 Email de confirmación enviado exitosamente');
+      console.log('. Email de confirmación enviado exitosamente');
     } else {
       console.warn('. Email de confirmación no enviado:', resultado.error);
     }
@@ -200,7 +200,7 @@ const crearPlantillaRecuperacion = (nombre, enlaceRecuperacion) => {
           <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en el Sistema de Créditos.</p>
           
           <div class="info-box">
-            <p><strong>📋 Información de la solicitud:</strong></p>
+            <p><strong>. Información de la solicitud:</strong></p>
             <p>• Tipo: Recuperación de contraseña</p>
             <p>• Solicitado: ${new Date().toLocaleString('es-ES')}</p>
             <p>• Expira: En 1 hora</p>
@@ -267,7 +267,7 @@ Este es un mensaje automático de seguridad, por favor no responder este email.
 // Función para enviar email de recuperación personalizado
 const enviarEmailRecuperacionPersonalizado = async (email, nombre, enlaceRecuperacion) => {
   try {
-    console.log(`📧 [RECUPERACIÓN] Preparando email de recuperación para: ${email}`);
+    console.log(`. [RECUPERACIÓN] Preparando email de recuperación para: ${email}`);
     
     const plantilla = crearPlantillaRecuperacion(nombre, enlaceRecuperacion);
     
@@ -299,7 +299,7 @@ const enviarEmailRecuperacionPersonalizado = async (email, nombre, enlaceRecuper
 // Función principal para enviar email de recuperación
 const enviarEmailRecuperacionContrasena = async (email, nombre, userId) => {
   try {
-    console.log(`📧 [RECUPERACIÓN] Iniciando envío de email de recuperación para: ${email}`);
+    console.log(`. [RECUPERACIÓN] Iniciando envío de email de recuperación para: ${email}`);
     
     // Verificar configuración de Gmail
     const configuracionValida = await verificarConexionGmail();
@@ -317,13 +317,13 @@ const enviarEmailRecuperacionContrasena = async (email, nombre, userId) => {
     const tokenRecuperacion = Buffer.from(`${userId}:${email}:${Date.now()}:recuperacion`).toString('base64');
     const enlaceRecuperacion = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/resetear-contrasena?token=${tokenRecuperacion}`;
     
-    console.log(`🔗 Enlace de recuperación generado: ${enlaceRecuperacion}`);
+    console.log(`. Enlace de recuperación generado: ${enlaceRecuperacion}`);
     
     // Enviar email personalizado
     const resultado = await enviarEmailRecuperacionPersonalizado(email, nombre, enlaceRecuperacion);
     
     if (resultado.success) {
-      console.log('🎉 Email de recuperación enviado exitosamente');
+      console.log('. Email de recuperación enviado exitosamente');
     } else {
       console.warn('. Email de recuperación no enviado:', resultado.error);
     }

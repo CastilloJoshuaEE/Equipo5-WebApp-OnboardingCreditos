@@ -8,6 +8,12 @@ const swaggerJsDoc = require("swagger-jsdoc");
 const routes = require("./routes/routes");
 const datosIniciales = require("./datos_iniciales");
 const { verificarConexion } = require("./config/conexion");
+const {configurarStorage}= require("./config/configStorage");
+const { createCanvas, Canvas, Image, ImageData } = require('canvas');
+globalThis.Canvas = Canvas;
+globalThis.Image = Image;
+globalThis.ImageData = ImageData;
+globalThis.createCanvas = createCanvas;
 
 const app = express();
 
@@ -98,10 +104,10 @@ app.get("/api/health", (req, res) => {
 // Conectar a Supabase y ejecutar datos iniciales
 const iniciarServidor = async () => {
   try {
-    console.log("🚀 Iniciando servidor...");
+    console.log(". Iniciando servidor...");
 
     // Verificar conexión a Supabase
-    console.log("🔗 Verificando conexión a Supabase...");
+    console.log(". Verificando conexión a Supabase...");
     const conexionExitosa = await verificarConexion();
 
     if (!conexionExitosa) {
@@ -127,7 +133,8 @@ const iniciarServidor = async () => {
         error.message
       );
     }
-
+    console.log(' Verificando configuración de Storage...');
+    await configurarStorage();
     // Usar rutas API
     app.use("/api", routes);
 
@@ -167,10 +174,10 @@ const iniciarServidor = async () => {
     // Iniciar servidor
     const server = app.listen(PORT, () => {
       console.log(`\n. ¡Servidor ejecutándose correctamente!`);
-      console.log(`📍 Puerto: ${PORT}`);
-      console.log(`🌐 URL: http://localhost:${PORT}`);
-      console.log(`📚 Documentación API: http://localhost:${PORT}/api-docs`);
-      console.log(`\n📋 Endpoints disponibles:`);
+      console.log(`. Puerto: ${PORT}`);
+      console.log(`. URL: http://localhost:${PORT}`);
+      console.log(`. Documentación API: http://localhost:${PORT}/api-docs`);
+      console.log(`\n. Endpoints disponibles:`);
       console.log(`   Health:    GET  http://localhost:${PORT}/api/health`);
       console.log(
         `   Registro:  POST http://localhost:${PORT}/api/usuarios/registro`

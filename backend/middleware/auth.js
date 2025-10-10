@@ -3,7 +3,6 @@ const { supabaseAdmin } = require('../config/supabaseAdmin.js');
 
 const proteger = async (req, res, next) => {
   try {
-    // Obtener token del header
     const token = req.headers.authorization?.replace('Bearer ', '');
 
     if (!token) {
@@ -13,14 +12,15 @@ const proteger = async (req, res, next) => {
       });
     }
 
-    // Verificar token con Supabase
+    console.log('Verificando token en middleware...');
+
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {
-      console.warn('. Token inválido o usuario no autenticado en Auth:', error?.message);
+      console.warn('Token inválido o usuario no autenticado:', error?.message);
       return res.status(401).json({
         success: false,
-        message: 'No autorizado, token inválido'
+        message: 'No autorizado, token inválido o expirado'
       });
     }
 

@@ -1,25 +1,99 @@
+// frontend/src/app/(dashboard)/solicitante/page.tsx
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
+import { getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import { useEffect, useState } from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Alert,
+  Tab,
+  Tabs
+} from '@mui/material';
 import { UserRole } from '@/types/auth.types';
+import SolicitudCreditoForm from '@/components/solicitudes/SolicitudCreditoForm';
+import ListaSolicitudes from '@/components/solicitudes/ListaSolicitudes';
+import GestionDocumentos from '@/components/documentos/GestionDocumentos';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`solicitante-tabpanel-${index}`}
+      aria-labelledby={`solicitante-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+}
 
 export default function DashboardSolicitante() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [tabValue, setTabValue] = useState(0);
+  const [solicitudActiva, setSolicitudActiva] = useState<string | null>(null);
 
   useEffect(() => {
- 
     if (status === 'unauthenticated') {
       router.push('/login');
     }
     
     if (session?.user?.rol !== UserRole.SOLICITANTE) {
-      router.push('/dashboard/operador');
+      router.push('/operador');
     }
   }, [status, session, router]);
+  // Cargar la solicitud activa
+  useEffect(() => {
+    const cargarSolicitudActiva = async () => {
+      try {
+        const session = await getSession();
+        if (!session?.accessToken) return;
+
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        const response = await fetch(`${API_URL}/solicitudes/mis-solicitudes`, {
+          headers: {
+            'Authorization': `Bearer ${session.accessToken}`,
+          },
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          // Tomar la primera solicitud en estado borrador o enviado
+          const solicitud = result.data?.find((s: any) => 
+            s.estado === 'borrador' || s.estado === 'enviado'
+          );
+          if (solicitud) {
+            setSolicitudActiva(solicitud.id);
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando solicitud activa:', error);
+      }
+    };
+
+    if (session) {
+      cargarSolicitudActiva();
+    }
+  }, [session]);
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
 
   if (status === 'loading') {
     return (
@@ -30,24 +104,83 @@ export default function DashboardSolicitante() {
   }
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Typography variant="h3" component="h1" gutterBottom color="primary">
-        Dashboard Solicitante PYME
-      </Typography>
-      <Typography variant="h6">
-        Bienvenido, {session?.user?.name || 'Usuario'} (Rol: {session?.user?.rol || 'No Definido'}).
-      </Typography>
-      <Typography variant="body1" sx={{ mt: 2 }}>
-        Esta página es visible solo para el rol solicitante.
-      </Typography>
-      <Button 
+    <Box sx={{ p: 3, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
+      {/* Header */}
+      <Box sx={{ mb: 4 }}>
+
+        <Typography variant="h4" component="h1" gutterBottom color="primary">
+          Dashboard Solicitante PYME
+        </Typography>
+        <Typography variant="h6" color="text.secondary">
+          Bienvenido, {session?.user?.name || 'Usuario'}
+        </Typography>
+        <Chip 
+          label="Solicitante" 
+          color="primary" 
           variant="outlined" 
-          color="error" 
-          sx={{ mt: 3 }}
+          sx={{ mt: 1 }}
+        />
+      </Box>
+
+      {/* Alertas */}
+      <Alert severity="info" sx={{ mb: 3 }}>
+        Complete su solicitud de crédito y suba toda la documentación requerida para agilizar el proceso.
+      </Alert>
+
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={tabValue} onChange={handleTabChange}>
+          <Tab label="Nueva Solicitud" />
+          <Tab label="Mis Solicitudes" />
+          <Tab label="Documentos" />
+        </Tabs>
+      </Box>
+      {/* Contenido de Tabs */}
+      <TabPanel value={tabValue} index={0}>
+        <Card>
+          <CardContent>
+            <Typography variant="h5" gutterBottom>
+              Nueva Solicitud de Crédito
+            </Typography>
+            <SolicitudCreditoForm />
+          </CardContent>
+        </Card>
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={1}>
+        <ListaSolicitudes />
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={2}>
+        <Card>
+          <CardContent>
+            <Typography variant="h5" gutterBottom>
+              Gestión de Documentos
+            </Typography>
+            <Typography variant="body1" color="text.secondary" gutterBottom>
+              Aquí podrá gestionar todos sus documentos subidos al sistema.
+            </Typography>
+            
+            {solicitudActiva ? (
+              <GestionDocumentos solicitudId={solicitudActiva} />
+            ) : (
+              <Alert severity="info">
+                No hay una solicitud activa. Cree una nueva solicitud para comenzar a subir documentos.
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      </TabPanel>
+      {/* Botón de cerrar sesión */}
+      <Box sx={{ mt: 4, textAlign: 'center' }}>
+        <Button 
+          variant="outlined" 
+          color="error"
           onClick={() => signOut({ callbackUrl: '/login' })}
-      >
-        Cerrar Sesión
-      </Button>
+        >
+          Cerrar Sesión
+        </Button>
+      </Box>
     </Box>
   );
 }
