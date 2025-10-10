@@ -1,6 +1,10 @@
 const { supabaseAdmin } = require('../config/supabaseAdmin.js');
 const { enviarEmailBienvenida } = require('../servicios/emailServicio');
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+// URLs según entorno
+const FRONTEND_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com'
+  : 'http://localhost:3000';
 
 // Verificar estado de confirmación de email
 const estadoConfirmacionEmail = async (req, res) => {
@@ -24,7 +28,7 @@ const estadoConfirmacionEmail = async (req, res) => {
   }
 };
 
-// Confirmar email del usuario
+// Confirmar email del usuario - CORREGIDO
 const confirmarEmail = async (req, res) => {
   try {
     const { token } = req.query;
@@ -32,14 +36,6 @@ const confirmarEmail = async (req, res) => {
     console.log('. Procesando confirmación de email con token:', token);
 
     if (!token) {
-      // Si es API request, responder con JSON
-      if (req.headers['content-type']?.includes('application/json')) {
-        return res.status(400).json({
-          success: false,
-          message: 'Token de confirmación no proporcionado'
-        });
-      }
-      // Si es browser redirect, mostrar HTML
       return res.status(400).send(`
         <html><body>
           <h1>Error de Confirmación</h1>
@@ -49,13 +45,26 @@ const confirmarEmail = async (req, res) => {
       `);
     }
 
-    // Decodificar el token
-    const tokenDecodificado = Buffer.from(token, 'base64').toString('utf-8');
-    const [userId, email, timestamp] = tokenDecodificado.split(':');
+    // Decodificar el token BASE64 correctamente
+    let tokenDecodificado;
+    try {
+      tokenDecodificado = Buffer.from(token, 'base64').toString('utf-8');
+      console.log('. Token decodificado:', tokenDecodificado);
+    } catch (decodeError) {
+      console.error('. Error decodificando token:', decodeError);
+      throw new Error('Token de confirmación inválido');
+    }
+
+    const parts = tokenDecodificado.split(':');
+    if (parts.length < 3) {
+      throw new Error('Token de confirmación mal formado');
+    }
+
+    const [userId, email, timestamp] = parts;
     
     console.log('. Confirmando email para usuario:', { userId, email });
 
-    // Verificar que el token no sea muy viejo (24 horas máximo)
+    // Verificar que el token no sea viejo (24 horas máximo) - CORREGIDO
     const tiempoToken = parseInt(timestamp);
     const ahora = Date.now();
     const diferenciaHoras = (ahora - tiempoToken) / (1000 * 60 * 60);
@@ -67,7 +76,7 @@ const confirmarEmail = async (req, res) => {
       });
     }
 
-    // . PRIMERO: Verificar si el usuario existe en nuestra tabla
+    // PRIMERO: Verificar si el usuario existe en nuestra tabla
     const { data: usuarioExistente, error: usuarioError } = await supabaseAdmin
       .from('usuarios')
       .select('*')
@@ -83,7 +92,7 @@ const confirmarEmail = async (req, res) => {
 
     let authConfirmed = false;
 
-    // . INTENTAR CONFIRMAR EN SUPABASE AUTH (pero continuar si falla)
+    // INTENTAR CONFIRMAR EN SUPABASE AUTH
     try {
       const { data: user, error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(
         userId,
@@ -91,17 +100,16 @@ const confirmarEmail = async (req, res) => {
       );
 
       if (confirmError) {
-        console.warn('. No se pudo confirmar en Auth (puede que el usuario no exista en Auth):', confirmError.message);
-        // Continuar con el proceso aunque falle en Auth
+        console.warn('. No se pudo confirmar en Auth:', confirmError.message);
       } else {
         console.log('. Email confirmado exitosamente en Supabase Auth');
         authConfirmed = true;
       }
     } catch (authError) {
-      console.warn('. Error en confirmación de Auth, continuando con confirmación local:', authError.message);
+      console.warn('. Error en confirmación de Auth:', authError.message);
     }
 
-    // . ACTUALIZAR CUENTA COMO ACTIVA en nuestra tabla (ESTO ES LO MÁS IMPORTANTE)
+    // ACTUALIZAR CUENTA COMO ACTIVA en nuestra tabla
     const { error: updateError } = await supabaseAdmin
       .from('usuarios')
       .update({ 
@@ -117,14 +125,13 @@ const confirmarEmail = async (req, res) => {
 
     console.log('. Cuenta activada exitosamente en tabla usuarios para:', email);
 
-    // . ENVIAR EMAIL DE BIENVENIDA DESPUÉS DE LA CONFIRMACIÓN
+    // ENVIAR EMAIL DE BIENVENIDA DESPUÉS DE LA CONFIRMACIÓN
     try {
       console.log('. Enviando email de bienvenida después de confirmación...');
       await enviarEmailBienvenida(email, usuarioExistente.nombre_completo, usuarioExistente.rol);
       console.log('. Email de bienvenida enviado exitosamente');
     } catch (emailError) {
       console.warn('. Error enviando email de bienvenida:', emailError.message);
-      // No fallar la confirmación por error en email de bienvenida
     }
 
     // Redirigir a una página de éxito
@@ -173,28 +180,13 @@ const confirmarEmail = async (req, res) => {
                   margin: 15px 0;
                   font-weight: bold;
               }
-              .warning {
-                  background: #fef3c7;
-                  border-left: 4px solid #f59e0b;
-                  padding: 10px;
-                  margin: 15px 0;
-                  border-radius: 4px;
-                  color: #92400e;
-                  font-size: 14px;
-              }
           </style>
       </head>
       <body>
           <div class="container">
-              <div class="success-icon">.</div>
+              <div class="success-icon">✓</div>
               <h1>¡Cuenta Activada Exitosamente!</h1>
               <p>${mensajeExito}</p>
-              
-              ${!authConfirmed ? `
-              <div class="warning">
-                  <p><strong>Nota:</strong> La confirmación se realizó localmente. Si tienes problemas para iniciar sesión, contacta al soporte.</p>
-              </div>
-              ` : ''}
               
               <p>Se ha enviado un email de bienvenida con información importante.</p>
               <p>Ahora puedes iniciar sesión en el sistema con tus credenciales.</p>
@@ -206,12 +198,6 @@ const confirmarEmail = async (req, res) => {
 
   } catch (error) {
     console.error('. Error en confirmación de email:', error);
-    if (req.headers['content-type']?.includes('application/json')) {
-      return res.status(400).json({
-        success: false,
-        message: error.message
-      });
-    }    
     res.status(400).send(`
       <!DOCTYPE html>
       <html>
@@ -232,11 +218,11 @@ const confirmarEmail = async (req, res) => {
           </style>
       </head>
       <body>
-          <div class="error-icon">.</div>
+          <div class="error-icon">❌</div>
           <h1>Error al Activar Cuenta</h1>
           <p>${error.message || 'Ha ocurrido un error al activar tu cuenta.'}</p>
           <p>Por favor, intenta nuevamente o contacta al soporte.</p>
-          <a href="${FRONTEND_URL}/login" style="color: #2563eb; text-decoration: none;">Volver al Inicio</a>
+          <a href="${FRONTEND_URL}" style="color: #2563eb; text-decoration: none;">Volver al Inicio</a>
       </body>
       </html>
     `);
