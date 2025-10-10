@@ -6,7 +6,7 @@ const { validateEmailBeforeAuth } = require('../middleware/emailValidation');
 
 const registrar = async (req, res) => {
   try {
-    console.log('📨 Body recibido:', req.body);
+    console.log('. Body recibido:', req.body);
 
     if (!req.body) {
       return res.status(400).json({
@@ -36,7 +36,7 @@ const registrar = async (req, res) => {
       });
     }
 
-    console.log('📝 Registrando nuevo usuario:', { 
+    console.log('. Registrando nuevo usuario:', { 
       email, 
       rol, 
       nombre_completo: nombre_completo.substring(0, 10) + '...' 
@@ -44,7 +44,7 @@ const registrar = async (req, res) => {
 
     // . NUEVO: Mostrar resultado de validación de email
     if (req.emailValidation) {
-      console.log('📊 Resultado de validación de email:', {
+      console.log('. Resultado de validación de email:', {
         isValid: req.emailValidation.isValid,
         confidence: req.emailValidation.confidence,
         servicesUsed: req.emailValidation.servicesUsed
@@ -237,7 +237,7 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
   }
 };
 const enviarEmailConfirmacionSiEsPosible = async (email, nombre, userId) => {
-  console.log('📧 [CONFIRMACIÓN] Iniciando envío de email de confirmación...');
+  console.log('. [CONFIRMACIÓN] Iniciando envío de email de confirmación...');
   try {
     const emailResult = await enviarEmailConfirmacionCuenta(email, nombre, userId);
     
@@ -248,7 +248,7 @@ const enviarEmailConfirmacionSiEsPosible = async (email, nombre, userId) => {
         console.warn('. Email de confirmación no enviado (error de envío):', emailResult.error);
       }
     } else {
-      console.log('🎉 Email de confirmación enviado exitosamente');
+      console.log('. Email de confirmación enviado exitosamente');
     }
     
     return { emailEnviado: emailResult.success };
@@ -456,7 +456,7 @@ const insertarEnTablaEspecifica = async (rol, userId, datos) => {
 
 // FUNCIÓN AUXILIAR PARA ENVÍO DE EMAIL
 const enviarEmailBienvenidaSiEsPosible = async (email, nombre, rol) => {
-  console.log('📧 [SISTEMA] Iniciando envío de email de bienvenida...');
+  console.log('. [SISTEMA] Iniciando envío de email de bienvenida...');
   try {
     const emailResult = await enviarEmailBienvenida(email, nombre, rol);
     
@@ -467,7 +467,7 @@ const enviarEmailBienvenidaSiEsPosible = async (email, nombre, rol) => {
         console.warn('. Email no enviado (error de envío), pero usuario creado:', emailResult.error);
       }
     } else {
-      console.log('🎉 Email de bienvenida enviado exitosamente');
+      console.log('. Email de bienvenida enviado exitosamente');
     }
     
     // Siempre retornar éxito para no bloquear el registro
@@ -481,7 +481,7 @@ const enviarEmailBienvenidaSiEsPosible = async (email, nombre, rol) => {
 
 const obtenerPerfil = async (req, res) => {
   try {
-    console.log('👤 Obteniendo perfil para usuario ID:', req.usuario.id);
+    console.log('. Obteniendo perfil para usuario ID:', req.usuario.id);
     
     // . Usar el ID del middleware (ya . si era necesario)
     let userProfile;
@@ -537,7 +537,7 @@ const obtenerPerfilPorId = async (req, res) => {
   try {
     const { id } = req.params;
     
-    console.log('👤 Obteniendo perfil por ID:', id);
+    console.log('. Obteniendo perfil por ID:', id);
     
     // Verificar que el ID sea un UUID válido
     if (!id || !id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
@@ -592,7 +592,7 @@ const actualizarPerfil = async (req, res) => {
     const { nombre_completo, telefono, direccion } = req.body;
     
     console.log('✏️ Actualizando perfil para usuario ID:', req.usuario.id);
-    console.log('📝 Datos a actualizar:', { nombre_completo, telefono, direccion });
+    console.log('. Datos a actualizar:', { nombre_completo, telefono, direccion });
 
     // Validar que al menos un campo sea proporcionado
     if (!nombre_completo && !telefono && !direccion) {
@@ -651,7 +651,7 @@ const actualizarPerfilPorId = async (req, res) => {
     const { nombre_completo, telefono, direccion, cuenta_activa, rol } = req.body;
     
     console.log('✏️ Actualizando perfil por ID:', id);
-    console.log('📝 Datos a actualizar:', { nombre_completo, telefono, direccion, cuenta_activa, rol });
+    console.log('. Datos a actualizar:', { nombre_completo, telefono, direccion, cuenta_activa, rol });
 
     // Verificar que el ID sea un UUID válido
     if (!id || !id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
@@ -727,7 +727,7 @@ const cambiarContrasena = async (req, res) => {
     const { contrasena_actual, nueva_contrasena, confirmar_contrasena} = req.body;
 
     console.log('. Solicitando cambio de contraseña para usuario ID:', req.usuario.id);
-    console.log('📝 Datos recibidos:', { 
+    console.log('. Datos recibidos:', { 
       contrasena_actual: !!contrasena_actual, 
       nueva_contrasena: !!nueva_contrasena, 
       confirmar_contrasena: !!confirmar_contrasena
@@ -924,7 +924,7 @@ const solicitarRecuperacionContrasena = async (req, res) => {
       });
     }
 
-    console.log('📧 Solicitando enlace de recuperación para:', email);
+    console.log('. Solicitando enlace de recuperación para:', email);
 
     // Verificar que el usuario existe
     const { data: usuarioExistente, error: usuarioError } = await supabase
@@ -979,7 +979,7 @@ const solicitarRecuperacionContrasena = async (req, res) => {
     }
 
     // OPCIÓN 2: Usar Supabase Auth (fallback)
-    console.log('📧 Enviando email de recuperación via Supabase Auth...');
+    console.log('. Enviando email de recuperación via Supabase Auth...');
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/resetear-contrasena`
     });

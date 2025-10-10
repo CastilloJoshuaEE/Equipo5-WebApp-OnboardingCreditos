@@ -53,7 +53,7 @@ const confirmarEmail = async (req, res) => {
     const tokenDecodificado = Buffer.from(token, 'base64').toString('utf-8');
     const [userId, email, timestamp] = tokenDecodificado.split(':');
     
-    console.log('📧 Confirmando email para usuario:', { userId, email });
+    console.log('. Confirmando email para usuario:', { userId, email });
 
     // Verificar que el token no sea muy viejo (24 horas máximo)
     const tiempoToken = parseInt(timestamp);
@@ -119,9 +119,9 @@ const confirmarEmail = async (req, res) => {
 
     // . ENVIAR EMAIL DE BIENVENIDA DESPUÉS DE LA CONFIRMACIÓN
     try {
-      console.log('📧 Enviando email de bienvenida después de confirmación...');
+      console.log('. Enviando email de bienvenida después de confirmación...');
       await enviarEmailBienvenida(email, usuarioExistente.nombre_completo, usuarioExistente.rol);
-      console.log('🎉 Email de bienvenida enviado exitosamente');
+      console.log('. Email de bienvenida enviado exitosamente');
     } catch (emailError) {
       console.warn('. Error enviando email de bienvenida:', emailError.message);
       // No fallar la confirmación por error en email de bienvenida

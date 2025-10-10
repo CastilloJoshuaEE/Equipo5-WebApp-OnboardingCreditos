@@ -35,7 +35,7 @@ export default function LoginForm() {
         redirect: false,
       });
 
-      console.log('📋 Resultado del signIn:', result);
+      console.log('. Resultado del signIn:', result);
 
       if (result?.error) {
         console.error('. Error en signIn:', result.error);

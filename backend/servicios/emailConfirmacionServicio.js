@@ -108,7 +108,7 @@ const crearPlantillaConfirmacion = (nombre, tokenConfirmacion) => {
                 <p>¡Gracias por registrarte en el Sistema de Créditos! Para activar tu cuenta y comenzar a utilizar nuestros servicios, necesitas confirmar tu dirección de email.</p>
                 
                 <div class="highlight">
-                    <p><strong>📋 Información de tu cuenta:</strong></p>
+                    <p><strong>. Información de tu cuenta:</strong></p>
                     <p>• Estado: Pendiente de confirmación</p>
                     <p>• Acceso: Disponible después de confirmar email</p>
                 </div>
@@ -173,7 +173,7 @@ Este es un mensaje automático, por favor no responder este email.
 // Función principal para enviar email de confirmación
 const enviarEmailConfirmacion = async (email, nombre, userId) => {
   try {
-    console.log(`📧 [CONFIRMACIÓN] Preparando email de confirmación para: ${email}`);
+    console.log(`. [CONFIRMACIÓN] Preparando email de confirmación para: ${email}`);
     
     const tokenConfirmacion = generarTokenConfirmacion(userId, email);
     const plantilla = crearPlantillaConfirmacion(nombre, tokenConfirmacion);

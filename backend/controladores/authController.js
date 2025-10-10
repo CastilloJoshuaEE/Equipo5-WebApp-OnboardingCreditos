@@ -1,4 +1,4 @@
-// controladores/authController.js - VERSIÓN COMPLETA Y CORREGIDA
+// controladores/authController.js - .
 const { supabase } = require('../config/conexion.js');
 const { supabaseAdmin } = require('../config/supabaseAdmin.js');
 
@@ -17,7 +17,7 @@ const login = async (req, res) => {
     }
 
     // 1. PRIMERO verificar si existe en nuestra tabla usuarios
-    console.log('📋 Verificando existencia en tabla usuarios...');
+    console.log('. Verificando existencia en tabla usuarios...');
     const { data: usuarioExistente, error: usuarioError } = await supabase
       .from('usuarios')
       .select('id, email, cuenta_activa, rol, nombre_completo')
@@ -298,7 +298,7 @@ const getSession = async (req, res) => {
       });
     }
 
-    console.log('🔍 Verificando sesión para usuario:', session.user.id);
+    console.log('. Verificando sesión para usuario:', session.user.id);
 
     // PRIMERO: Intentar obtener perfil por ID de Auth
     const { data: userProfile, error: profileError } = await supabase

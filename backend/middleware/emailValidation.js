@@ -11,7 +11,7 @@ const validateEmailBeforeAuth = async (req, res, next) => {
       });
     }
 
-    console.log(`📧 [VALIDACIÓN] Verificando email antes de registro: ${email}`);
+    console.log(`. [VALIDACIÓN] Verificando email antes de registro: ${email}`);
 
     // Validación rápida primero
     const quickValidation = await emailValidator.quickValidate(email);

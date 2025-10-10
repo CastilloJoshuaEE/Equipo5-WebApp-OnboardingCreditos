@@ -68,7 +68,7 @@ function ConfirmacionContent() {
         sx={{ width: '100%', maxWidth: 500 }}
       >
         <Typography variant="h6" gutterBottom>
-          {status === 'success' ? '✅ Confirmación Exitosa' : '❌ Error de Confirmación'}
+          {status === 'success' ? '. Confirmación Exitosa' : '. Error de Confirmación'}
         </Typography>
         <Typography>
           {message}

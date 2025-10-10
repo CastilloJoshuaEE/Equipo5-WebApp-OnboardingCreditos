@@ -4,7 +4,7 @@ const { supabaseAdmin, getUserByEmail } = require('./config/supabaseAdmin.js');
 
 const datosIniciales = async () => {
   try {
-    console.log('📊 Conectando a Supabase para inserción de datos iniciales...');
+    console.log('. Conectando a Supabase para inserción de datos iniciales...');
 
     // Verificar si ya existen usuarios en la tabla personalizada
     const { data: usuariosExistentes, error: countError } = await supabase
@@ -17,20 +17,20 @@ const datosIniciales = async () => {
     }
 
     if (!usuariosExistentes || usuariosExistentes.length === 0) {
-      console.log('🆕 Insertando datos iniciales en Supabase...');
+      console.log('. Insertando datos iniciales en Supabase...');
 
       // 1. Obtener o crear usuarios en Auth de Supabase
-      console.log('🔐 Procesando usuarios en sistema de autenticación...');
+      console.log('. Procesando usuarios en sistema de autenticación...');
       const usuariosAuthIds = await crearUsuariosAuth();
 
       // 2. Insertar en tabla usuarios y tablas específicas
-      console.log('💾 Insertando usuarios en tablas personalizadas...');
+      console.log('. Insertando usuarios en tablas personalizadas...');
       
       await insertarUsuariosEnTablas(usuariosAuthIds);
 
     } else {
       console.log('. Ya existen usuarios en la base de datos, omitiendo inserción');
-      console.log('📋 Usuarios existentes:', usuariosExistentes.map(u => `${u.email} (${u.rol})`));
+      console.log('. Usuarios existentes:', usuariosExistentes.map(u => `${u.email} (${u.rol})`));
     }
 
     console.log(' Datos iniciales procesados correctamente');
@@ -45,7 +45,7 @@ const datosIniciales = async () => {
 // Función para insertar usuarios en todas las tablas necesarias
 const insertarUsuariosEnTablas = async (usuariosAuthIds) => {
   try {
-    console.log('📋 IDs recibidos para inserción:', usuariosAuthIds);
+    console.log('. IDs recibidos para inserción:', usuariosAuthIds);
 
     
     const usuarios = [
@@ -76,7 +76,7 @@ const insertarUsuariosEnTablas = async (usuariosAuthIds) => {
     ];
 
     // . VERIFICAR QUE LOS IDs NO SEAN NULL
-    console.log('🔍 Verificando IDs antes de inserción:');
+    console.log('. Verificando IDs antes de inserción:');
     usuarios.forEach(usuario => {
       console.log(`   ${usuario.email}: ${usuario.id}`);
       if (!usuario.id) {
@@ -85,7 +85,7 @@ const insertarUsuariosEnTablas = async (usuariosAuthIds) => {
     });
 
     // 1. Insertar en tabla usuarios usando el cliente admin
-    console.log('📝 Insertando en tabla usuarios...');
+    console.log('. Insertando en tabla usuarios...');
     const { data: usuariosInsertados, error: insertError } = await supabaseAdmin
       .from('usuarios')
       .insert(usuarios)
@@ -151,7 +151,7 @@ const insertarUsuariosEnTablas = async (usuariosAuthIds) => {
       }
     }
 
-    console.log('📊 Resumen final:');
+    console.log('. Resumen final:');
     console.log(`   - Usuarios en tabla 'usuarios': ${usuariosInsertados.length}`);
     console.log(`   - Operadores en tabla 'operadores': ${operadores.length}`);
     console.log(`   - Solicitantes en tabla 'solicitantes': ${solicitantes.length}`);
@@ -193,7 +193,7 @@ const crearUsuariosAuth = async () => {
     ];
 
     for (const usuario of usuariosAuth) {
-      console.log(`👤 Procesando usuario: ${usuario.email}`);
+      console.log(`. Procesando usuario: ${usuario.email}`);
       
       try {
         // . MEJORADO: Usar la función getUserByEmail correctamente
@@ -216,7 +216,7 @@ const crearUsuariosAuth = async () => {
             
             // Si es error de usuario existente, intentar obtenerlo de nuevo
             if (createError.code === 'email_exists' || createError.status === 422) {
-              console.log(`🔄 Usuario ya existe, obteniendo ID...`);
+              console.log(`. Usuario ya existe, obteniendo ID...`);
               const { data: retryUser } = await getUserByEmail(usuario.email);
               if (retryUser && retryUser.user) {
                 userId = retryUser.user.id;
@@ -248,8 +248,8 @@ const crearUsuariosAuth = async () => {
       }
     }
 
-    console.log('🔐 Proceso de usuarios en Auth completado');
-    console.log('📋 IDs obtenidos:', usuariosAuthIds);
+    console.log('. Proceso de usuarios en Auth completado');
+    console.log('. IDs obtenidos:', usuariosAuthIds);
     
     // . VERIFICAR QUE TODOS LOS IDs ESTÉN PRESENTES
     const emailsEsperados = ['jomeregildo64', 'joshuamerejildo846'];

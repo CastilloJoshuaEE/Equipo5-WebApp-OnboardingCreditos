@@ -53,7 +53,7 @@ const verificarConexionGmail = async (maxRetries = 3) => {
 const enviarEmailGmail = async (destinatario, asunto, contenidoHTML, contenidoTexto = '', maxRetries = 2) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`📧 [GMAIL] Intentando enviar email a: ${destinatario} (intento ${attempt}/${maxRetries})`);
+      console.log(`. [GMAIL] Intentando enviar email a: ${destinatario} (intento ${attempt}/${maxRetries})`);
       
       const transporter = crearTransporter();
       
@@ -70,7 +70,7 @@ const enviarEmailGmail = async (destinatario, asunto, contenidoHTML, contenidoTe
       const resultado = await transporter.sendMail(mailOptions);
       
       console.log('. Email enviado exitosamente a:', destinatario);
-      console.log('📨 ID del mensaje:', resultado.messageId);
+      console.log('. ID del mensaje:', resultado.messageId);
       
       return {
         success: true,
@@ -198,13 +198,13 @@ const crearPlantillaBienvenida = (nombre, rol) => {
                 <p>${mensaje}</p>
                 
                 <div class="highlight">
-                    <p><strong>📋 Información de tu cuenta:</strong></p>
+                    <p><strong>. Información de tu cuenta:</strong></p>
                     <p>• Rol: ${rol === 'operador' ? 'Operador del Sistema' : 'Solicitante de Créditos'}</p>
                     <p>• Estado: Cuenta activa y verificada</p>
                     <p>• Acceso: Puedes iniciar sesión inmediatamente</p>
                 </div>
                 
-                <p><strong>🚀 Próximos pasos:</strong></p>
+                <p><strong>. Próximos pasos:</strong></p>
                 <p>1. Inicia sesión en el sistema con tu email y contraseña</p>
                 <p>2. ${rol === 'operador' ? 'Revisa el dashboard de operador para gestionar solicitudes' : 'Completa tu perfil empresarial y comienza a solicitar créditos'}</p>
                 <p>3. Explora todas las funcionalidades disponibles</p>
