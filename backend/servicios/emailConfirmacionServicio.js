@@ -1,16 +1,35 @@
 const { enviarEmailGmail } = require('./emailGmailServicio');
-const { supabaseAdmin } = require('../config/supabaseAdmin.js'); // . AGREGAR ESTA IMPORTACIÓN
 
-// Generar token de confirmación
-const generarTokenConfirmacion = (userId, email) => {
-  return Buffer.from(`${userId}:${email}:${Date.now()}`).toString('base64');
+// Determinar URLs según entorno
+const getBackendURL = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://equipo5-webapp-onboardingcreditos-backend.onrender.com';
+  }
+  return process.env.BACKEND_URL || 'http://localhost:3001';
 };
 
-// Plantilla de email con botón de confirmación
+const getFrontendURL = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
+  }
+  return process.env.FRONTEND_URL || 'http://localhost:3000';
+};
+
+// Generar token de confirmación (24 horas de validez)
+const generarTokenConfirmacion = (userId, email) => {
+  const timestamp = Date.now();
+  const tokenData = `${userId}:${email}:${timestamp}`;
+  return Buffer.from(tokenData).toString('base64');
+};
+
+// Plantilla de email con botón de confirmación - CORREGIDA
 const crearPlantillaConfirmacion = (nombre, tokenConfirmacion) => {
-    const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
-  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-  const enlaceConfirmacion = `${BACKEND_URL}/api/auth/confirmar?token=${tokenConfirmacion}`;
+  const backendURL = getBackendURL();
+  const frontendURL = getFrontendURL();
+  
+  // Usar el endpoint correcto de confirmación
+  const enlaceConfirmacion = `${backendURL}/api/auth/confirmar?token=${tokenConfirmacion}`;
+  
   return {
     asunto: 'Confirma tu email - Sistema de Créditos',
     html: `
@@ -94,6 +113,14 @@ const crearPlantillaConfirmacion = (nombre, tokenConfirmacion) => {
             border-radius: 4px;
             color: #92400e;
         }
+        .info-box {
+            background: #f0f9ff;
+            border-left: 4px solid #0ea5e9;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            color: #0369a1;
+        }
     </style>
 </head>
 <body>
@@ -107,25 +134,26 @@ const crearPlantillaConfirmacion = (nombre, tokenConfirmacion) => {
                 <p>Estimado/a <strong>${nombre}</strong>,</p>
                 <p>¡Gracias por registrarte en el Sistema de Créditos! Para activar tu cuenta y comenzar a utilizar nuestros servicios, necesitas confirmar tu dirección de email.</p>
                 
-                <div class="highlight">
-                    <p><strong>. Información de tu cuenta:</strong></p>
+                <div class="info-box">
+                    <p><strong>📋 Información de tu cuenta:</strong></p>
                     <p>• Estado: Pendiente de confirmación</p>
                     <p>• Acceso: Disponible después de confirmar email</p>
+                    <p>• Enlace válido por: <strong>24 horas</strong></p>
                 </div>
                 
                 <div class="warning">
-                    <p><strong>. Importante:</strong></p>
+                    <p><strong>⚠️ Importante:</strong></p>
                     <p>Debes confirmar tu email antes de poder iniciar sesión en el sistema.</p>
                 </div>
                 
                 <p style="text-align: center;">
                     <a href="${enlaceConfirmacion}" class="button" style="color: white;">
-                        . Confirmar Mi Email
+                        ✅ Confirmar Mi Email
                     </a>
                 </p>
                 
                 <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
-                <p style="word-break: break-all; font-size: 12px; color: #6b7280;">
+                <p style="word-break: break-all; font-size: 12px; color: #6b7280; background: #f8fafc; padding: 10px; border-radius: 4px;">
                     ${enlaceConfirmacion}
                 </p>
                 
@@ -149,11 +177,12 @@ Hola ${nombre},
 
 ¡Gracias por registrarte en el Sistema de Créditos! Para activar tu cuenta y comenzar a utilizar nuestros servicios, necesitas confirmar tu dirección de email.
 
-Información de tu cuenta:
+📋 Información de tu cuenta:
 • Estado: Pendiente de confirmación
 • Acceso: Disponible después de confirmar email
+• Enlace válido por: 24 horas
 
-. Importante:
+⚠️ Importante:
 Debes confirmar tu email antes de poder iniciar sesión en el sistema.
 
 Para confirmar tu email, haz clic en el siguiente enlace:
@@ -186,13 +215,16 @@ const enviarEmailConfirmacion = async (email, nombre, userId) => {
     );
     
     if (resultado.success) {
-      console.log('. Email de confirmación enviado exitosamente');
+      console.log('. ✅ Email de confirmación enviado exitosamente');
+      console.log('. 🔗 Token generado:', tokenConfirmacion);
+    } else {
+      console.error('. ❌ Error enviando email de confirmación:', resultado.error);
     }
     
     return resultado;
     
   } catch (error) {
-    console.error('. Error en enviarEmailConfirmacion:', error);
+    console.error('. ❌ Error en enviarEmailConfirmacion:', error);
     return {
       success: false,
       error: error.message

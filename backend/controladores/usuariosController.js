@@ -219,8 +219,8 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
     });
 
     // 3. . ENVIAR EMAIL DE CONFIRMACIÓN en lugar de bienvenida
-const emailResult = await enviarEmailConfirmacionSiEsPosible(authUser.email, nombre_completo, authUser.id);
-    res.status(201).json({
+const { enviarEmailConfirmacionCuenta } = require('../servicios/emailServicio');
+const emailResult = await enviarEmailConfirmacionCuenta(authUser.email, nombre_completo, authUser.id);    res.status(201).json({
       success: true,
       message: 'Usuario registrado correctamente. Por favor revisa tu email para confirmar tu cuenta.',
       data: {
