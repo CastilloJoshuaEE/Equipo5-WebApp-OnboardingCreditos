@@ -182,12 +182,12 @@ const {
  *         email: "usuario@ejemplo.com"
  *         password: "password123"
  *
- *     Response:
+ *     SuccessResponse:
  *       type: object
  *       properties:
  *         success:
  *           type: boolean
- *           description: Indica si la operación fue exitosa
+ *           example: true
  *         message:
  *           type: string
  *           description: Mensaje descriptivo del resultado
@@ -201,6 +201,7 @@ const {
  *         success: true
  *         message: "Operación exitosa"
  *         data: {}
+ *         token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *
  *     Error:
  *       type: object
@@ -217,8 +218,141 @@ const {
  *       example:
  *         success: false
  *         message: "Error en la operación"
+ *         error: "Detalles del error"
+ *
+ *     SolicitudCredito:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           description: ID único de la solicitud
+ *         numero_solicitud:
+ *           type: string
+ *           description: Número único de solicitud
+ *         solicitante_id:
+ *           type: string
+ *           format: uuid
+ *           description: ID del solicitante
+ *         operador_id:
+ *           type: string
+ *           format: uuid
+ *           description: ID del operador asignado
+ *         monto:
+ *           type: number
+ *           format: float
+ *           description: Monto solicitado
+ *         moneda:
+ *           type: string
+ *           enum: [ARS, USD]
+ *           description: Moneda del crédito
+ *         plazo_meses:
+ *           type: integer
+ *           description: Plazo en meses
+ *         proposito:
+ *           type: string
+ *           description: Propósito del crédito
+ *         estado:
+ *           type: string
+ *           enum: [borrador, enviado, en_revision, pendiente_info, aprobado, rechazado]
+ *           description: Estado de la solicitud
+ *         nivel_riesgo:
+ *           type: string
+ *           enum: [bajo, medio, alto]
+ *           description: Nivel de riesgo calculado
+ *         comentarios:
+ *           type: string
+ *           description: Comentarios del operador
+ *         motivo_rechazo:
+ *           type: string
+ *           description: Motivo de rechazo
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de creación
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de última actualización
+ *         fecha_envio:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de envío
+ *         fecha_decision:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de decisión
+ *       example:
+ *         id: "111111111"
+ *         numero_solicitud: "SOL-2024-001"
+ *         solicitante_id: "1111111111222"
+ *         monto: 50000.00
+ *         moneda: "ARS"
+ *         plazo_meses: 12
+ *         proposito: "Capital de trabajo"
+ *         estado: "en_revision"
+ *         nivel_riesgo: "medio"
+ *         created_at: "2024-01-01T00:00:00Z"
+ *         updated_at: "2024-01-01T00:00:00Z"
+ *
+ *     Documento:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           description: ID único del documento
+ *         solicitud_id:
+ *           type: string
+ *           format: uuid
+ *           description: ID de la solicitud
+ *         tipo:
+ *           type: string
+ *           enum: [dni, cuit, comprobante_domicilio, balance_contable, estado_financiero, declaracion_impuestos]
+ *           description: Tipo de documento
+ *         nombre_archivo:
+ *           type: string
+ *           description: Nombre del archivo
+ *         ruta_storage:
+ *           type: string
+ *           description: Ruta en storage
+ *         tamanio_bytes:
+ *           type: integer
+ *           description: Tamaño en bytes
+ *         estado:
+ *           type: string
+ *           enum: [pendiente, validado, rechazado]
+ *           description: Estado del documento
+ *         comentarios:
+ *           type: string
+ *           description: Comentarios de validación
+ *         informacion_extraida:
+ *           type: object
+ *           description: Información extraída del documento
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de subida
+ *         validado_en:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de validación
+ *       example:
+ *         id: "121111112"
+ *         solicitud_id: "1211111112"
+ *         tipo: "dni"
+ *         nombre_archivo: "dni_frontal.pdf"
+ *         ruta_storage: "/documentos/solicitud_001/dni_frontal.pdf"
+ *         tamanio_bytes: 2048576
+ *         estado: "validado"
+ *         created_at: "2024-01-01T00:00:00Z"
+ *
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
  */
-
 // ==================== RUTAS DE CONFIRMACIÓN ====================
 
 /**
@@ -1018,178 +1152,7 @@ router.get("/admin/dashboard", proteger, autorizar("operador"), (req, res) => {
     },
   });
 });
-/**
-* @swagger
-* components:
-*   schemas:
-*     Usuario:
-*       type: object
-*       properties:
-*         id:
-*           type: string
-*           format: uuid
-*           description: ID único del usuario
-*         email:
-*           type: string
-*           format: email
-*           description: Email del usuario
-*         nombre_completo:
-*           type: string
-*           description: Nombre completo del usuario
-*         dni:
-*           type: string
-*           description: Documento de identidad
-*         telefono:
-*           type: string
-*           description: Número de teléfono
-*         rol:
-*           type: string
-*           enum: [solicitante, operador]
-*           description: Rol del usuario en el sistema
-*         cuenta_activa:
-*           type: boolean
-*           description: Estado activo del usuario
-*         created_at:
-*           type: string
-*           format: date-time
-*           description: Fecha de creación
-*         updated_at:
-*           type: string
-*           format: date-time
-*           description: Fecha de última actualización
-*     SolicitudCredito:
-*       type: object
-*       properties:
-*         id:
-*           type: string
-*           format: uuid
-*           description: ID único de la solicitud
-*         numero_solicitud:
-*           type: string
-*           description: Número único de solicitud
-*         solicitante_id:
-*           type: string
-*           format: uuid
-*           description: ID del solicitante
-*         operador_id:
-*           type: string
-*           format: uuid
-*           description: ID del operador asignado
-*         monto:
-*           type: number
-*           format: float
-*           description: Monto solicitado
-*         moneda:
-*           type: string
-*           enum: [ARS, USD]
-*           description: Moneda del crédito
-*         plazo_meses:
-*           type: integer
-*           description: Plazo en meses
-*         proposito:
-*           type: string
-*           description: Propósito del crédito
-*         estado:
-*           type: string
-*           enum: [borrador, enviado, en_revision, pendiente_info, aprobado, rechazado]
-*           description: Estado de la solicitud
-*         nivel_riesgo:
-*           type: string
-*           enum: [bajo, medio, alto]
-*           description: Nivel de riesgo calculado
-*         comentarios:
-*           type: string
-*           description: Comentarios del operador
-*         motivo_rechazo:
-*           type: string
-*           description: Motivo de rechazo
-*         created_at:
-*           type: string
-*           format: date-time
-*           description: Fecha de creación
-*         updated_at:
-*           type: string
-*           format: date-time
-*           description: Fecha de última actualización
-*         fecha_envio:
-*           type: string
-*           format: date-time
-*           description: Fecha de envío
-*         fecha_decision:
-*           type: string
-*           format: date-time
-*           description: Fecha de decisión
-*       example:
-*         id: "1111111"
-*         numero_solicitud: "SOL-2024-001"
-*         solicitante_id: "1111111"
-*         monto: 50000.00
-*         moneda: "ARS"
-*         plazo_meses: 12
-*         proposito: "Capital de trabajo"
-*         estado: "en_revision"
-*         nivel_riesgo: "medio"
-*         created_at: "2024-01-01T00:00:00Z"
-*         updated_at: "2024-01-01T00:00:00Z"
-*
-*     Documento:
-*       type: object
-*       properties:
-*         id:
-*           type: string
-*           format: uuid
-*           description: ID único del documento
-*         solicitud_id:
-*           type: string
-*           format: uuid
-*           description: ID de la solicitud
-*         tipo:
-*           type: string
-*           enum: [dni, cuit, comprobante_domicilio, balance_contable, estado_financiero, declaracion_impuestos]
-*           description: Tipo de documento
-*         nombre_archivo:
-*           type: string
-*           description: Nombre del archivo
-*         ruta_storage:
-*           type: string
-*           description: Ruta en storage
-*         tamanio_bytes:
-*           type: integer
-*           description: Tamaño en bytes
-*         estado:
-*           type: string
-*           enum: [pendiente, validado, rechazado]
-*           description: Estado del documento
-*         comentarios:
-*           type: string
-*           description: Comentarios de validación
-*         informacion_extraida:
-*           type: object
-*           description: Información extraída del documento
-*         created_at:
-*           type: string
-*           format: date-time
-*           description: Fecha de subida
-*         validado_en:
-*           type: string
-*           format: date-time
-*           description: Fecha de validación
-*       example:
-*         id: "1111111111"
-*         solicitud_id: "1111111"
-*         tipo: "dni"
-*         nombre_archivo: "dni_frontal.jpg"
-*         ruta_storage: "/documentos/solicitud_001/dni_frontal.pdf"
-*         tamanio_bytes: 2048576
-*         estado: "validado"
-*         created_at: "2024-01-01T00:00:00Z"
-*
-*   securitySchemes:
-*     bearerAuth:
-*       type: http
-*       scheme: bearer
-*       bearerFormat: JWT
-*/
+
 // ==================== RUTAS DE AUTENTICACIÓN ====================
 
 /**
