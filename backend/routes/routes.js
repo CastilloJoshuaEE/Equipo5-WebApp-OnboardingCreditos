@@ -1018,7 +1018,8 @@ router.get("/admin/dashboard", proteger, autorizar("operador"), (req, res) => {
     },
   });
 });
-/*
+/**
+* @swagger
 * components:
 *   schemas:
 *     Usuario:
