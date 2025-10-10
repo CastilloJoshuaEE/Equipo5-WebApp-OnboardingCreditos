@@ -28,7 +28,6 @@ const estadoConfirmacionEmail = async (req, res) => {
   }
 };
 
-// Confirmar email del usuario - CORREGIDO
 const confirmarEmail = async (req, res) => {
   try {
     const { token } = req.query;
@@ -45,38 +44,54 @@ const confirmarEmail = async (req, res) => {
       `);
     }
 
-    // Decodificar el token BASE64 correctamente
+    // DECODIFICAR EL TOKEN CORRECTAMENTE
     let tokenDecodificado;
     try {
       tokenDecodificado = Buffer.from(token, 'base64').toString('utf-8');
-      console.log('. Token decodificado:', tokenDecodificado);
     } catch (decodeError) {
       console.error('. Error decodificando token:', decodeError);
-      throw new Error('Token de confirmación inválido');
+      return res.status(400).send(`
+        <html><body>
+          <h1>Token Inválido</h1>
+          <p>El token de confirmación no es válido.</p>
+          <a href="${FRONTEND_URL}">Volver al inicio</a>
+        </body></html>
+      `);
     }
 
     const parts = tokenDecodificado.split(':');
     if (parts.length < 3) {
-      throw new Error('Token de confirmación mal formado');
+      console.error('. Formato de token inválido:', tokenDecodificado);
+      return res.status(400).send(`
+        <html><body>
+          <h1>Token Inválido</h1>
+          <p>El formato del token es incorrecto.</p>
+          <a href="${FRONTEND_URL}">Volver al inicio</a>
+        </body></html>
+      `);
     }
 
     const [userId, email, timestamp] = parts;
     
     console.log('. Confirmando email para usuario:', { userId, email });
 
-    // Verificar que el token no sea viejo (24 horas máximo) - CORREGIDO
+    // VERIFICAR EXPIRACIÓN (24 HORAS)
     const tiempoToken = parseInt(timestamp);
     const ahora = Date.now();
     const diferenciaHoras = (ahora - tiempoToken) / (1000 * 60 * 60);
     
     if (diferenciaHoras > 24) {
-      return res.status(400).json({
-        success: false,
-        message: 'El enlace de confirmación ha expirado. Solicita uno nuevo.'
-      });
+      console.log('. Token expirado:', diferenciaHoras.toFixed(2), 'horas');
+      return res.status(400).send(`
+        <html><body>
+          <h1>Enlace Expirado</h1>
+          <p>El enlace de confirmación ha expirado. Solicita uno nuevo desde tu cuenta.</p>
+          <a href="${FRONTEND_URL}/login">Ir al Login</a>
+        </body></html>
+      `);
     }
 
-    // PRIMERO: Verificar si el usuario existe en nuestra tabla
+    // BUSCAR USUARIO EN NUESTRA TABLA
     const { data: usuarioExistente, error: usuarioError } = await supabaseAdmin
       .from('usuarios')
       .select('*')
@@ -84,61 +99,53 @@ const confirmarEmail = async (req, res) => {
       .single();
 
     if (usuarioError || !usuarioExistente) {
-      console.error('. Usuario no encontrado en tabla usuarios:', usuarioError);
-      throw new Error('Usuario no encontrado en el sistema');
-    }
+      console.error('. Usuario no encontrado en tabla usuarios:', { userId, error: usuarioError });
+      
+      // INTENTAR BUSCAR POR EMAIL COMO FALLBACK
+      console.log('. Intentando buscar usuario por email...');
+      const { data: usuarioPorEmail, error: emailError } = await supabaseAdmin
+        .from('usuarios')
+        .select('*')
+        .eq('email', email)
+        .single();
 
-    console.log('. Usuario encontrado en tabla usuarios:', usuarioExistente.email);
-
-    let authConfirmed = false;
-
-    // INTENTAR CONFIRMAR EN SUPABASE AUTH
-    try {
-      const { data: user, error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(
-        userId,
-        { email_confirm: true }
-      );
-
-      if (confirmError) {
-        console.warn('. No se pudo confirmar en Auth:', confirmError.message);
-      } else {
-        console.log('. Email confirmado exitosamente en Supabase Auth');
-        authConfirmed = true;
+      if (emailError || !usuarioPorEmail) {
+        console.error('. Usuario no encontrado ni por ID ni por email');
+        throw new Error('Usuario no encontrado en el sistema');
       }
-    } catch (authError) {
-      console.warn('. Error en confirmación de Auth:', authError.message);
+
+      console.log('. Usuario encontrado por email, procediendo con confirmación...');
+      // USAR EL USUARIO ENCONTRADO POR EMAIL
+      usuarioExistente = usuarioPorEmail;
     }
 
-    // ACTUALIZAR CUENTA COMO ACTIVA en nuestra tabla
+    console.log('. Usuario encontrado:', usuarioExistente.email);
+
+    // ACTUALIZAR CUENTA COMO ACTIVA
     const { error: updateError } = await supabaseAdmin
       .from('usuarios')
       .update({ 
         cuenta_activa: true,
         updated_at: new Date().toISOString()
       })
-      .eq('id', userId);
+      .eq('id', usuarioExistente.id);
 
     if (updateError) {
       console.error('. Error actualizando usuario:', updateError);
       throw new Error('No se pudo activar la cuenta');
     }
 
-    console.log('. Cuenta activada exitosamente en tabla usuarios para:', email);
+    console.log('. Cuenta activada exitosamente para:', email);
 
-    // ENVIAR EMAIL DE BIENVENIDA DESPUÉS DE LA CONFIRMACIÓN
+    // ENVIAR EMAIL DE BIENVENIDA
     try {
-      console.log('. Enviando email de bienvenida después de confirmación...');
+      console.log('. Enviando email de bienvenida...');
       await enviarEmailBienvenida(email, usuarioExistente.nombre_completo, usuarioExistente.rol);
-      console.log('. Email de bienvenida enviado exitosamente');
     } catch (emailError) {
       console.warn('. Error enviando email de bienvenida:', emailError.message);
     }
 
-    // Redirigir a una página de éxito
-    const mensajeExito = authConfirmed 
-      ? 'Tu dirección de email ha sido confirmada correctamente en el sistema.'
-      : 'Tu cuenta ha sido activada correctamente. Puedes iniciar sesión con tus credenciales.';
-
+    // REDIRIGIR A PÁGINA DE ÉXITO
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -149,7 +156,7 @@ const confirmarEmail = async (req, res) => {
                   font-family: Arial, sans-serif; 
                   text-align: center; 
                   padding: 50px; 
-                  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+                  background: linear-gradient(135deg, #10b981, #059669);
                   color: white;
                   height: 100vh;
                   display: flex;
@@ -172,7 +179,7 @@ const confirmarEmail = async (req, res) => {
               }
               .button {
                   display: inline-block;
-                  background: #2563eb;
+                  background: #10b981;
                   color: white;
                   padding: 12px 24px;
                   text-decoration: none;
@@ -184,11 +191,9 @@ const confirmarEmail = async (req, res) => {
       </head>
       <body>
           <div class="container">
-              <div class="success-icon">✓</div>
+              <div class="success-icon">✅</div>
               <h1>¡Cuenta Activada Exitosamente!</h1>
-              <p>${mensajeExito}</p>
-              
-              <p>Se ha enviado un email de bienvenida con información importante.</p>
+              <p>Tu dirección de email ha sido confirmada correctamente.</p>
               <p>Ahora puedes iniciar sesión en el sistema con tus credenciales.</p>
               <a href="${FRONTEND_URL}/login" class="button">Ir al Login</a>
           </div>
@@ -199,27 +204,9 @@ const confirmarEmail = async (req, res) => {
   } catch (error) {
     console.error('. Error en confirmación de email:', error);
     res.status(400).send(`
-      <!DOCTYPE html>
       <html>
-      <head>
-          <title>Error de Confirmación</title>
-          <style>
-              body { 
-                  font-family: Arial, sans-serif; 
-                  text-align: center; 
-                  padding: 50px; 
-                  background: #fef2f2;
-                  color: #dc2626;
-              }
-              .error-icon {
-                  font-size: 48px;
-                  margin-bottom: 20px;
-              }
-          </style>
-      </head>
-      <body>
-          <div class="error-icon">❌</div>
-          <h1>Error al Activar Cuenta</h1>
+      <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+          <h1 style="color: #dc2626;">Error al Activar Cuenta</h1>
           <p>${error.message || 'Ha ocurrido un error al activar tu cuenta.'}</p>
           <p>Por favor, intenta nuevamente o contacta al soporte.</p>
           <a href="${FRONTEND_URL}" style="color: #2563eb; text-decoration: none;">Volver al Inicio</a>
