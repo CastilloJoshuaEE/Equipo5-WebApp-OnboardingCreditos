@@ -3,17 +3,9 @@ const { supabaseAdmin, getUserByEmail } = require('../config/supabaseAdmin.js');
 const { enviarEmailBienvenida } = require('../servicios/emailServicio');
 const { enviarEmailConfirmacionCuenta } = require('../servicios/emailServicio');
 const { validateEmailBeforeAuth } = require('../middleware/emailValidation');
-
 const registrar = async (req, res) => {
   try {
     console.log('. Body recibido:', req.body);
-
-    if (!req.body) {
-      return res.status(400).json({
-        success: false,
-        message: 'Datos no proporcionados en el cuerpo de la solicitud'
-      });
-    }
 
     const { 
       email, 
@@ -21,14 +13,10 @@ const registrar = async (req, res) => {
       nombre_completo, 
       telefono, 
       dni, 
-      rol = 'solicitante',
-      nombre_empresa, 
-      cuit, 
-      representante_legal, 
-      domicilio 
+      rol = 'solicitante'
     } = req.body;
 
-    // Validar campos obligatorios
+    // Validaciones básicas
     if (!email || !password || !nombre_completo || !dni) {
       return res.status(400).json({
         success: false,
@@ -36,22 +24,9 @@ const registrar = async (req, res) => {
       });
     }
 
-    console.log('. Registrando nuevo usuario:', { 
-      email, 
-      rol, 
-      nombre_completo: nombre_completo.substring(0, 10) + '...' 
-    });
+    console.log('. Registrando nuevo usuario:', { email, rol });
 
-    // . NUEVO: Mostrar resultado de validación de email
-    if (req.emailValidation) {
-      console.log('. Resultado de validación de email:', {
-        isValid: req.emailValidation.isValid,
-        confidence: req.emailValidation.confidence,
-        servicesUsed: req.emailValidation.servicesUsed
-      });
-    }
-
-    // PRIMERO: Verificar si el usuario existe pero está inactivo en nuestra tabla personalizada
+    // VERIFICAR SI EL USUARIO EXISTE PERO ESTÁ INACTIVO
     const { data: usuarioExistente, error: usuarioError } = await supabaseAdmin
       .from('usuarios')
       .select('id, email, cuenta_activa, rol')
@@ -62,18 +37,25 @@ const registrar = async (req, res) => {
       console.error('. Error verificando usuario existente:', usuarioError);
     }
 
-    // Si el usuario existe pero está inactivo, reactivar en lugar de crear nuevo
+    // Si existe pero está inactivo, reactivar
     if (usuarioExistente && !usuarioExistente.cuenta_activa) {
       console.log('. Usuario existente inactivo encontrado, reactivando...');
       return await reactivarUsuario(req, res, usuarioExistente.id);
     }
 
-    // INTENTAR REGISTRO NORMAL
+    // Si existe y está activo, rechazar
+    if (usuarioExistente && usuarioExistente.cuenta_activa) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ya existe una cuenta activa con este email'
+      });
+    }
+
+    // CREAR USUARIO EN SUPABASE AUTH (SIN CONFIRMACIÓN AUTOMÁTICA)
     let authData;
     let authError;
 
     try {
-      // No confirmar email automáticamente
       const result = await supabase.auth.signUp({
         email,
         password,
@@ -83,9 +65,7 @@ const registrar = async (req, res) => {
             telefono: telefono || '',
             dni,
             rol: rol
-          },
-          // Enviar email de confirmación
-          emailRedirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/confirmacion-exitosa`
+          }
         }
       });
       
@@ -95,55 +75,40 @@ const registrar = async (req, res) => {
       authError = error;
     }
 
-    // MANEJAR ERROR DE EMAIL EXISTENTE
+    // MANEJAR ERRORES DE AUTH
     if (authError) {
-      if (authError.message.includes('already registered') || 
-          authError.code === 'email_exists' ||
-          authError.status === 422) {
-        
-        console.log('. Usuario existe en Auth, verificando estado...');
-        
-        // Buscar el usuario existente en Auth
+      if (authError.message.includes('already registered') || authError.status === 422) {
+        // Usuario ya existe en Auth, obtenerlo
         const { data: existingAuthUser, error: getAuthError } = await getUserByEmail(email);
         
         if (getAuthError || !existingAuthUser || !existingAuthUser.user) {
-          console.error('. Error obteniendo usuario existente:', getAuthError);
           throw new Error('No se pudo verificar el estado del usuario existente');
         }
 
         const existingUserId = existingAuthUser.user.id;
         console.log(`. Usuario encontrado en Auth con ID: ${existingUserId}`);
 
-        // Verificar si existe en nuestra tabla personalizada
+        // Verificar si existe en nuestra tabla
         const { data: userInTable, error: tableError } = await supabaseAdmin
           .from('usuarios')
           .select('id, cuenta_activa')
           .eq('id', existingUserId)
           .maybeSingle();
 
-        if (tableError && tableError.code !== 'PGRST116') {
-          console.error('. Error verificando tabla usuarios:', tableError);
-        }
-
         // Si no existe en nuestra tabla o está inactivo, proceder
         if (!userInTable || !userInTable.cuenta_activa) {
-          console.log('. Continuando con registro para usuario existente en Auth...');
-          return await completarRegistroUsuarioExistente(
-            req, res, existingUserId, existingAuthUser.user
-          );
+          return await completarRegistroUsuarioExistente(req, res, existingUserId, existingAuthUser.user);
         } else {
-          // El usuario ya existe y está activo
           throw new Error('Ya existe una cuenta activa con este email');
         }
       } else {
-        // Otro tipo de error
         throw authError;
       }
     }
 
-    // REGISTRO NORMAL EXITOSO
+    // REGISTRO EXITOSO
     if (authData && authData.user) {
-      console.log('. Usuario creado en Auth, insertando en tablas personalizadas...');
+      console.log('. Usuario creado en Auth, completando registro...');
       return await completarRegistroNuevoUsuario(req, res, authData.user);
     }
 
