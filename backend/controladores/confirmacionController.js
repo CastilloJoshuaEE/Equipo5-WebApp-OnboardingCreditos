@@ -73,7 +73,6 @@ const enviarEmailBienvenidaDespuesConfirmacion = async (email, nombre, rol) => {
     return { success: false, error: error.message };
   }
 };
-
 const confirmarEmail = async (req, res) => {
   try {
     const { token, email } = req.query;
@@ -82,12 +81,12 @@ const confirmarEmail = async (req, res) => {
 
     // Validar parámetros requeridos
     if (!token || !email) {
-      // CORRECCIÓN: Redirigir al frontend con error
       const frontendUrl = getFrontendUrl();
+      // CORRECCIÓN: Usar URL segura en producción
       return res.redirect(`${frontendUrl}/login?error=token_o_email_faltante`);
     }
 
-    // Decodificar el token (deberías tener una función para esto)
+    // Decodificar y validar el token
     let decodedToken;
     try {
       decodedToken = Buffer.from(token, 'base64').toString('utf-8');
@@ -95,10 +94,8 @@ const confirmarEmail = async (req, res) => {
       
       // Verificar que el email coincida
       if (userEmail !== email) {
-        return res.status(400).json({
-          success: false,
-          message: 'Token no válido para este email'
-        });
+        const frontendUrl = getFrontendUrl();
+        return res.redirect(`${frontendUrl}/login?error=token_invalido`);
       }
 
       // Verificar expiración (24 horas)
@@ -107,15 +104,13 @@ const confirmarEmail = async (req, res) => {
       const twentyFourHours = 24 * 60 * 60 * 1000;
       
       if (currentTime - tokenTime > twentyFourHours) {
-        return res.status(400).json({
-          success: false,
-          message: 'El token ha expirado. Solicita un nuevo enlace de confirmación.'
-        });
+        const frontendUrl = getFrontendUrl();
+        return res.redirect(`${frontendUrl}/login?error=token_expirado`);
       }
 
       console.log('. Token válido, activando cuenta para:', email);
 
-      // Buscar usuario por email
+      // Buscar y activar usuario (código existente)
       const { data: usuario, error: usuarioError } = await supabase
         .from('usuarios')
         .select('*')
@@ -123,21 +118,17 @@ const confirmarEmail = async (req, res) => {
         .single();
 
       if (usuarioError || !usuario) {
-        return res.status(404).json({
-          success: false,
-          message: 'Usuario no encontrado'
-        });
+        const frontendUrl = getFrontendUrl();
+        return res.redirect(`${frontendUrl}/login?error=usuario_no_encontrado`);
       }
 
       // Verificar si ya está confirmado
       if (usuario.cuenta_activa) {
-        return res.status(400).json({
-          success: false,
-          message: 'La cuenta ya está confirmada'
-        });
+        const frontendUrl = getFrontendUrl();
+        return res.redirect(`${frontendUrl}/login?message=cuenta_ya_confirmada`);
       }
       
-      // 1. Activar la cuenta en nuestra tabla local
+      // Activar la cuenta
       const { error: updateError } = await supabase
         .from('usuarios')
         .update({
@@ -152,8 +143,7 @@ const confirmarEmail = async (req, res) => {
 
       console.log('. Cuenta activada exitosamente en tabla local para:', email);
 
-      // 2. CONFIRMAR TAMBIÉN EN SUPABASE AUTH
-      const { confirmUserEmail } = require('../config/supabaseAdmin');
+      // Confirmar en Supabase Auth
       const confirmResult = await confirmUserEmail(usuario.id);
 
       if (confirmResult.success) {
@@ -161,30 +151,30 @@ const confirmarEmail = async (req, res) => {
       } else {
         console.warn('. No se pudo confirmar email en Supabase Auth, pero cuenta local está activa:', confirmResult.error);
       }
-      console.log('. [POST-CONFIRMACIÓN] Enviando email de bienvenida...');
-          await enviarEmailBienvenidaDespuesConfirmacion(
-            usuario.email, 
-            usuario.nombre_completo, 
-            usuario.rol
-          );
+
+      // Enviar email de bienvenida
+      await enviarEmailBienvenidaDespuesConfirmacion(
+        usuario.email, 
+        usuario.nombre_completo, 
+        usuario.rol
+      );
+
       console.log('. Cuenta activada exitosamente para:', email);
 
-      // Redirigir al frontend con mensaje de éxito
+      // CORRECCIÓN CRÍTICA: Redirigir siempre al frontend seguro
       const frontendUrl = getFrontendUrl();
       return res.redirect(`${frontendUrl}/login?message=email_confirmado`);
 
     } catch (decodeError) {
       console.error('. Error decodificando token:', decodeError);
-      return res.status(400).json({
-        success: false,
-        message: 'Token inválido'
-      });
+      const frontendUrl = getFrontendUrl();
+      return res.redirect(`${frontendUrl}/login?error=token_invalido`);
     }
 
   } catch (error) {
     console.error('. Error en confirmarEmail:', error);
     
-    // Redirigir al frontend con mensaje de error
+    // CORRECCIÓN: Redirigir siempre al frontend
     const frontendUrl = getFrontendUrl();
     return res.redirect(`${frontendUrl}/login?error=confirmacion_fallida`);
   }

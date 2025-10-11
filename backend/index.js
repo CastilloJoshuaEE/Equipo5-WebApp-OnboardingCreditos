@@ -61,7 +61,16 @@ const swaggerOptions = {
 };
 
 const swaggerSpec = swaggerJsDoc(swaggerOptions);
-
+app.use((req, res, next) => {
+  // Headers de seguridad para producción
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+  }
+  next();
+});
 // Configurar CORS
 app.use(
   cors({
