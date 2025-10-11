@@ -5,10 +5,14 @@ const usuariosController = require("../controladores/usuariosController");
 const confirmacionController = require("../controladores/confirmacionController");
 const solicitudesController = require('../controladores/solicitudesController');
 const { descargarDocumento } = require('../controladores/documentosController');
+
+// Estas deben apuntar a middleware existentes
 const {
   validateEmailBeforeAuth,
   verifyEmailOnly,
 } = require("../middleware/emailValidation");
+
+// Estas deben apuntar a controladores de solicitudes existentes
 const {
   crearSolicitud,
   enviarSolicitud,
@@ -22,6 +26,15 @@ const {
   obtenerEstadisticas,
   iniciarVerificacionKYC
 } = require('../controladores/solicitudesController');
+
+// Estas deben apuntar a controladores de documentos existentes
+const {
+  subirDocumento,
+  obtenerDocumentosSolicitud,
+  validarDocumento
+} = require('../controladores/documentosController');
+
+// Esta debe apuntar a webhooksController existente
 const { handleDiditWebhook } = require('../controladores/webhooksController');
 const router = express.Router();
 const multer = require('multer');
@@ -40,13 +53,6 @@ const upload = multer({
     }
   }
 });
-
-const {
-  subirDocumento,
-  obtenerDocumentosSolicitud,
-  validarDocumento
-} = require('../controladores/documentosController');
-
 /**
  * @swagger
  * components:

@@ -3,63 +3,11 @@ const axios = require('axios');
 class emailValidarServicio {
   constructor() {
     this.services = [
-      this.verifyEmailHubSpot,
-      this.verifyEmailHunter,
       this.verifyEmailAbstract,
       this.basicSyntaxValidation
     ];
   }
-
-  // Servicio 1: HubSpot Email Verification
-  async verifyEmailHubSpot(email) {
-    try {
-      const response = await axios.get(`https://api.hubapi.com/email-verification/v1/verify`, {
-        params: {
-          email: email,
-          access_token: process.env.HUBSPOT_ACCESS_TOKEN || 'demo'
-        },
-        timeout: 5000
-      });
-
-      if (response.data && response.data.status) {
-        return {
-          valid: response.data.status === 'valid',
-          service: 'HubSpot',
-          reason: response.data.reason || 'Validación exitosa'
-        };
-      }
-    } catch (error) {
-      console.log('. HubSpot validation failed, trying next service...');
-      return null;
-    }
-  }
-
-  // Servicio 2: Email Hunter
-  async verifyEmailHunter(email) {
-    try {
-      const response = await axios.get(`https://api.hunter.io/v2/email-verifier`, {
-        params: {
-          email: email,
-          api_key: process.env.EMAIL_HUNTER_API_KEY || 'demo'
-        },
-        timeout: 5000
-      });
-
-      if (response.data && response.data.data) {
-        const result = response.data.data;
-        return {
-          valid: result.status === 'valid',
-          service: 'EmailHunter',
-          reason: result.result || 'Validación exitosa'
-        };
-      }
-    } catch (error) {
-      console.log('. Email Hunter validation failed, trying next service...');
-      return null;
-    }
-  }
-
-  // . SERVICIO 3 .: Abstract API
+  // . SERVICIO .: Abstract API
   async verifyEmailAbstract(email) {
     try {
       const apiKey = process.env.ABSTRACT_API_KEY;

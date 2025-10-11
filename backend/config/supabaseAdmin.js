@@ -30,8 +30,30 @@ const getUserByEmail = async (email) => {
     return { data: { user: null }, error };
   }
 };
+const confirmUserEmail = async (userId) => {
+  try {
+    console.log(`. Confirmando email en Auth para usuario: ${userId}`);
+    
+    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
+      userId,
+      { email_confirm: true }
+    );
+
+    if (error) {
+      console.error('. Error confirmando email en Auth:', error);
+      return { success: false, error };
+    }
+
+    console.log('. Email confirmado exitosamente en Supabase Auth');
+    return { success: true, data };
+  } catch (error) {
+    console.error('. Error en confirmUserEmail:', error);
+    return { success: false, error };
+  }
+};
 
 module.exports = { 
   supabaseAdmin,
-  getUserByEmail
+  getUserByEmail,
+  confirmUserEmail
 }; 
