@@ -82,10 +82,9 @@ const confirmarEmail = async (req, res) => {
 
     // Validar parámetros requeridos
     if (!token || !email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Token y email son requeridos'
-      });
+      // CORRECCIÓN: Redirigir al frontend con error
+      const frontendUrl = getFrontendUrl();
+      return res.redirect(`${frontendUrl}/login?error=token_o_email_faltante`);
     }
 
     // Decodificar el token (deberías tener una función para esto)

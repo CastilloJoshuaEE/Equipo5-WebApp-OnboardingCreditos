@@ -84,15 +84,14 @@ class BrevoAPIService {
   }
 
   // Método específico para email de confirmación
-  async enviarEmailConfirmacion(email, nombre, tokenConfirmacion) {
-    const asunto = 'Confirma tu email - Sistema de Créditos';
-    const enlaceConfirmacion = `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/auth/confirmar?token=${tokenConfirmacion}&email=${encodeURIComponent(email)}`;
-    
-    const contenidoHTML = this.crearPlantillaConfirmacionHTML(nombre, enlaceConfirmacion);
-    const contenidoTexto = this.crearPlantillaConfirmacionTexto(nombre, enlaceConfirmacion);
+async enviarEmailConfirmacion(email, nombre, enlaceConfirmacion) {
+  const asunto = 'Confirma tu email - Sistema de Créditos';
+  
+  const contenidoHTML = this.crearPlantillaConfirmacionHTML(nombre, enlaceConfirmacion);
+  const contenidoTexto = this.crearPlantillaConfirmacionTexto(nombre, enlaceConfirmacion);
 
-    return await this.enviarEmail(email, asunto, contenidoHTML, contenidoTexto, 'Sistema de Créditos');
-  }
+  return await this.enviarEmail(email, asunto, contenidoHTML, contenidoTexto, 'Sistema de Créditos');
+}
 
   // Método específico para email de bienvenida
   async enviarEmailBienvenida(email, nombre, rol) {
