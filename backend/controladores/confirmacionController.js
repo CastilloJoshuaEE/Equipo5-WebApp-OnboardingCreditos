@@ -1,222 +1,196 @@
-const { supabaseAdmin } = require('../config/supabaseAdmin.js');
-const { enviarEmailBienvenida } = require('../servicios/emailServicio');
+const { supabase } = require('../config/conexion.js');
+const { enviarEmailConfirmacion } = require('../servicios/emailConfirmacionServicio');
+const { verificarConexionBrevo } = require('../servicios/emailBrevoAPIService'); // ← CORREGIDO
+const { confirmUserEmail } = require('../config/supabaseAdmin');
+// Agregar función para obtener FRONTEND_URL
+const getFrontendUrl = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
+  }
+  return process.env.FRONTEND_URL || 'http://localhost:3000';
+};
 
-// URLs según entorno
-const FRONTEND_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com'
-  : 'http://localhost:3000';
-
-// Verificar estado de confirmación de email
-const estadoConfirmacionEmail = async (req, res) => {
+// AGREGAR ESTA FUNCIÓN FALTANTE
+const enviarEmailBrevo = async (email, asunto, contenidoHTML, contenidoTexto = '') => {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(req.usuario.id);
-    
-    if (error) throw error;
-
-    res.json({
-      success: true,
-      data: {
-        emailConfirmed: !!user.email_confirmed_at,
-        email: user.email
-      }
-    });
+    const brevoAPIService = require('../servicios/emailBrevoAPIService');
+    return await brevoAPIService.enviarEmail(email, asunto, contenidoHTML, contenidoTexto);
   } catch (error) {
-    res.status(500).json({
+    console.error('Error enviando email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// AGREGAR ESTA FUNCIÓN FALTANTE
+const enviarEmailConfirmacionCuenta = async (email, nombre, userId) => {
+  try {
+    console.log(`. [CONFIRMACIÓN] Enviando email de confirmación a: ${email}`);
+    
+    const configuracionValida = await verificarConexionBrevo();
+    
+    if (!configuracionValida) {
+      console.warn('. Configuración de Brevo no válida, no se enviará email de confirmación');
+      return {
+        success: false,
+        error: 'Configuración de email no disponible',
+        skip: true
+      };
+    }
+
+    const resultado = await enviarEmailConfirmacion(email, nombre, userId);
+    
+    return resultado;
+    
+  } catch (error) {
+    console.error('. Error en enviarEmailConfirmacionCuenta:', error);
+    return {
       success: false,
-      message: error.message
-    });
+      error: error.message,
+      skip: true
+    };
+  }
+};
+const enviarEmailBienvenidaDespuesConfirmacion = async (email, nombre, rol) => {
+  try {
+    console.log(`. [BIENVENIDA] Enviando email de bienvenida post-confirmación a: ${email}`);
+    
+    // Esperar un momento para asegurar que la cuenta esté completamente activa
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const resultado = await enviarEmailBienvenida(email, nombre, rol);
+    
+    if (resultado.success) {
+      console.log('. Email de bienvenida enviado exitosamente después de confirmación');
+    } else {
+      console.warn('. Email de bienvenida no enviado después de confirmación:', resultado.error);
+    }
+    
+    return resultado;
+    
+  } catch (error) {
+    console.error('. Error enviando email de bienvenida post-confirmación:', error);
+    // No lanzar error para no interrumpir el flujo de confirmación
+    return { success: false, error: error.message };
   }
 };
 
 const confirmarEmail = async (req, res) => {
   try {
-    const { token } = req.query;
-    
-    console.log('. Procesando confirmación de email con token:', token);
+    const { token, email } = req.query;
 
-    if (!token) {
-      return res.status(400).send(`
-        <html><body>
-          <h1>Error de Confirmación</h1>
-          <p>Token no proporcionado</p>
-          <a href="${FRONTEND_URL}">Volver al inicio</a>
-        </body></html>
-      `);
+    console.log('. [CONFIRMACIÓN] Procesando confirmación:', { token, email });
+
+    // Validar parámetros requeridos
+    if (!token || !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token y email son requeridos'
+      });
     }
 
-    // DECODIFICAR EL TOKEN CORRECTAMENTE
-    let tokenDecodificado;
+    // Decodificar el token (deberías tener una función para esto)
+    let decodedToken;
     try {
-      tokenDecodificado = Buffer.from(token, 'base64').toString('utf-8');
-    } catch (decodeError) {
-      console.error('. Error decodificando token:', decodeError);
-      return res.status(400).send(`
-        <html><body>
-          <h1>Token Inválido</h1>
-          <p>El token de confirmación no es válido.</p>
-          <a href="${FRONTEND_URL}">Volver al inicio</a>
-        </body></html>
-      `);
-    }
-
-    const parts = tokenDecodificado.split(':');
-    if (parts.length < 3) {
-      console.error('. Formato de token inválido:', tokenDecodificado);
-      return res.status(400).send(`
-        <html><body>
-          <h1>Token Inválido</h1>
-          <p>El formato del token es incorrecto.</p>
-          <a href="${FRONTEND_URL}">Volver al inicio</a>
-        </body></html>
-      `);
-    }
-
-    const [userId, email, timestamp] = parts;
-    
-    console.log('. Confirmando email para usuario:', { userId, email });
-
-    // VERIFICAR EXPIRACIÓN (24 HORAS)
-    const tiempoToken = parseInt(timestamp);
-    const ahora = Date.now();
-    const diferenciaHoras = (ahora - tiempoToken) / (1000 * 60 * 60);
-    
-    if (diferenciaHoras > 24) {
-      console.log('. Token expirado:', diferenciaHoras.toFixed(2), 'horas');
-      return res.status(400).send(`
-        <html><body>
-          <h1>Enlace Expirado</h1>
-          <p>El enlace de confirmación ha expirado. Solicita uno nuevo desde tu cuenta.</p>
-          <a href="${FRONTEND_URL}/login">Ir al Login</a>
-        </body></html>
-      `);
-    }
-
-    // BUSCAR USUARIO EN NUESTRA TABLA
-    const { data: usuarioExistente, error: usuarioError } = await supabaseAdmin
-      .from('usuarios')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (usuarioError || !usuarioExistente) {
-      console.error('. Usuario no encontrado en tabla usuarios:', { userId, error: usuarioError });
+      decodedToken = Buffer.from(token, 'base64').toString('utf-8');
+      const [userId, userEmail, timestamp] = decodedToken.split(':');
       
-      // INTENTAR BUSCAR POR EMAIL COMO FALLBACK
-      console.log('. Intentando buscar usuario por email...');
-      const { data: usuarioPorEmail, error: emailError } = await supabaseAdmin
+      // Verificar que el email coincida
+      if (userEmail !== email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Token no válido para este email'
+        });
+      }
+
+      // Verificar expiración (24 horas)
+      const tokenTime = parseInt(timestamp);
+      const currentTime = Date.now();
+      const twentyFourHours = 24 * 60 * 60 * 1000;
+      
+      if (currentTime - tokenTime > twentyFourHours) {
+        return res.status(400).json({
+          success: false,
+          message: 'El token ha expirado. Solicita un nuevo enlace de confirmación.'
+        });
+      }
+
+      console.log('. Token válido, activando cuenta para:', email);
+
+      // Buscar usuario por email
+      const { data: usuario, error: usuarioError } = await supabase
         .from('usuarios')
         .select('*')
         .eq('email', email)
         .single();
 
-      if (emailError || !usuarioPorEmail) {
-        console.error('. Usuario no encontrado ni por ID ni por email');
-        throw new Error('Usuario no encontrado en el sistema');
+      if (usuarioError || !usuario) {
+        return res.status(404).json({
+          success: false,
+          message: 'Usuario no encontrado'
+        });
       }
 
-      console.log('. Usuario encontrado por email, procediendo con confirmación...');
-      // USAR EL USUARIO ENCONTRADO POR EMAIL
-      usuarioExistente = usuarioPorEmail;
+      // Verificar si ya está confirmado
+      if (usuario.cuenta_activa) {
+        return res.status(400).json({
+          success: false,
+          message: 'La cuenta ya está confirmada'
+        });
+      }
+      
+      // 1. Activar la cuenta en nuestra tabla local
+      const { error: updateError } = await supabase
+        .from('usuarios')
+        .update({
+          cuenta_activa: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('email', email);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      console.log('. Cuenta activada exitosamente en tabla local para:', email);
+
+      // 2. CONFIRMAR TAMBIÉN EN SUPABASE AUTH
+      const { confirmUserEmail } = require('../config/supabaseAdmin');
+      const confirmResult = await confirmUserEmail(usuario.id);
+
+      if (confirmResult.success) {
+        console.log('. Email confirmado exitosamente en Supabase Auth para:', email);
+      } else {
+        console.warn('. No se pudo confirmar email en Supabase Auth, pero cuenta local está activa:', confirmResult.error);
+      }
+      console.log('. [POST-CONFIRMACIÓN] Enviando email de bienvenida...');
+          await enviarEmailBienvenidaDespuesConfirmacion(
+            usuario.email, 
+            usuario.nombre_completo, 
+            usuario.rol
+          );
+      console.log('. Cuenta activada exitosamente para:', email);
+
+      // Redirigir al frontend con mensaje de éxito
+      const frontendUrl = getFrontendUrl();
+      return res.redirect(`${frontendUrl}/login?message=email_confirmado`);
+
+    } catch (decodeError) {
+      console.error('. Error decodificando token:', decodeError);
+      return res.status(400).json({
+        success: false,
+        message: 'Token inválido'
+      });
     }
-
-    console.log('. Usuario encontrado:', usuarioExistente.email);
-
-    // ACTUALIZAR CUENTA COMO ACTIVA
-    const { error: updateError } = await supabaseAdmin
-      .from('usuarios')
-      .update({ 
-        cuenta_activa: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', usuarioExistente.id);
-
-    if (updateError) {
-      console.error('. Error actualizando usuario:', updateError);
-      throw new Error('No se pudo activar la cuenta');
-    }
-
-    console.log('. Cuenta activada exitosamente para:', email);
-
-    // ENVIAR EMAIL DE BIENVENIDA
-    try {
-      console.log('. Enviando email de bienvenida...');
-      await enviarEmailBienvenida(email, usuarioExistente.nombre_completo, usuarioExistente.rol);
-    } catch (emailError) {
-      console.warn('. Error enviando email de bienvenida:', emailError.message);
-    }
-
-    // REDIRIGIR A PÁGINA DE ÉXITO
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-          <title>Cuenta Activada - Sistema de Créditos</title>
-          <style>
-              body { 
-                  font-family: Arial, sans-serif; 
-                  text-align: center; 
-                  padding: 50px; 
-                  background: linear-gradient(135deg, #10b981, #059669);
-                  color: white;
-                  height: 100vh;
-                  display: flex;
-                  flex-direction: column;
-                  justify-content: center;
-                  align-items: center;
-              }
-              .container {
-                  background: white;
-                  color: #333;
-                  padding: 40px;
-                  border-radius: 10px;
-                  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                  max-width: 500px;
-              }
-              .success-icon {
-                  font-size: 48px;
-                  color: #10b981;
-                  margin-bottom: 20px;
-              }
-              .button {
-                  display: inline-block;
-                  background: #10b981;
-                  color: white;
-                  padding: 12px 24px;
-                  text-decoration: none;
-                  border-radius: 5px;
-                  margin: 15px 0;
-                  font-weight: bold;
-              }
-          </style>
-      </head>
-      <body>
-          <div class="container">
-              <div class="success-icon">✅</div>
-              <h1>¡Cuenta Activada Exitosamente!</h1>
-              <p>Tu dirección de email ha sido confirmada correctamente.</p>
-              <p>Ahora puedes iniciar sesión en el sistema con tus credenciales.</p>
-              <a href="${FRONTEND_URL}/login" class="button">Ir al Login</a>
-          </div>
-      </body>
-      </html>
-    `);
 
   } catch (error) {
-    console.error('. Error en confirmación de email:', error);
-    res.status(400).send(`
-      <html>
-      <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-          <h1 style="color: #dc2626;">Error al Activar Cuenta</h1>
-          <p>${error.message || 'Ha ocurrido un error al activar tu cuenta.'}</p>
-          <p>Por favor, intenta nuevamente o contacta al soporte.</p>
-          <a href="${FRONTEND_URL}" style="color: #2563eb; text-decoration: none;">Volver al Inicio</a>
-      </body>
-      </html>
-    `);
+    console.error('. Error en confirmarEmail:', error);
+    
+    // Redirigir al frontend con mensaje de error
+    const frontendUrl = getFrontendUrl();
+    return res.redirect(`${frontendUrl}/login?error=confirmacion_fallida`);
   }
 };
 
-// Reenviar email de confirmación
 const reenviarConfirmacion = async (req, res) => {
   try {
     const { email } = req.body;
@@ -228,58 +202,211 @@ const reenviarConfirmacion = async (req, res) => {
       });
     }
 
-    console.log('. Reenviando confirmación a:', email);
+    console.log('. [CONFIRMACIÓN] Reenviando confirmación a:', email);
 
     // Buscar usuario
-    const { data: usuario, error } = await supabaseAdmin
+    const { data: usuario, error: usuarioError } = await supabase
       .from('usuarios')
-      .select('id, nombre_completo, email, cuenta_activa')
+      .select('*')
       .eq('email', email)
       .single();
 
-    if (error || !usuario) {
+    if (usuarioError || !usuario) {
       return res.status(404).json({
         success: false,
         message: 'Usuario no encontrado'
       });
     }
 
-    // Verificar si ya está activo
+    // Verificar si ya está confirmado
     if (usuario.cuenta_activa) {
       return res.status(400).json({
         success: false,
-        message: 'La cuenta ya está activa. Puedes iniciar sesión.'
+        message: 'La cuenta ya está confirmada'
       });
     }
 
-    // Enviar nuevo email de confirmación
-    const { enviarEmailConfirmacionCuenta } = require('../servicios/emailServicio');
-    const resultado = await enviarEmailConfirmacionCuenta(
+    // Reenviar email de confirmación
+    const emailResult = await enviarEmailConfirmacionCuenta(
       usuario.email, 
       usuario.nombre_completo, 
       usuario.id
     );
 
-    if (resultado.success) {
-      res.json({
-        success: true,
-        message: 'Email de confirmación reenviado exitosamente'
+    if (!emailResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Error enviando email de confirmación'
       });
-    } else {
-      throw new Error(resultado.error);
     }
 
+    res.json({
+      success: true,
+      message: 'Email de confirmación reenviado exitosamente'
+    });
+
   } catch (error) {
-    console.error('. Error reenviando confirmación:', error);
-    res.status(400).json({
+    console.error('. Error en reenviarConfirmacion:', error);
+    res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Error interno del servidor'
     });
   }
 };
 
+const estadoConfirmacionEmail = async (req, res) => {
+  try {
+    const usuarioId = req.usuario.id;
+
+    const { data: usuario, error } = await supabase
+      .from('usuarios')
+      .select('cuenta_activa')
+      .eq('id', usuarioId)
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: {
+        email_confirmado: usuario.cuenta_activa
+      }
+    });
+
+  } catch (error) {
+    console.error('. Error en estadoConfirmacionEmail:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verificando estado de confirmación'
+    });
+  }
+};
+const enviarEmailBienvenida = async (email, nombre, rol) => {
+  try {
+    console.log(`. [BREVO] Intentando enviar email de bienvenida a: ${email}`);
+    
+    const configuracionValida = await verificarConexionBrevo();
+    
+    if (!configuracionValida) {
+      console.warn('. Configuración de Brevo no válida, no se enviará email');
+      return {
+        success: false,
+        error: 'Configuración de email no disponible',
+        skip: true
+      };
+    }
+
+    const plantilla = crearPlantillaBienvenida(nombre, rol);
+    const resultado = await enviarEmailBrevo(email, plantilla.asunto, plantilla.html, plantilla.texto);
+    
+    if (resultado.success) {
+      console.log('. . Email de bienvenida enviado exitosamente via Brevo');
+    } else {
+      console.warn('. . Email de bienvenida no enviado:', resultado.error);
+    }
+    
+    return resultado;
+    
+  } catch (error) {
+    console.error('. . Error en servicio de email de bienvenida:', error);
+    return {
+      success: false,
+      error: error.message,
+      skip: true
+    };
+  }
+};
+const crearPlantillaBienvenida = (nombre, rol) => {
+  const asunto = rol === 'operador' 
+    ? '¡Bienvenido Operador al Sistema de Créditos!' 
+    : '¡Bienvenido Solicitante al Sistema de Créditos!';
+  
+  const mensaje = rol === 'operador'
+    ? `Hola <strong>${nombre}</strong>, bienvenido como operador del sistema de créditos. Tu cuenta ha sido creada exitosamente y ya puedes comenzar a gestionar solicitudes.`
+    : `Hola <strong>${nombre}</strong>, bienvenido como solicitante del sistema de créditos. Tu cuenta ha sido creada exitosamente y ya puedes comenzar a solicitar créditos para tu empresa.`;
+
+  const frontendUrl = getFrontendUrl();
+
+  return {
+    asunto,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { 
+            font-family: 'Arial', sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f4f4f4;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header { 
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white; 
+            padding: 30px 20px; 
+            text-align: center; 
+        }
+        .content { 
+            padding: 30px; 
+            background: #f9fafb; 
+        }
+        .button {
+            display: inline-block;
+            background: #2563eb;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>${asunto}</h1>
+        </div>
+        <div class="content">
+            <p>Estimado/a <strong>${nombre}</strong>,</p>
+            <p>${mensaje}</p>
+            
+            <p style="text-align: center;">
+              <a href="${frontendUrl}/login" class="button">Iniciar Sesión en el Sistema</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+    `,
+    texto: `${asunto}
+
+Hola ${nombre},
+
+${mensaje}
+
+Puedes iniciar sesión en: ${frontendUrl}/login
+
+Sistema de Créditos`
+  };
+};
+
 module.exports = {
-  estadoConfirmacionEmail,
   confirmarEmail,
-  reenviarConfirmacion
+  reenviarConfirmacion,
+  estadoConfirmacionEmail,
+  enviarEmailBienvenida,
+  enviarEmailConfirmacionCuenta,
+  verificarServicioEmail: verificarConexionBrevo
 };
