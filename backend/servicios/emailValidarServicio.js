@@ -3,8 +3,8 @@ const axios = require('axios');
 class emailValidarServicio {
   constructor() {
     this.services = [
-      this.verifyEmailAbstract,
-      this.basicSyntaxValidation
+      { name: 'AbstractAPI', method: this.verifyEmailAbstract.bind(this) },
+      { name: 'BasicValidation', method: this.basicSyntaxValidation.bind(this) }
     ];
   }
   // . SERVICIO .: Abstract API

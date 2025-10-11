@@ -1,4 +1,5 @@
 const brevoAPIService = require('./emailBrevoAPIService');
+const { generarTokenConfirmacion, getFrontendUrl } = require('./emailConfirmacionServicio');
 
 const enviarEmailBienvenida = async (email, nombre, rol) => {
   try {
@@ -23,16 +24,17 @@ const enviarEmailBienvenida = async (email, nombre, rol) => {
     };
   }
 };
-
 const enviarEmailConfirmacionCuenta = async (email, nombre, userId) => {
   try {
     console.log(`. [CONFIRMACIÓN] Enviando email de confirmación a: ${email}`);
     
-    // Generar token (usar la misma función que ya tienes)
-    const { generarTokenConfirmacion } = require('./emailConfirmacionServicio');
     const tokenConfirmacion = generarTokenConfirmacion(userId, email);
     
-    const resultado = await brevoAPIService.enviarEmailConfirmacion(email, nombre, tokenConfirmacion);
+    // CORRECCIÓN: Usar FRONTEND_URL
+    const frontendUrl = getFrontendUrl();
+    const enlaceConfirmacion = `${frontendUrl}/api/auth/confirmar?token=${tokenConfirmacion}&email=${encodeURIComponent(email)}`;
+    
+    const resultado = await brevoAPIService.enviarEmailConfirmacion(email, nombre, enlaceConfirmacion);
     
     return resultado;
     
