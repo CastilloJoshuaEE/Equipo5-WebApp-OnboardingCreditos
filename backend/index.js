@@ -140,7 +140,7 @@ const iniciarServidor = async () => {
     // Usar rutas API
     app.use("/api", routes);
 
-    // Configuración para producción - SINTÁXIS CORRECTA EXPRESS 5
+    // Configuración para producción - SOLUCIÓN DEFINITIVA PARA EXPRESS 5
     if (process.env.NODE_ENV === "production") {
       // Servir archivos estáticos del frontend
       app.use(express.static(path.join(__dirname, "../frontend/build")));
@@ -150,22 +150,36 @@ const iniciarServidor = async () => {
         res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
       });
 
-      // Manejar SPA routing - SIN USAR COMODINES COMPLEJOS
-      app.get("*", (req, res, next) => {
-        // Si la ruta empieza con /api, pasar al siguiente middleware
+      // SOLUCIÓN: Crear rutas específicas para las rutas conocidas del frontend
+      const frontendRoutes = [
+        '/login', '/register', '/solicitante', '/operador', 
+        '/confirmacion', '/confirmacion-exitosa', '/error'
+      ];
+      
+      frontendRoutes.forEach(route => {
+        app.get(route, (req, res) => {
+          res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
+        });
+      });
+
+      // Middleware final para capturar cualquier otra ruta que no sea API
+      app.use((req, res, next) => {
         if (req.path.startsWith('/api')) {
-          return next();
+          return res.status(404).json({
+            success: false,
+            message: `Endpoint API no encontrado: ${req.path}`
+          });
         }
-        // Para cualquier otra ruta, servir el frontend
+        // Para cualquier otra ruta no-API, servir el frontend
         res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
       });
 
     } else {
-      // En desarrollo - MANEJO SIMPLIFICADO SIN COMODINES COMPLEJOS
+      // En desarrollo - SIN USAR PATRONES DE RUTA COMPLEJOS
       
-      // Middleware para rutas no encontradas
+      // Middleware para rutas API no encontradas
       app.use((req, res, next) => {
-        if (req.path.startsWith("/api")) {
+        if (req.path.startsWith("/api") && !req.path.startsWith("/api-docs")) {
           return res.status(404).json({
             success: false,
             message: `Endpoint API no encontrado: ${req.path}`
@@ -176,9 +190,16 @@ const iniciarServidor = async () => {
 
       // Para rutas no API en desarrollo
       app.use((req, res) => {
+        if (!req.path.startsWith("/api") && !req.path.startsWith("/api-docs")) {
+          return res.status(404).json({
+            success: false,
+            message: "Ruta no encontrada. En desarrollo, el frontend debe ejecutarse en puerto 3000"
+          });
+        }
+        // Si llega aquí, es una ruta API que debería haber sido manejada
         res.status(404).json({
           success: false,
-          message: "Ruta no encontrada. En desarrollo, el frontend debe ejecutarse en puerto 3000"
+          message: `Endpoint no encontrado: ${req.path}`
         });
       });
     }
