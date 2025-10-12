@@ -123,7 +123,7 @@ class emailValidarServicio {
     // Probar todos los servicios
     for (const service of this.services) {
       try {
-        const result = await service.call(this, email);
+        const result = await service.method(email);
         if (result) {
           validationResults.push(result);
           console.log(`   ${result.service}: ${result.valid ? '.' : '.'} - ${result.reason}`);

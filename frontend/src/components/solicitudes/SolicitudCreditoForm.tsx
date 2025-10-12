@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { getSession } from 'next-auth/react';
+import { getSession,useSession  } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -38,6 +38,7 @@ export default function SolicitudCreditoForm() {
   const [success, setSuccess] = useState('');
   const [documentos, setDocumentos] = useState<File[]>([]);
   const [solicitudId, setSolicitudId] = useState<string | null>(null);
+  const { data: session } = useSession();
 
   const {
     register,
@@ -60,7 +61,10 @@ export default function SolicitudCreditoForm() {
 
   // Guardar datos en localStorage
   const guardarBorrador = useCallback(() => {
+
+    if (!session?.user?.id) return;
     const formData = {
+      userId: session.user.id,
       monto: watch('monto'),
       plazo_meses: watch('plazo_meses'),
       moneda: watch('moneda'),
@@ -74,9 +78,9 @@ export default function SolicitudCreditoForm() {
       ultimaActualizacion: new Date().toISOString()
     };
     
-    localStorage.setItem('solicitud_borrador', JSON.stringify(formData));
+    localStorage.setItem(`solicitud_borrador_${session.user.id}`, JSON.stringify(formData));
     console.log('Borrador guardado en localStorage');
-  }, [watch, documentos]);
+  }, [watch, documentos, session]);
 
   // Usar debounce para guardar automáticamente
   useEffect(() => {
@@ -91,11 +95,14 @@ export default function SolicitudCreditoForm() {
 
   // Cargar borrador al montar el componente
   useEffect(() => {
-    const borradorGuardado = localStorage.getItem('solicitud_borrador');
-    if (borradorGuardado) {
+    if (!session?.user?.id) return;
+    const borradorGuardado = localStorage.getItem(`solicitud_borrador_${session.user.id}`);    if (borradorGuardado) {
       try {
         const data = JSON.parse(borradorGuardado);
-        
+        if (data.userId !== session.user.id) {
+          localStorage.removeItem(`solicitud_borrador_${session.user.id}`);
+          return;
+        }
         // Verificar si el borrador es reciente (menos de 24 horas)
         const fechaBorrador = new Date(data.ultimaActualizacion);
         const ahora = new Date();
@@ -110,14 +117,14 @@ export default function SolicitudCreditoForm() {
           console.log('Borrador cargado desde localStorage');
         } else {
           // Borrar borrador viejo
-          localStorage.removeItem('solicitud_borrador');
+          localStorage.removeItem(`solicitud_borrador_${session.user.id}`);
         }
       } catch (error) {
         console.error('Error cargando borrador:', error);
-        localStorage.removeItem('solicitud_borrador');
+        localStorage.removeItem(`solicitud_borrador_${session.user.id}`);
       }
     }
-  }, [setValue]);
+  }, [setValue, session]);
 
   const handleDocumentoChange = (event: React.ChangeEvent<HTMLInputElement>, tipo: string) => {
     const files = event.target.files;
@@ -127,6 +134,9 @@ export default function SolicitudCreditoForm() {
   };
 
   const limpiarFormulario = () => {
+    if (session?.user?.id) {
+      localStorage.removeItem(`solicitud_borrador_${session.user.id}`);
+    }    
     // Resetear formulario
     setValue('monto', 0);
     setValue('plazo_meses', 0);
@@ -140,7 +150,7 @@ export default function SolicitudCreditoForm() {
     
     // Limpiar localStorage
     localStorage.removeItem('solicitud_borrador');
-    console.log('Formulario limpiado');
+    console.log('Formulario limpiado para usuario:', session?.user?.id);
   };
 
   const handleNext = () => {
