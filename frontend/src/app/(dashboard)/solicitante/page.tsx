@@ -94,7 +94,45 @@ export default function DashboardSolicitante() {
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
+  const handleLogout = async () => {
+    try {
+      // Obtener la sesión actual
+      const currentSession = await getSession();
+      
+      // Limpiar todos los borradores del usuario actual
+      if (currentSession?.user?.id) {
+        const userId = currentSession.user.id;
+        localStorage.removeItem(`solicitud_borrador_${userId}`);
+        console.log('Borrador eliminado para usuario:', userId);
+        
+        // Opcional: Limpiar cualquier otro dato relacionado con el usuario
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.includes(`solicitud_borrador_`)) {
+            keysToRemove.push(key);
+          }
+        }
+        
+        // Eliminar todos los borradores (por si hay múltiples)
+        keysToRemove.forEach(key => {
+          localStorage.removeItem(key);
+          console.log('Eliminado:', key);
+        });
+      }
 
+      // Cerrar sesión
+      await signOut({ 
+        callbackUrl: '/login',
+        redirect: true 
+      });
+
+    } catch (error) {
+      console.error('Error durante el logout:', error);
+      // Fallback: cerrar sesión aunque falle la limpieza
+      await signOut({ callbackUrl: '/login' });
+    }
+  };
   if (status === 'loading') {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
@@ -176,7 +214,12 @@ export default function DashboardSolicitante() {
         <Button 
           variant="outlined" 
           color="error"
-          onClick={() => signOut({ callbackUrl: '/login' })}
+          onClick={handleLogout}
+          sx={{
+            px: 4,
+            py: 1,
+            fontWeight: 'bold'
+          }}
         >
           Cerrar Sesión
         </Button>
