@@ -165,9 +165,10 @@ const iniciarServidor = async () => {
       });
 
       // Para cualquier otra ruta que no sea /api, servir el frontend
-      app.use((req, res) => {
+      app.get('/*', (req, res) => {
         res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
       });
+
     } else {
       // En desarrollo, solo manejar rutas API
       app.use((req, res) => {
