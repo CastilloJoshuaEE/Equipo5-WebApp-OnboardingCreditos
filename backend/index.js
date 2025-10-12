@@ -34,7 +34,7 @@ const swaggerOptions = {
           url:
             process.env.NODE_ENV === "production"
               ? "https://tu-dominio.com/api"
-              : `http://localhost:${process.env.PORT || 3000}/api`,
+              : `http://localhost:${process.env.PORT || 3001}/api`,
           description:
             process.env.NODE_ENV === "production"
               ? "Servidor de Producción"
@@ -57,38 +57,30 @@ const swaggerOptions = {
       },
     ],
   },
-  apis: ["./routes/*.js", "./controladores/*.js"], // Archivos donde están las rutas documentadas
+  apis: ["./routes/*.js", "./controladores/*.js"],
 };
 
 const swaggerSpec = swaggerJsDoc(swaggerOptions);
+
+// Headers de seguridad
 app.use((req, res, next) => {
-  // Headers de seguridad mejorados
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
-  // CSP para producción
-  if (process.env.NODE_ENV === 'production') {
-    res.setHeader('Content-Security-Policy', 
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
-    );
-  }
   next();
 });
+
 // Configurar CORS
-app.use(
-  cors({
-    origin: [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
-      'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com'
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-  })
-);
-app.options('/*', cors());
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 // Middleware para parsear JSON
 app.use(express.json({ limit: "10mb" }));
@@ -106,7 +98,6 @@ app.use(
 
 // Servir archivos estáticos
 app.use("/img", express.static(path.join(__dirname, "../frontend/public/img")));
-app.use(express.static(path.join(__dirname, "../frontend/build")));
 
 // Ruta de health check básica
 app.get("/api/health", (req, res) => {
@@ -135,59 +126,73 @@ const iniciarServidor = async () => {
 
     console.log(". Conectado a Supabase PostgreSQL");
 
-    // Ejecutar datos iniciales (manejar errores sin detener el servidor)
+    // Ejecutar datos iniciales
     console.log("📥 Cargando datos iniciales...");
     try {
-      const datosInicialesExitosos = await datosIniciales();
-      if (!datosInicialesExitosos) {
-        console.log(
-          ".  Datos iniciales no se cargaron completamente, pero el servidor continuará"
-        );
-      }
+      await datosIniciales();
     } catch (error) {
-      console.log(
-        ".  Error en datos iniciales, continuando sin ellos:",
-        error.message
-      );
+      console.log(". Error en datos iniciales:", error.message);
     }
+
     console.log(' Verificando configuración de Storage...');
     await configurarStorage();
+    
     // Usar rutas API
     app.use("/api", routes);
 
-    // Ruta para servir la aplicación React (para producción)
+    // Configuración para producción - SINTÁXIS CORRECTA EXPRESS 5
     if (process.env.NODE_ENV === "production") {
+      // Servir archivos estáticos del frontend
       app.use(express.static(path.join(__dirname, "../frontend/build")));
 
-      // Manejar todas las demás rutas devolviendo el index.html
+      // Ruta principal
       app.get("/", (req, res) => {
         res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
       });
 
-      // Para cualquier otra ruta que no sea /api, servir el frontend
-      app.get('/*', (req, res) => {
+      // Manejar SPA routing - SIN USAR COMODINES COMPLEJOS
+      app.get("*", (req, res, next) => {
+        // Si la ruta empieza con /api, pasar al siguiente middleware
+        if (req.path.startsWith('/api')) {
+          return next();
+        }
+        // Para cualquier otra ruta, servir el frontend
         res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
       });
 
     } else {
-      // En desarrollo, solo manejar rutas API
-      app.use((req, res) => {
+      // En desarrollo - MANEJO SIMPLIFICADO SIN COMODINES COMPLEJOS
+      
+      // Middleware para rutas no encontradas
+      app.use((req, res, next) => {
         if (req.path.startsWith("/api")) {
-          res.status(404).json({
-            error: "Endpoint no encontrado",
-            message: `La ruta ${req.path} no existe`,
-          });
-        } else {
-          res.status(404).json({
-            error: "Ruta no encontrada",
-            message:
-              "En desarrollo, el frontend debe ejecutarse por separado en puerto 3000",
+          return res.status(404).json({
+            success: false,
+            message: `Endpoint API no encontrado: ${req.path}`
           });
         }
+        next();
+      });
+
+      // Para rutas no API en desarrollo
+      app.use((req, res) => {
+        res.status(404).json({
+          success: false,
+          message: "Ruta no encontrada. En desarrollo, el frontend debe ejecutarse en puerto 3000"
+        });
       });
     }
 
-    const PORT = process.env.PORT || 3000;
+    // Manejo de errores global
+    app.use((err, req, res, next) => {
+      console.error('Error del servidor:', err);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    });
+
+    const PORT = process.env.PORT || 3001;
 
     // Iniciar servidor
     const server = app.listen(PORT, () => {
@@ -197,25 +202,10 @@ const iniciarServidor = async () => {
       console.log(`. Documentación API: http://localhost:${PORT}/api-docs`);
       console.log(`\n. Endpoints disponibles:`);
       console.log(`   Health:    GET  http://localhost:${PORT}/api/health`);
-      console.log(
-        `   Registro:  POST http://localhost:${PORT}/api/usuarios/registro`
-      );
-      console.log(
-        `   Login:     POST http://localhost:${PORT}/api/usuarios/login`
-      );
-      console.log(
-        `   Session:   GET  http://localhost:${PORT}/api/usuarios/session`
-      );
-      console.log(
-        `   Perfil:    GET  http://localhost:${PORT}/api/usuario/perfil`
-      );
-      console.log(`\n Usuarios creados:`);
-      console.log(
-        `   - jomeregildo64@gmail.com (operador) - contraseña: operador1234`
-      );
-      console.log(
-        `   - joshuamerejildo846@gmail.com (solicitante) - contraseña: cliente123`
-      );
+      console.log(`   Registro:  POST http://localhost:${PORT}/api/usuarios/registro`);
+      console.log(`   Login:     POST http://localhost:${PORT}/api/usuarios/login`);
+      console.log(`   Session:   GET  http://localhost:${PORT}/api/usuarios/session`);
+      console.log(`   Perfil:    GET  http://localhost:${PORT}/api/usuario/perfil`);
     });
 
     // Manejo elegante de cierre
@@ -236,15 +226,6 @@ const iniciarServidor = async () => {
     });
   } catch (error) {
     console.error(". Error crítico iniciando servidor:", error.message);
-
-    console.log("\n. Solución de problemas:");
-    console.log(
-      "   1. Verifica que SUPABASE_URL y SUPABASE_ANON_KEY estén correctas"
-    );
-    console.log("   2. Asegúrate de que el proyecto Supabase esté activo");
-    console.log("   3. Verifica tu conexión a internet");
-    console.log("   4. Revisa la consola de Supabase para posibles errores");
-
     process.exit(1);
   }
 };
@@ -256,9 +237,7 @@ process.on("unhandledRejection", (reason, promise) => {
 
 process.on("uncaughtException", (error) => {
   console.error(". Excepción no capturada:", error);
-  if (process.env.NODE_ENV === "production") {
-    process.exit(1);
-  }
+  process.exit(1);
 });
 
 // Iniciar servidor
