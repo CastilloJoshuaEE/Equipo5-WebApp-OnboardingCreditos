@@ -1,17 +1,12 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata } from "next"; 
 import "./../styles/globals.css";
 import { SessionProvider } from "@/providers/SessionProvider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import '@fontsource/roboto/300.css';
+import '@fontsource/roboto/400.css';
+import '@fontsource/roboto/500.css';
+import '@fontsource/roboto/700.css';
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Sistema de Créditos PYME",
@@ -25,7 +20,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body 
+      style={{
+          fontFamily: "Roboto, Arial, sans-serif",
+          margin: 0,
+          padding: 0,
+        }}
+      >
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
