@@ -878,7 +878,7 @@ const recuperarContrasena = async(req, res)=>{
     });
   }
 };
-const solicitarRecuperacionContrasena = async (req, res) => {
+const solicitarRecuperacionCuenta = async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -894,7 +894,7 @@ const solicitarRecuperacionContrasena = async (req, res) => {
     // Verificar que el usuario existe
     const { data: usuarioExistente, error: usuarioError } = await supabase
       .from('usuarios')
-      .select('id, email, cuenta_activa, nombre_completo')
+      .select('id, email, cuenta_activa, nombre_completo, email_recuperacion')
       .eq('email', email)
       .single();
 
@@ -906,6 +906,7 @@ const solicitarRecuperacionContrasena = async (req, res) => {
         message: 'Si el email está registrado, recibirás un enlace de recuperación'
       });
     }
+
 
     if (!usuarioExistente.cuenta_activa) {
       return res.status(400).json({
@@ -919,8 +920,8 @@ const solicitarRecuperacionContrasena = async (req, res) => {
     // OPCIÓN 1: Usar email personalizado (recomendado)
     let emailPersonalizadoEnviado = false;
     try {
-      const { enviarEmailRecuperacionContrasena } = require('../servicios/emailServicio');
-      const emailResult = await enviarEmailRecuperacionContrasena(
+      const { enviarEmailRecuperacionCuenta } = require('../servicios/emailServicio');
+      const emailResult = await enviarEmailRecuperacionCuenta(
         usuarioExistente.email, 
         usuarioExistente.nombre_completo, 
         usuarioExistente.id
@@ -946,7 +947,7 @@ const solicitarRecuperacionContrasena = async (req, res) => {
     // OPCIÓN 2: Usar Supabase Auth (fallback)
     console.log('. Enviando email de recuperación via Supabase Auth...');
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/resetear-contrasena`
+      redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/restablecer-contrasena`
     });
 
     if (resetError) {
@@ -963,10 +964,10 @@ const solicitarRecuperacionContrasena = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('. Error en solicitarRecuperacionContrasena:', error);
+    console.error('. Error en solicitarRecuperacionCuenta:', error);
     res.status(400).json({
       success: false,
-      message: error.message || 'Error al solicitar recuperación de contraseña'
+      message: error.message || 'Error al solicitar recuperación de cuenta'
     });
   }
 };
@@ -975,11 +976,28 @@ const solicitarRecuperacionContrasena = async (req, res) => {
 const desactivarCuenta = async (req, res) => {
   try {
     console.log('🚫 Desactivando cuenta para usuario ID:', req.usuario.id);
-
+    const {password, motivo}= req.body;
+    if(!password){
+      return res.status(400).json({
+        success:false,
+        message: 'La contraseña es requerida para desactivar la cuenta'
+      });
+    }
+    const {data: verifyData, error: verifyError}= await supabase.auth.signInWithPassword({
+      email: req.usuario.email,
+      password: password
+    });
+    if(verifyError){
+      return res.status(400).json({
+        success: false,
+        message: 'Contraseña incorrecta. No se pudo desactivar la cuenta'
+      });
+    }
     const { data, error } = await supabase
       .from('usuarios')
       .update({
         cuenta_activa: false,
+        fecha_desactivacion: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', req.usuario.id)
@@ -1003,14 +1021,94 @@ const desactivarCuenta = async (req, res) => {
     console.log('. Cuenta desactivada exitosamente');
     res.json({
       success: true,
-      message: 'Cuenta desactivada exitosamente',
-      data: data[0]
+      message: 'Cuenta desactivada exitosamente. Puedes desactivarla iniciando sesión nuevamente',
+      data: {
+        usuario: data[0],
+        fecha_desactivacion: new Date().toISOString()
+      }
     });
   } catch (error) {
     console.error('. Error en desactivarCuenta:', error);
     res.status(400).json({
       success: false,
       message: error.message
+    });
+  }
+};
+const actualizarEmailRecuperacion= async(req, res)=>{
+  try{
+    const{ email_recuperacion}= req.body;
+    if(!email_recuperacion){
+      return res.status(400).json({
+        success: false,
+        message: 'El email de recuperación es requerido'
+      });
+    }
+    const emailRegex= /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email_recuperacion)){
+      return res.status(400).json({
+        success: false,
+        message: 'El formato del email de recuperación no es válido'
+      });
+    }
+    console.log('Actualizando email de recuperación para usuario ID:', req.usuario.id);
+    const{data, error}= await supabase
+    .from('usuarios')
+    .update({
+      email_recuperacion,
+      update_at: new Date().toISOString()
+    })
+    .eq('id', req.usuario.id)
+    .select();
+    if(error){
+      console.error('Error actualizando email de recuperación:', error);
+      throw error;
+    }
+    if(!data || data.length ===0){
+      return res.status(404).json({
+        success:false,
+        message: 'Usuario no encontrado'
+      });
+    }
+    console.log('Email de recuperación actualizado exitosamente');
+    res.json({
+      success:true,
+      message: 'Email de recuperación actualizado exitosamente',
+      data: data[0]
+    });
+
+
+  }catch(error){
+    console.error(' Error en actualizarEmailRecuperacion:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+const verificarEstadoCuenta= async(req, res)=>{
+  try{
+    const usuarioId= req.usuario.id;
+    const {data:usuario, error}= await supabase
+    .from('usuarios')
+    .select('cuenta_activa, fecha_desactivacion, email_recuperacion')
+    .eq('id', usuarioId)
+    .single();
+    if(error) throw error;
+    res.json({
+      success:true,
+      data:{
+        cuenta_activa: usuario.cuenta_activa,
+        fecha_desactivacion: usuario.fecha_desactivacion,
+        email_recuperacion: usuario.email_recuperacion,
+        tiene_email_recuperacion: !!usuario.email_recuperacion
+      }
+    });
+  }catch(error){
+    console.error('Error en verificarEstadoCuenta:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verificando estado de la cuenta'
     });
   }
 };
@@ -1023,6 +1121,8 @@ module.exports = {
   actualizarPerfilPorId,
   cambiarContrasena,
   recuperarContrasena,
-  solicitarRecuperacionContrasena,
-  desactivarCuenta
+  solicitarRecuperacionCuenta,
+  desactivarCuenta,
+  actualizarEmailRecuperacion,
+  verificarEstadoCuenta
 };

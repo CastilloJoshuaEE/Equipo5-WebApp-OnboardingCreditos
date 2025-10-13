@@ -46,7 +46,7 @@ export default function HomePage() {
             size="large"
             onClick={handleGetStarted}
           >
-            {session ? 'Ir al Dashboard' : 'Comenzar'}
+            {session ? 'Ir al Dashboard ya iniciaste sesion' : 'Comenzar'}
           </Button>
           
           {!session && (

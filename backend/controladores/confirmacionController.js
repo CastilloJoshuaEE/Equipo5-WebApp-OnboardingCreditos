@@ -1,8 +1,7 @@
 const { supabase } = require('../config/conexion.js');
 const { enviarEmailConfirmacion } = require('../servicios/emailConfirmacionServicio');
-const { verificarConexionBrevo } = require('../servicios/emailBrevoAPIService'); // ← CORREGIDO
+const { verificarConexionBrevo } = require('../servicios/emailBrevoAPIService');
 const { confirmUserEmail } = require('../config/supabaseAdmin');
-// Agregar función para obtener FRONTEND_URL
 const getFrontendUrl = () => {
   if (process.env.NODE_ENV === 'production') {
     return 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
@@ -10,7 +9,6 @@ const getFrontendUrl = () => {
   return process.env.FRONTEND_URL || 'http://localhost:3000';
 };
 
-// AGREGAR ESTA FUNCIÓN FALTANTE
 const enviarEmailBrevo = async (email, asunto, contenidoHTML, contenidoTexto = '') => {
   try {
     const brevoAPIService = require('../servicios/emailBrevoAPIService');
@@ -21,7 +19,6 @@ const enviarEmailBrevo = async (email, asunto, contenidoHTML, contenidoTexto = '
   }
 };
 
-// AGREGAR ESTA FUNCIÓN FALTANTE
 const enviarEmailConfirmacionCuenta = async (email, nombre, userId) => {
   try {
     console.log(`. [CONFIRMACIÓN] Enviando email de confirmación a: ${email}`);

@@ -5,7 +5,7 @@ const usuariosController = require("../controladores/usuariosController");
 const confirmacionController = require("../controladores/confirmacionController");
 const solicitudesController = require('../controladores/solicitudesController');
 const { descargarDocumento } = require('../controladores/documentosController');
-
+const { solicitarReactivacionCuenta, reactivarCuenta, procesarRecuperacionCuenta  } = require('../controladores/reactivacionController');
 // Estas deben apuntar a middleware existentes
 const {
   validateEmailBeforeAuth,
@@ -645,54 +645,33 @@ router.post("/usuarios/logout", authController.logout);
  *               $ref: '#/components/schemas/Error'
  */
 router.get("/usuarios/session", authController.getSession);
-
 /**
  * @swagger
- * /api/usuarios/recuperar-contrasena:
- *   post:
- *     summary: Recuperar contraseña
- *     tags: [Contraseña]
- *     description: Permite restablecer la contraseña de un usuario sin necesidad de autenticación.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - nueva_contrasena
- *               - confirmar_contrasena
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *                 description: Email del usuario
- *               nueva_contrasena:
- *                 type: string
- *                 description: Nueva contraseña
- *               confirmar_contrasena:
- *                 type: string
- *                 description: Confirmación de la nueva contraseña
- *             example:
- *               email: "usuario@ejemplo.com"
- *               nueva_contrasena: "nueva1234"
- *               confirmar_contrasena: "nueva1234"
+ * /api/auth/restablecer-cuenta:
+ *   get:
+ *     summary: Procesar recuperación de cuenta
+ *     tags: [Cuenta]
+ *     description: Procesa el token de recuperación para reactivar una cuenta desactivada
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Token de recuperación
+ *       - in: query
+ *         name: email
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: email
+ *         description: Email del usuario
  *     responses:
- *       200:
- *         description: Contraseña recuperada exitosamente
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/SuccessResponse'
- *       400:
- *         description: Error en la recuperación (email inválido o contraseñas no coinciden)
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *       302:
+ *         description: Redirección al frontend con resultado
  */
-router.post('/usuarios/recuperar-contrasena', usuariosController.recuperarContrasena);
+router.get("/auth/restablecer-cuenta", procesarRecuperacionCuenta);
+router.post('/usuario/solicitar-reactivacion', solicitarReactivacionCuenta);
 
 /**
  * @swagger
@@ -748,45 +727,6 @@ router.post('/usuarios/recuperar-contrasena', usuariosController.recuperarContra
  *               $ref: '#/components/schemas/Error'
  */
 router.put('/usuario/cambiar-contrasena', proteger, usuariosController.cambiarContrasena);
-
-/**
- * @swagger
- * /api/usuarios/solicitar-recuperacion:
- *   post:
- *     summary: Solicitar recuperación de contraseña
- *     tags: [Contraseña]
- *     description: Envía un email con un enlace de recuperación de contraseña. No requiere autenticación.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *                 description: Email del usuario
- *             example:
- *               email: "usuario@ejemplo.com"
- *     responses:
- *       200:
- *         description: Email de recuperación enviado exitosamente
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/SuccessResponse'
- *       400:
- *         description: Email inválido o usuario no encontrado
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.post('/usuarios/solicitar-recuperacion', usuariosController.solicitarRecuperacionContrasena);
-
 /**
  * @swagger
  * /api/usuario/estado-confirmacion:
@@ -935,9 +875,24 @@ router.put("/usuario/perfil", proteger, usuariosController.actualizarPerfil);
  *   put:
  *     summary: Desactivar cuenta del usuario autenticado
  *     tags: [Usuario]
- *     description: Desactiva la cuenta del usuario autenticado
+ *     description: Desactiva la cuenta del usuario autenticado (requiere confirmación con contraseña)
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - password
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 description: Contraseña actual para confirmar la desactivación
+ *               motivo:
+ *                 type: string
+ *                 description: Motivo opcional para la desactivación
  *     responses:
  *       200:
  *         description: Cuenta desactivada exitosamente
@@ -945,12 +900,10 @@ router.put("/usuario/perfil", proteger, usuariosController.actualizarPerfil);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/SuccessResponse'
+ *       400:
+ *         description: Contraseña incorrecta o datos inválidos
  *       401:
  *         description: No autorizado
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 router.put(
   "/usuario/desactivar-cuenta",
@@ -958,6 +911,103 @@ router.put(
   usuariosController.desactivarCuenta
 );
 
+/**
+ * @swagger
+ * /api/usuario/solicitar-reactivacion:
+ *   post:
+ *     summary: Solicitar reactivación de cuenta inactiva
+ *     tags: [Cuenta]
+ *     description: Solicita un enlace de reactivación para una cuenta desactivada
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Email de reactivación enviado exitosamente
+ *       400:
+ *         description: Email no válido
+ */
+router.post('/usuario/solicitar-reactivacion', solicitarReactivacionCuenta);
+
+/**
+ * @swagger
+ * /api/usuario/email-recuperacion:
+ *   put:
+ *     summary: Actualizar email de recuperación
+ *     tags: [Usuario]
+ *     description: Establece o actualiza el email de recuperación para la cuenta
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email_recuperacion
+ *             properties:
+ *               email_recuperacion:
+ *                 type: string
+ *                 format: email
+ *                 description: Email alternativo para recuperación de cuenta
+ *     responses:
+ *       200:
+ *         description: Email de recuperación actualizado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessResponse'
+ *       400:
+ *         description: Email no válido
+ *       401:
+ *         description: No autorizado
+ */
+router.put("/usuario/email-recuperacion", proteger, usuariosController.actualizarEmailRecuperacion);
+
+/**
+ * @swagger
+ * /api/usuario/estado-cuenta:
+ *   get:
+ *     summary: Verificar estado de la cuenta
+ *     tags: [Usuario]
+ *     description: Obtiene información sobre el estado de activación y email de recuperación
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Estado de cuenta obtenido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         cuenta_activa:
+ *                           type: boolean
+ *                         fecha_desactivacion:
+ *                           type: string
+ *                         email_recuperacion:
+ *                           type: string
+ *                         tiene_email_recuperacion:
+ *                           type: boolean
+ *       401:
+ *         description: No autorizado
+ */
+router.get("/usuario/estado-cuenta", proteger, usuariosController.verificarEstadoCuenta);
 // ==================== RUTAS PARA ADMINISTRADORES ====================
 
 /**

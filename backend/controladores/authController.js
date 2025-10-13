@@ -436,5 +436,5 @@ module.exports = {
   login,
   logout,
   getSession,
-  refreshToken  // ← AGREGAR ESTA LÍNEA
+  refreshToken
 };

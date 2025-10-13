@@ -11,7 +11,7 @@ export const AuthService = {
     return response.data;
   },
   forgotPassword: async (email: string) => {
-    return api.post<void>('/api/usuarios/recuperar-contrasena', { email });
+    return api.post<void>('/api/usuarios/restablecer-cuenta', { email });
   },
 
   getSession: async () => {
