@@ -1,7 +1,22 @@
+"use client";
+
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+
 import styles from "./HeroSection.module.css";
 
 export default function HeroSection() {
+  const router = useRouter();
+
+  const handleLogin = () => {
+    router.push("/login");
+  };
+
+  const handleSolicitarCredito = () => {
+    router.push("/"); // Ajusta la ruta si tu flujo de solicitud es distinto
+  };
+
+
   return (
     <section className={styles.heroSection}>
       <div className={styles.heroCenter}>
@@ -14,8 +29,18 @@ export default function HeroSection() {
             para crecer.
           </p>
           <div className={styles.heroButtons}>
-            <button className={styles.btnPrimary}>Iniciar Sesión</button>
-            <button className={styles.btnOutline}>Solicita tu Crédito</button>
+            <button
+              className={styles.btnPrimary}
+              onClick={handleLogin}
+            >
+              Iniciar Sesión
+            </button>
+            <button
+              className={styles.btnOutline}
+              onClick={handleSolicitarCredito}
+            >
+              Solicita tu Crédito
+            </button>
           </div>
         </div>
         <Image

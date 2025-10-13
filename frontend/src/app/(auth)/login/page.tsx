@@ -35,13 +35,12 @@ export default function LoginForm() {
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema)
   });
-
   const onSubmit: SubmitHandler<LoginInput> = async (data) => {
     try {
       setIsLoading(true);
       setError('');
 
-      console.log('. Enviando credenciales:', data.email);
+      console.log('Enviando credenciales:', data.email);
 
       const result = await signIn('credentials', {
         email: data.email,
@@ -49,21 +48,49 @@ export default function LoginForm() {
         redirect: false,
       });
 
-      console.log('. Resultado del signIn:', result);
+      console.log('Resultado del signIn:', result);
 
       if (result?.error) {
-        console.error('. Error en signIn:', result.error);
+        console.error('Error en signIn:', result.error);
         setError('Credenciales inválidas. Por favor verifica tu email y contraseña.');
         return;
       }
 
-      // Login exitoso
-      console.log('. Login exitoso, redirigiendo...');
-      router.refresh();
-      router.push('/');
+      // Login exitoso - obtener información del usuario para determinar el rol
+      console.log('Login exitoso, obteniendo información del usuario...');
+      
+      // Obtener la sesión actualizada
+      const sessionResponse = await fetch('/api/auth/session');
+      const session = await sessionResponse.json();
+      
+      console.log('Sesión obtenida:', session);
+
+      if (session?.user?.rol) {
+        // Redirigir según el rol del usuario
+        const userRole = session.user.rol.toLowerCase();
+        
+        switch (userRole) {
+          case 'solicitante':
+            router.push('/solicitante');
+            break;
+          case 'operador':
+            router.push('/operador');
+            break;
+          case 'administrador':
+            router.push('/admin');
+            break;
+          default:
+            router.push('/');
+            break;
+        }
+      } else {
+        // Si no se puede determinar el rol, redirigir al home
+        console.warn('No se pudo determinar el rol del usuario, redirigiendo al home');
+        router.push('/');
+      }
       
     } catch (error) {
-      console.error('. Login error:', error);
+      console.error('Login error:', error);
       setError('Error al iniciar sesión. Por favor intenta nuevamente.');
     } finally {
       setIsLoading(false);
