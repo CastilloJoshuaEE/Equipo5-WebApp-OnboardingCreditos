@@ -35,6 +35,7 @@ export default function LoginForm() {
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema)
   });
+
   const onSubmit: SubmitHandler<LoginInput> = async (data) => {
     try {
       setIsLoading(true);
