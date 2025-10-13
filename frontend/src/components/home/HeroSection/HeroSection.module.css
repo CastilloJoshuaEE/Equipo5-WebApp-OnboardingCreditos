@@ -1,0 +1,113 @@
+/* Hero */
+.heroSection {
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  gap: 0rem;
+  margin: 0 auto;
+  padding: 50px 0px 100px;
+}
+
+.heroSection .heroCenter {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0px;
+}
+
+.heroSection .heroCenter .heroContent {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.heroSection .heroCenter .heroContent h1 {
+  font-size: var(--fontStyleH3);
+  font-weight: var(--fontWeightBold);
+  color: var(--black);
+  line-height: 60px;
+}
+
+.heroSection .heroCenter .heroContent h1 span {
+  color: var(--primaryAccent);
+}
+
+.heroSection .heroCenter .heroContent p {
+  font-size: var(--fontStyleH5);
+  font-weight: var(--fontWeightLight);
+  color: var(--graysAndTones1);
+  line-height: 30px;
+}
+
+.heroSection .heroContent .heroButtons {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.heroSection .heroContent .heroButtons .btnPrimary {
+  background-color: var(--primaryAccent);
+  color: var(--white);
+  border: none;
+  padding: 8px 22px;
+  border-radius: var(--borderRadiusSmall);
+  font-size: var(--fontStyleText1);
+  font-weight: var(--fontWeightRegular);
+  cursor: pointer;
+  transition: background-color 0.3s ease-in-out;
+}
+
+.heroSection .heroContent .heroButtons .btnPrimary:hover {
+  background-color: var(--accent2);
+}
+
+.heroSection .heroContent .heroButtons .btnOutline {
+  background-color: transparent;
+  color: var(--primaryAccent);
+  border: 2px solid var(--primaryAccent);
+  padding: 8px 22px;
+  border-radius: var(--borderRadiusSmall);
+  font-size: var(--fontStyleText1);
+  font-weight: var(--fontWeightRegular);
+  cursor: pointer;
+  transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+}
+
+.heroSection .heroContent .heroButtons .btnOutline:hover {
+  background-color: var(--primaryAccent);
+  color: var(--white);
+}
+
+.heroSection .heroStats {
+  display: flex;
+  gap: 100px;
+  margin-top: 30px;
+  font-weight: var(--fontWeightMedium);
+}
+
+.heroSection .heroStats p {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  font-size: var(--fontStyleH4);
+  color: var(--accent1);
+  font-weight: 500;
+}
+
+.heroSection .heroStats p span {
+  font-size: var(--fontStyleCaption);
+  color: var(--accent1);
+  font-weight: var(--fontWeightRegular);
+}
+
+.heroSection .heroImage {
+  width: 100%;
+  height: auto;
+}
