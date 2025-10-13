@@ -2,8 +2,19 @@
 
 import Image from "next/image";
 import styles from "./Navbar.module.css";
+import { useRouter } from "next/navigation";
 
 export default function Navbar() {
+  const router = useRouter();
+
+  const handleLogin = () => {
+    router.push("/login");
+  };
+
+  const handleSolicitarCredito = () => {
+    router.push("/"); // Ajusta la ruta si tu flujo de solicitud es distinto
+  };
+
   return (
     <header className={styles.navbar}>
       <div className={styles.navCenter}>
@@ -35,8 +46,18 @@ export default function Navbar() {
             </ul>
           </nav>
           <div className={styles.navButtons}>
-            <button className={styles.btnPrimary}>Iniciar Sesión</button>
-            <button className={styles.btnOutline}>Solicitar tu crédito</button>
+            <button
+              className={styles.btnPrimary}
+              onClick={handleLogin}
+            >
+              Iniciar Sesión
+            </button>
+            <button
+              className={styles.btnOutline}
+              onClick={handleSolicitarCredito}
+            >
+              Solicita tu Crédito
+            </button>
           </div>
         </div>
       </div>
