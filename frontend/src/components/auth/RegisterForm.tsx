@@ -1,9 +1,20 @@
-import { useState } from 'react';
+'use client';
+
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Box, Button, TextField, Typography, Alert, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Alert,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+} from '@mui/material';
 import { registerSchema, RegisterInput } from '@/schemas/auth.schema';
 import { UserRole } from '@/types/auth.types';
 
@@ -11,52 +22,73 @@ export default function RegisterForm() {
   const [error, setError] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const router = useRouter();
-  
-  const { register, handleSubmit, formState: { errors, isSubmitting }, watch, setValue } = useForm<RegisterInput>({
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    watch,
+    setValue,
+  } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      rol: undefined
+      rol: undefined,
     },
-    mode: 'onBlur' //para que valide al salir del campo
+    mode: 'onBlur',
   });
 
   const rol = watch('rol');
 
-const onSubmit = async (data: RegisterInput) => {
-  try {
-    setError('');
-    
-    // USAR LA URL COMPLETA CON EL PUERTO CORRECTO
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    const response = await fetch(`${API_URL}/usuarios/registro`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error en el registro');
+  useEffect(() => {
+    // Guarda el rol en localStorage para que el layout sepa qué imagen mostrar
+    if (selectedRole) {
+      window.localStorage.setItem('selectedRole', selectedRole);
+    } else {
+      window.localStorage.removeItem('selectedRole');
     }
+  }, [selectedRole]);
 
-    const result = await response.json();
-    console.log(' Registro exitoso:', result);
-    
-    // Mostrar mensaje de éxito y redirigir
-    alert(' Registro exitoso. Por favor revisa tu email para confirmar tu cuenta.');
-    router.push('/login');
+  const onSubmit = async (data: RegisterInput) => {
+    try {
+      setError('');
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/usuarios/registro`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-  } catch (error) {
-    console.error(' Error en registro:', error);
-    setError(error instanceof Error ? error.message : 'Error al registrar usuario');
-  }
-};
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error en el registro');
+      }
+
+      alert('Registro exitoso. Revisá tu email para confirmar tu cuenta.');
+      router.push('/login');
+    } catch (error) {
+      console.error('Error en registro:', error);
+      setError(error instanceof Error ? error.message : 'Error al registrar usuario');
+    }
+  };
 
   return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)} width="100%" maxWidth={500} p={3}>
-      <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
+    <Box
+      component="form"
+      onSubmit={handleSubmit(onSubmit)}
+      sx={{
+        width: '100%',
+        maxWidth: 450,
+        bgcolor: '#fff',
+        p: 4,
+        borderRadius: 3,
+        boxShadow: 3,
+      }}
+    >
+      <Typography
+        variant="h5"
+        textAlign="center"
+        sx={{ mb: 3, fontWeight: 'bold', fontFamily: 'Roboto' }}
+      >
         Registro de Usuario
       </Typography>
 
@@ -66,6 +98,7 @@ const onSubmit = async (data: RegisterInput) => {
         </Alert>
       )}
 
+      {/* Selección de rol */}
       <FormControl fullWidth margin="normal">
         <InputLabel>Rol</InputLabel>
         <Select
@@ -88,6 +121,7 @@ const onSubmit = async (data: RegisterInput) => {
         )}
       </FormControl>
 
+      {/* Campos comunes */}
       <TextField
         {...register('nombre_completo')}
         label="Nombre Completo"
@@ -127,7 +161,16 @@ const onSubmit = async (data: RegisterInput) => {
       {/* Campos adicionales para Solicitante PYME */}
       {rol === UserRole.SOLICITANTE && (
         <>
-          <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              mt: 3,
+              mb: 1,
+              fontSize: '1.25rem',
+              fontFamily: 'Roboto',
+              fontWeight: 500,
+            }}
+          >
             Datos de la Empresa
           </Typography>
 
@@ -170,6 +213,7 @@ const onSubmit = async (data: RegisterInput) => {
         </>
       )}
 
+      {/* Contraseña */}
       <TextField
         {...register('password')}
         type="password"
@@ -180,13 +224,20 @@ const onSubmit = async (data: RegisterInput) => {
         helperText={errors.password?.message}
       />
 
+      {/* Botones */}
       <Button
         type="submit"
         variant="contained"
         fullWidth
         size="large"
         disabled={isSubmitting}
-        sx={{ mt: 2 }}
+        sx={{
+          mt: 3,
+          bgcolor: '#CD89D8',
+          '&:hover': { bgcolor: '#b573c3' },
+          textTransform: 'none',
+          fontSize: '0.8125rem',
+        }}
       >
         {isSubmitting ? 'Registrando...' : 'Registrarse'}
       </Button>
@@ -194,7 +245,12 @@ const onSubmit = async (data: RegisterInput) => {
       <Button
         variant="text"
         fullWidth
-        sx={{ mt: 1 }}
+        sx={{
+          mt: 2,
+          color: '#DA68F2',
+          textTransform: 'none',
+          fontSize: '0.8125rem',
+        }}
         onClick={() => router.push('/login')}
       >
         ¿Ya tienes cuenta? Inicia sesión
