@@ -5,7 +5,6 @@ const diditService = require('../servicios/diditService');
 // Importar pdfjs-dist legacy para Node.js
 const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 
-// AGREGAR DEPENDENCIAS DE OCR AL INICIO
 const Tesseract = require('tesseract.js');
 const { createCanvas } = require('canvas');
 

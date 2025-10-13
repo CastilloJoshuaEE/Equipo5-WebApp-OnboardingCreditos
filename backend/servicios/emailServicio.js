@@ -1,6 +1,6 @@
 const brevoAPIService = require('./emailBrevoAPIService');
 const { generarTokenConfirmacion, getFrontendUrl } = require('./emailConfirmacionServicio');
-
+const {enviarEmailRecuperacionCuenta}= require('./emailRecuperacionServicio');
 const enviarEmailBienvenida = async (email, nombre, rol) => {
   try {
     console.log(`. [BREVO API] Intentando enviar email de bienvenida a: ${email}`);
@@ -55,5 +55,6 @@ const verificarServicioEmail = async () => {
 module.exports = {
   enviarEmailBienvenida,
   enviarEmailConfirmacionCuenta,
-  verificarServicioEmail
+  verificarServicioEmail,
+  enviarEmailRecuperacionCuenta
 };

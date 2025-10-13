@@ -139,3 +139,12 @@ SELECT id, bucket_id, owner, name
 FROM storage.objects
 WHERE bucket_id = 'kyc-documents'
 LIMIT 10;
+ALTER TABLE usuarios
+ADD COLUMN IF NOT EXISTS email_recuperacion VARCHAR(255),
+ADD COLUMN IF NOT EXISTS fecha_desactivacion TIMESTAMPTZ;
+-- Crear indice para búsquedas por email de recuperación
+CREATE INDEX IF NOT EXISTS idx_usuarios_email_recuperacion ON usuarios(email_recuperacion);
+-- Actualizar la tabla usuarios para incluir las nuevas columnas en comentarios
+COMMENT ON COLUMN usuarios.email_recuperacion IS 'Email alternativo para recuperación de cuenta';
+COMMENT ON COLUMN usuarios.fecha_desactivacion IS 'Fecha en que el usuario desactivó su cuenta'
+

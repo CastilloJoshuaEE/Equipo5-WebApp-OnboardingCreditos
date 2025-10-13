@@ -1,6 +1,5 @@
 const brevoAPIService = require('./emailBrevoAPIService');
 
-// Agregar función para obtener FRONTEND_URL
 const getFrontendUrl = () => {
   if (process.env.NODE_ENV === 'production') {
     return 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';

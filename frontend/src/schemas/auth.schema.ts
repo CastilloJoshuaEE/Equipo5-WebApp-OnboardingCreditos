@@ -107,3 +107,14 @@ export type ForgotPasswordSchemaType = z.infer<typeof ForgotPasswordSchema>;
 // Mantener compatibilidad con código existente
 export const LoginSchema = loginSchema;
 export type LoginSchemaType = LoginInput;
+export const desactivarCuentaSchema=z.object({
+  password: z.string().min(1, 'La contraseña es requerida'),
+  motivo: z.string().optional(),
+});
+export const emailRecuperacionSchema= z.object({
+  email_recuperacion: z.string()
+  .min(1, 'El email de recuperación es requerido')
+  .email('Email de recuperación no válido'),
+});
+export type DesactivarCuentaInput= z.infer<typeof desactivarCuentaSchema>;
+export type EmailRecuperacionInput= z.infer<typeof emailRecuperacionSchema>;

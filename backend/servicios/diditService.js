@@ -56,8 +56,6 @@ class DiditService {
       const FormData = require('form-data');
       const formData = new FormData();
       
-      // IMPORTANTE: Convertir buffer a Blob o usar approach diferente
-      // Para Node.js, necesitamos un enfoque diferente
       formData.append('front_image', archivoBuffer, {
         filename: 'documento_dni.pdf',
         contentType: 'application/pdf'
