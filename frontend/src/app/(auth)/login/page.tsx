@@ -76,9 +76,6 @@ export default function LoginForm() {
           case 'operador':
             router.push('/operador');
             break;
-          case 'administrador':
-            router.push('/admin');
-            break;
           default:
             router.push('/');
             break;
