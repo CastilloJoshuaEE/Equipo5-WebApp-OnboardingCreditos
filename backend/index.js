@@ -70,7 +70,22 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   next();
 });
-
+const swaggerUiOptions = {
+  explorer: true,
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: "API Sistema de Créditos",
+  swaggerOptions: {
+    persistAuthorization: true,
+    // Configuración para cargar recursos desde CDN
+    customJs: [
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-bundle.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-standalone-preset.min.js'
+    ],
+    customCssUrl: [
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui.min.css'
+    ]
+  }
+};
 // Configurar CORS
 app.use(cors({
   origin: [
@@ -90,10 +105,14 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(
   "/api-docs",
   swaggerUI.serve,
-  swaggerUI.setup(swaggerSpec, {
-    customCss: ".swagger-ui .topbar { display: none }",
-    customSiteTitle: "API Sistema de Créditos",
-  })
+  (req, res, next) => {
+    // Middleware para asegurar que los recursos se carguen correctamente
+    if (req.path.endsWith('.css') || req.path.endsWith('.js')) {
+      res.setHeader('Content-Type', req.path.endsWith('.css') ? 'text/css' : 'application/javascript');
+    }
+    next();
+  },
+  swaggerUI.setup(swaggerSpec, swaggerUiOptions)
 );
 
 // Servir archivos estáticos
