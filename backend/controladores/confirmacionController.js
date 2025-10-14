@@ -4,7 +4,7 @@ const { verificarConexionBrevo } = require('../servicios/emailBrevoAPIService');
 const { confirmUserEmail } = require('../config/supabaseAdmin');
 const getFrontendUrl = () => {
   if (process.env.NODE_ENV === 'production') {
-    return 'https://equipo5-web-app-onboarding-creditos-rosy.vercel.app'||'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
+    return 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
   }
   return process.env.FRONTEND_URL || 'http://localhost:3000';
 };
