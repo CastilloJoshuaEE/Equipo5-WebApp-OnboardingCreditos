@@ -1,66 +1,36 @@
-'use client';
+import {
+  Navbar,
+  HeroSection,
+  Steps,
+  Services,
+  Benefits,
+  Advantages,
+  Testimonials,
+  Footer,
+} from "@/components";
+import styles from "./page.module.css";
 
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { Box, Button, Container, Typography } from '@mui/material';
-import { UserRole } from '@/types/auth.types';
-
-export default function HomePage() {
-  const { data: session } = useSession();
-  const router = useRouter();
-
-  const handleGetStarted = () => {
-    if (session) {
-      
-      const path = session.user?.rol === UserRole.SOLICITANTE 
-        ? '/solicitante' 
-        : '/operador';
-      router.push(path);
-    } else {
-      router.push('/login');
-    }
-  };
-
+export default function Home() {
   return (
-    <Container maxWidth="md">
-      <Box 
-        display="flex" 
-        flexDirection="column" 
-        alignItems="center" 
-        justifyContent="center" 
-        minHeight="100vh"
-        gap={4}
-      >
-        <Typography variant="h2" component="h1" textAlign="center">
-          Bienvenido al Sistema de CREDITOS PYME
-        </Typography>
-        
-        <Typography variant="h5" textAlign="center">
-          Plataforma integral para la gestion de creditos empresariales
-        </Typography>
+    <div className={styles.page}>
+      <Navbar />
+      <main className={styles.container}>
+        {/* Ellipse decorations */}
+        <div className={styles.ellipse1}>
+          <img src="/ilustraciones/ellipse.png" alt="Elipse decorativa" />
+        </div>
+        <div className={styles.ellipse2}>
+          <img src="/ilustraciones/ellipse.png" alt="Elipse decorativa" />
+        </div>
 
-        <Box display="flex" gap={2}>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            size="large"
-            onClick={handleGetStarted}
-          >
-            {session ? 'Ir al Dashboard ya iniciaste sesion' : 'Comenzar'}
-          </Button>
-          
-          {!session && (
-            <Button 
-              variant="outlined" 
-              color="primary" 
-              size="large"
-              onClick={() => router.push('/register')}
-            >
-              Registrarse
-            </Button>
-          )}
-        </Box>
-      </Box>
-    </Container>
+        <HeroSection />
+        <Steps />
+        <Services />
+        <Benefits />
+        <Advantages />
+        <Testimonials />
+      </main>
+      <Footer />
+    </div>
   );
 }
