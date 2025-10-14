@@ -32,8 +32,8 @@ const swaggerOptions = {
       servers: [
         {
           url: process.env.NODE_ENV === "production" 
-            ? "https://equipo5-web-app-onboarding-creditos-backend.vercel.app/api"
-            : `http://localhost:${process.env.PORT || 3001}/api`,
+            ? "https://equipo5-web-app-onboarding-creditos-backend.vercel.app"
+            : `http://localhost:${process.env.PORT || 3001}`,
           description: process.env.NODE_ENV === "production" 
             ? "Servidor de Producción" 
             : "Servidor de Desarrollo",
@@ -65,24 +65,83 @@ const swaggerUiOptions = {
   customSiteTitle: "API Sistema de Créditos",
   swaggerOptions: {
     persistAuthorization: true,
-  }
+    // Forzar URLs absolutas para los recursos de Swagger
+    configUrl: '/api-docs/swagger.json',
+    urls: [
+      {
+        url: '/api-docs/swagger.json',
+        name: 'API v1'
+      }
+    ]
+  },
+  customJs: [
+    'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js',
+    'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js'
+  ],
+  customCssUrl: [
+    'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css'
+  ]
 };
-// Configurar Swagger UI con manejo mejorado de rutas
+
+// Ruta para servir el spec de Swagger como JSON
+app.get('/api-docs/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+// Configurar Swagger UI con CDN para recursos estáticos
 app.use(
   "/api-docs",
-  swaggerUI.serve,
+  swaggerUI.serveFiles(swaggerSpec, swaggerUiOptions),
   (req, res, next) => {
-    // Middleware para prevenir que Vercel sirva React en rutas de Swagger
-    if (req.path.includes('.js') || req.path.includes('.css') || req.path.includes('.png')) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Recurso de Swagger no encontrado' 
-      });
+    // Solo servir el HTML de Swagger UI en la ruta principal
+    if (req.path === '/' || req.path === '') {
+      return swaggerUI.setup(swaggerSpec, swaggerUiOptions)(req, res, next);
     }
     next();
-  },
-  swaggerUI.setup(swaggerSpec, swaggerUiOptions)
+  }
 );
+// Ruta principal de Swagger UI
+app.get('/api-docs', (req, res) => {
+  const html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>API Sistema de Créditos</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
+    <style>
+      .topbar { display: none !important; }
+      body { margin: 0; padding: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
+    <script>
+      window.onload = function() {
+        const ui = SwaggerUIBundle({
+          url: '/api-docs/swagger.json',
+          dom_id: '#swagger-ui',
+          deepLinking: true,
+          presets: [
+            SwaggerUIBundle.presets.apis,
+            SwaggerUIStandalonePreset
+          ],
+          plugins: [
+            SwaggerUIBundle.plugins.DownloadUrl
+          ],
+          layout: "StandaloneLayout",
+          persistAuthorization: true
+        });
+        window.ui = ui;
+      }
+    </script>
+  </body>
+  </html>
+  `;
+  res.send(html);
+});
 // Headers de seguridad
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
