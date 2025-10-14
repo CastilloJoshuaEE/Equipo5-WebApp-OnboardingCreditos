@@ -10,18 +10,22 @@
     {
       "src": "/api/(.*)",
       "dest": "/index.js",
-      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
     },
     {
       "src": "/api-docs",
       "dest": "/index.js"
     },
     {
-      "src": "/api-docs/(.*)",
+      "src": "/api-docs/swagger.json",
       "dest": "/index.js"
     },
     {
       "src": "/healthz",
+      "dest": "/index.js"
+    },
+    {
+      "src": "/img/(.*)",
       "dest": "/index.js"
     },
     {
