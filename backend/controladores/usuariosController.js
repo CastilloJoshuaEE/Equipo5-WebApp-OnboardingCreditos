@@ -3,6 +3,65 @@ const { supabaseAdmin, getUserByEmail } = require('../config/supabaseAdmin.js');
 const { enviarEmailBienvenida } = require('../servicios/emailServicio');
 const { enviarEmailConfirmacionCuenta } = require('../servicios/emailServicio');
 const { validateEmailBeforeAuth } = require('../middleware/emailValidation');
+const validarTelefono = (telefono) => {
+  if (!telefono) return true; // Teléfono es opcional
+  const telefonoLimpio = telefono.replace(/[\s\-\(\)]/g, '');
+  
+  const telefonoRegex = /^(\+?\d{1,4})?[\s\-]?\(?(\d{1,4})?\)?[\s\-]?(\d{3,4})[\s\-]?(\d{3,4})$/;
+  
+  if (!telefonoRegex.test(telefono)) {
+    return false;
+  }
+  
+  const soloNumeros = telefonoLimpio.replace(/\D/g, '');
+  return soloNumeros.length >= 8 && soloNumeros.length <= 15;
+};
+
+const   validarCamposRegistro=(data, rol)=>{
+  const errors=[];
+  if(!data.email) errors.push('Email es requerido');
+  if(!data.password) errors.push('Contraseña es requerida');
+  if(!data.nombre_completo) errors.push('Nombre completo es requerido');
+  if(!data.dni) errors.push('DNI es requerido');
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if(data.email && !emailRegex.test(data.email)){
+    errors.push('Formato de email inválido');
+  }
+  if(data.telefono && !validarTelefono(data.telefono)){
+    errors.push('Formato de teléfono inválido. Use formato: +593...');
+  }
+  if(rol=== 'solicitante'){
+    if(!data.nombre_empresa) errors.push('Nombre de empresa es requerido para solicitantes');
+    if(!data.cuit) errors.push('CUIT es requerido para solicitantes');
+    if(!data.representante_legal) errors.push('Representante legal es requerido para solicitantes');
+    if(!data.domicilio) errors.push('Domicilio es requerido para solicitantes');
+    const cuitRegex = /^\d{2}-\d{8}-\d{1}$/;
+    if(data.cuit && !cuitRegex.test(data.cuit)){
+      errors.push('Formato de CUIT inválido (debe ser: 30-12345678-9)');
+    }
+
+  }
+  return errors;
+}
+const filtrarCamposValidos=(data, rol)=>{
+  const camposPermitidos=[
+    'email', 'password', 'nombre_completo', 'telefono', 'dni', 'rol'
+  ];
+  if(rol==='solicitante'){
+    camposPermitidos.push('nombre_empresa', 'cuit', 'representante_legal', 'domicilio');
+  }
+  const datosFiltrados={};
+  camposPermitidos.forEach(campo =>{
+    if(data[campo]!== undefined){
+      datosFiltrados[campo]= data[campo];
+    }
+  });
+  return datosFiltrados;
+
+
+};
+
+
 const registrar = async (req, res) => {
   try {
     console.log('. Body recibido:', req.body);
@@ -15,12 +74,27 @@ const registrar = async (req, res) => {
       dni, 
       rol = 'solicitante'
     } = req.body;
-
-    // Validaciones básicas
-    if (!email || !password || !nombre_completo || !dni) {
+    const validacionErrores= validarCampoRegistro(req.body, rol);
+    if(validacionErrores.length>0){
       return res.status(400).json({
         success: false,
-        message: 'Faltan campos obligatorios: email, password, nombre_completo, dni'
+        message: 'Errores de validación',
+        errors: validacionErrores
+      });
+    }
+    const datosFiltrados= filtrarCamposValidos(req.body, rol);
+    console.log('Campos filtrados para registro: ', datosFiltrados);
+    if(!password || password.length<8){
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña debe tener al menos 8 caracteres'
+      });
+    }
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;    // Validaciones básicas
+    if(!passwordRegex.test(password)){
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña debe contener al menos una mayúscula, una minúscula, un número y un carácter especial'
       });
     }
 
@@ -121,6 +195,7 @@ const registrar = async (req, res) => {
   }
 };
 const completarRegistroNuevoUsuario = async (req, res, authUser) => {
+  const datosFiltrados= filtrarCamposValidos(req.body, req.body.rol);
   const { 
     nombre_completo, 
     telefono, 
@@ -130,7 +205,7 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
     cuit, 
     representante_legal, 
     domicilio 
-  } = req.body;
+  } = datosFiltrados;
 
   try {
     // 1. Insertar en tabla usuarios PERO con cuenta INACTIVA hasta confirmación
@@ -146,10 +221,16 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
       created_at: new Date().toISOString()
     };
 
-    const { data: userData, error: userError } = await supabaseAdmin
+    let userData;
+    let userError;
+
+    const result = await supabaseAdmin
       .from('usuarios')
       .insert([usuarioData])
       .select();
+
+    userData = result.data;
+    userError = result.error;
 
     if (userError) {
       console.error('. Error insertando en tabla usuarios:', userError);
@@ -158,19 +239,19 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
       if (userError.code === '23505') { // unique_violation
         console.log('. ID ya existe, actualizando registro existente...');
         
-        const { data: updatedUser, error: updateError } = await supabaseAdmin
+        const updateResult = await supabaseAdmin
           .from('usuarios')
           .update(usuarioData)
           .eq('id', authUser.id)
           .select();
 
-        if (updateError) {
-          console.error('. Error actualizando usuario existente:', updateError);
+        if (updateResult.error) {
+          console.error('. Error actualizando usuario existente:', updateResult.error);
           await supabaseAdmin.auth.admin.deleteUser(authUser.id);
-          throw updateError;
+          throw updateResult.error;
         }
         
-        userData = updatedUser;
+        userData = updateResult.data;
       } else {
         await supabaseAdmin.auth.admin.deleteUser(authUser.id);
         throw userError;
@@ -178,6 +259,7 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
     }
 
     console.log(`. Usuario insertado en tabla 'usuarios' con rol: ${rol} (ID: ${authUser.id})`);
+    
     // 2. Insertar en tabla específica según el rol
     await insertarEnTablaEspecifica(rol, authUser.id, {
       nombre_completo, dni, nombre_empresa, cuit, representante_legal, domicilio
@@ -185,12 +267,13 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
 
     // 3. . ENVIAR EMAIL DE CONFIRMACIÓN en lugar de bienvenida
     const emailResult = await enviarEmailConfirmacionSiEsPosible(authUser.email, nombre_completo, authUser.id);
+    
     res.status(201).json({
       success: true,
       message: 'Usuario registrado correctamente. Por favor revisa tu email para confirmar tu cuenta.',
       data: {
         user: authUser,
-        profile: userData[0],
+        profile: userData ? userData[0] : null,
         rol: rol,
         emailConfirmed: false, // Indicar que necesita confirmación
         emailEnviado: emailResult.emailEnviado
@@ -201,6 +284,7 @@ const completarRegistroNuevoUsuario = async (req, res, authUser) => {
     throw error;
   }
 };
+
 const enviarEmailConfirmacionSiEsPosible = async (email, nombre, userId) => {
   console.log('. [CONFIRMACIÓN] Iniciando envío de email de confirmación...');
   try {
@@ -226,6 +310,7 @@ const enviarEmailConfirmacionSiEsPosible = async (email, nombre, userId) => {
 
 // FUNCIÓN PARA COMPLETAR REGISTRO DE USUARIO EXISTENTE EN AUTH
 const completarRegistroUsuarioExistente = async (req, res, userId, authUser) => {
+  const datosFiltrados= filtrarCamposValidos(req.body, req.body.rol);
   const { 
     nombre_completo, 
     telefono, 
@@ -235,7 +320,7 @@ const completarRegistroUsuarioExistente = async (req, res, userId, authUser) => 
     cuit, 
     representante_legal, 
     domicilio 
-  } = req.body;
+  } = datosFiltrados;
 
   try {
     // Verificar si ya existe en nuestra tabla (pero inactivo)
@@ -314,6 +399,8 @@ await enviarEmailBienvenidaSiEsPosible(authUser.email, nombre_completo, rol);
 
 // FUNCIÓN PARA REACTIVAR USUARIO INACTIVO
 const reactivarUsuario = async (req, res, userId) => {
+  const datosFiltrados = filtrarCamposValidos(req.body, req.body.rol);
+
   const { 
     nombre_completo, 
     telefono, 
@@ -323,7 +410,7 @@ const reactivarUsuario = async (req, res, userId) => {
     cuit, 
     representante_legal, 
     domicilio 
-  } = req.body;
+  } = datosFiltrados;
 
   try {
     console.log(`. Reactivando usuario ID: ${userId}`);
@@ -763,7 +850,8 @@ const cambiarContrasena = async (req, res) => {
       
       return res.status(400).json({
         success: false,
-        message: errorMessage
+        message: 'Error en el procesamiento de la solicitud',
+        code: 'VALIDATION_ERROR'
       });
     }
 
@@ -786,7 +874,8 @@ const cambiarContrasena = async (req, res) => {
       
       return res.status(400).json({
         success: false,
-        message: errorMessage
+        message: 'Error en el procesamiento de la solicitud',
+        code: 'VALIDATION_ERROR'
       });
     }
 
@@ -1124,5 +1213,8 @@ module.exports = {
   solicitarRecuperacionCuenta,
   desactivarCuenta,
   actualizarEmailRecuperacion,
-  verificarEstadoCuenta
+  verificarEstadoCuenta,
+  validarCamposRegistro,
+  validarTelefono,
+  filtrarCamposValidos
 };
