@@ -17,7 +17,11 @@
       "dest": "/index.js"
     },
     {
-      "src": "/api-docs/swagger.json",
+      "src": "/api-docs/swagger.json", 
+      "dest": "/index.js"
+    },
+    {
+      "src": "/api-docs/debug",
       "dest": "/index.js"
     },
     {
