@@ -18,39 +18,34 @@ globalThis.createCanvas = createCanvas;
 
 const app = express();
 
-// ==================== CONFIGURACIÓN SWAGGER CORREGIDA ====================
+// ==================== CONFIGURACIÓN DINÁMICA PARA VERCEL ====================
 
-// Función para diagnóstico de archivos
-const diagnosticarSwagger = () => {
-  const fs = require('fs');
-  console.log('\n🔍 DIAGNÓSTICO SWAGGER:');
-  console.log('📁 Directorio actual:', __dirname);
-  
-  // Verificar rutas críticas
-  const rutasCriticas = [
-    './routes/routes.js',
-    './controladores/',
-    './routes/'
-  ];
-  
-  rutasCriticas.forEach(ruta => {
-    const rutaCompleta = path.join(__dirname, ruta);
-    try {
-      const existe = fs.existsSync(rutaCompleta);
-      console.log(`   ${ruta}: ${existe ? '✅ EXISTE' : '❌ NO EXISTE'}`);
-      
-      if (existe && fs.statSync(rutaCompleta).isDirectory()) {
-        const archivos = fs.readdirSync(rutaCompleta);
-        console.log(`     Archivos: ${archivos.slice(0, 5).join(', ')}${archivos.length > 5 ? '...' : ''}`);
-      }
-    } catch (error) {
-      console.log(`   ${ruta}: ❌ ERROR - ${error.message}`);
-    }
-  });
+// URLs dinámicas basadas en el entorno
+const getBackendUrl = () => {
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  if (process.env.VERCEL_ENV === 'production') {
+    return process.env.BACKEND_URL || `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+  return process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
 };
 
-// Ejecutar diagnóstico
-diagnosticarSwagger();
+const getFrontendUrl = () => {
+  if (process.env.VERCEL_ENV === 'production') {
+    return process.env.FRONTEND_URL || 'https://equipo5-web-app-onboarding-creditos-rosy.vercel.app';
+  }
+  return process.env.FRONTEND_URL || 'http://localhost:3000';
+};
+
+const BACKEND_URL = getBackendUrl();
+const FRONTEND_URL = getFrontendUrl();
+
+console.log('🚀 URLs Configuradas:');
+console.log(`   Backend: ${BACKEND_URL}`);
+console.log(`   Frontend: ${FRONTEND_URL}`);
+
+// ==================== CONFIGURACIÓN SWAGGER DINÁMICA ====================
 
 const swaggerOptions = {
   definition: {
@@ -66,8 +61,8 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: "https://equipo5-web-app-onboarding-creditos-backend-703b9gq7j.vercel.app",
-        description: "Servidor de Producción",
+        url: BACKEND_URL,
+        description: process.env.VERCEL_ENV === 'production' ? "Servidor de Producción" : "Servidor de Desarrollo",
       },
     ],
     components: {
@@ -85,32 +80,13 @@ const swaggerOptions = {
       },
     ],
   },
-  // RUTAS CORREGIDAS - versión más específica
   apis: [
     path.join(__dirname, './routes/routes.js'),
     path.join(__dirname, './controladores/*.js')
   ],
 };
 
-console.log('\n🔄 Generando documentación Swagger...');
-console.log('📄 Archivos a escanear:');
-swaggerOptions.apis.forEach(api => console.log(`   - ${api}`));
-
 const swaggerSpec = swaggerJsDoc(swaggerOptions);
-
-// Log del resultado
-console.log('\n📊 RESULTADO SWAGGER:');
-console.log(`   - Total de paths encontrados: ${Object.keys(swaggerSpec.paths || {}).length}`);
-console.log(`   - Tags: ${(swaggerSpec.tags || []).map(t => t.name).join(', ') || 'Ninguno'}`);
-
-if (swaggerSpec.paths && Object.keys(swaggerSpec.paths).length > 0) {
-  console.log('   - Paths encontrados:');
-  Object.keys(swaggerSpec.paths).forEach(path => {
-    console.log(`     ${path}`);
-  });
-} else {
-  console.log('   ⚠️  NO SE ENCONTRARON PATHS - Revisa la documentación JSDoc en tus archivos');
-}
 
 // Ruta para el JSON de Swagger
 app.get('/api-docs/swagger.json', (req, res) => {
@@ -118,21 +94,22 @@ app.get('/api-docs/swagger.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-// Ruta de diagnóstico para verificar en producción
+// Ruta de diagnóstico
 app.get('/api-docs/debug', (req, res) => {
   res.json({
     success: true,
+    urls: {
+      backend: BACKEND_URL,
+      frontend: FRONTEND_URL,
+      current: `${req.protocol}://${req.get('host')}`
+    },
     totalPaths: Object.keys(swaggerSpec.paths || {}).length,
     paths: Object.keys(swaggerSpec.paths || {}),
-    config: {
-      apis: swaggerOptions.apis,
-      baseDir: __dirname
-    },
-    timestamp: new Date().toISOString()
+    environment: process.env.VERCEL_ENV || 'development'
   });
 });
 
-// Ruta principal de Swagger UI - VERSIÓN MEJORADA
+// Ruta principal de Swagger UI
 app.get('/api-docs', (req, res) => {
   const totalPaths = Object.keys(swaggerSpec.paths || {}).length;
   
@@ -163,18 +140,9 @@ app.get('/api-docs', (req, res) => {
       .topbar { 
         display: none !important; 
       }
-      .swagger-ui .info .title {
-        color: #3b4151;
-        font-family: sans-serif;
-        font-size: 36px;
-        margin: 0;
-      }
-      .swagger-ui .info hgroup.main a {
-        display: none;
-      }
       .diagnostic-banner {
-        background: ${totalPaths > 0 ? '#e8f5e8' : '#ffeaa7'};
-        border: 1px solid ${totalPaths > 0 ? '#4caf50' : '#fdcb6e'};
+        background: #e8f5e8;
+        border: 1px solid #4caf50;
         border-radius: 4px;
         padding: 10px 15px;
         margin: 10px 0;
@@ -183,21 +151,17 @@ app.get('/api-docs', (req, res) => {
     </style>
   </head>
   <body>
-    ${totalPaths === 0 ? `
     <div class="diagnostic-banner">
-      ⚠️ <strong>Diagnóstico:</strong> No se encontraron endpoints documentados. 
-      <a href="/api-docs/debug" target="_blank">Ver detalles del problema</a>
+      ✅ <strong>Backend URL:</strong> ${BACKEND_URL}<br/>
+      ✅ <strong>Frontend URL:</strong> ${FRONTEND_URL}<br/>
+      ✅ <strong>Endpoints encontrados:</strong> ${totalPaths}
     </div>
-    ` : ''}
     
     <div id="swagger-ui"></div>
     <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
     <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
     <script>
       window.onload = function() {
-        console.log('🚀 Inicializando Swagger UI...');
-        console.log('Total de paths en spec:', ${totalPaths});
-        
         const ui = SwaggerUIBundle({
           url: '/api-docs/swagger.json',
           dom_id: '#swagger-ui',
@@ -214,26 +178,10 @@ app.get('/api-docs', (req, res) => {
           validatorUrl: null,
           displayRequestDuration: true,
           docExpansion: 'list',
-          filter: true,
-          showExtensions: true
+          filter: true
         });
         
         window.ui = ui;
-        
-        // Verificar después de cargar
-        setTimeout(() => {
-          const operations = document.querySelectorAll('.opblock-tag-section');
-          console.log('Operaciones cargadas:', operations.length);
-          
-          if (operations.length === 0) {
-            console.warn('❌ No se cargaron operaciones. Posible problema con el spec.');
-            fetch('/api-docs/debug')
-              .then(r => r.json())
-              .then(debug => {
-                console.log('🔍 Debug info:', debug);
-              });
-          }
-        }, 1000);
       }
     </script>
   </body>
@@ -242,7 +190,7 @@ app.get('/api-docs', (req, res) => {
   res.send(html);
 });
 
-// ==================== CONFIGURACIÓN GENERAL ====================
+// ==================== CONFIGURACIÓN CORS CORREGIDA ====================
 
 // Headers de seguridad
 app.use((req, res, next) => {
@@ -253,16 +201,52 @@ app.use((req, res, next) => {
   next();
 });
 
-// Configurar CORS
+// Configurar CORS - VERSIÓN CORREGIDA
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com'
-  ],
+  origin: function (origin, callback) {
+    // Lista de orígenes permitidos
+    const allowedOrigins = [
+      FRONTEND_URL,
+      'https://equipo5-web-app-onboarding-creditos-rosy.vercel.app',
+      'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com',
+      'http://localhost:3000'
+    ];
+    
+    // Permitir requests sin origen (como mobile apps o curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      // También permitir subdominios de vercel.app
+      if (origin.endsWith('.vercel.app')) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: [
+    'Content-Range',
+    'X-Content-Range'
+  ],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+
+// Manejar preflight OPTIONS requests
+app.options('*', cors());
 
 // Middleware para parsear JSON
 app.use(express.json({ limit: "10mb" }));
@@ -275,8 +259,10 @@ app.use("/img", express.static(path.join(__dirname, "../frontend/public/img")));
 app.get("/api/health", (req, res) => {
   res.json({
     status: "OK",
-    message: "Servidor funcionando",
+    message: "Servidor funcionando correctamente",
     database: "Supabase PostgreSQL",
+    backend_url: BACKEND_URL,
+    frontend_url: FRONTEND_URL,
     timestamp: new Date().toISOString(),
   });
 });
@@ -285,36 +271,38 @@ app.get("/api/health", (req, res) => {
 
 const iniciarServidor = async () => {
   try {
-    console.log(". Iniciando servidor...");
+    console.log("🚀 Iniciando servidor...");
+    console.log(`📍 Backend URL: ${BACKEND_URL}`);
+    console.log(`🎨 Frontend URL: ${FRONTEND_URL}`);
 
     // Verificar conexión a Supabase
-    console.log(". Verificando conexión a Supabase...");
+    console.log("🔗 Verificando conexión a Supabase...");
     const conexionExitosa = await verificarConexion();
 
     if (!conexionExitosa) {
-      throw new Error(
-        "No se pudo conectar a Supabase. Verifica las credenciales."
-      );
+      throw new Error("No se pudo conectar a Supabase. Verifica las credenciales.");
     }
 
-    console.log(". Conectado a Supabase PostgreSQL");
+    console.log("✅ Conectado a Supabase PostgreSQL");
 
     // Ejecutar datos iniciales
     console.log("📥 Cargando datos iniciales...");
     try {
       await datosIniciales();
     } catch (error) {
-      console.log(". Error en datos iniciales:", error.message);
+      console.log("⚠️ Error en datos iniciales:", error.message);
     }
 
-    console.log(' Verificando configuración de Storage...');
+    console.log('🔍 Verificando configuración de Storage...');
     await configurarStorage();
     
     // Usar rutas API
     app.use("/api", routes);
 
     // Configuración para producción
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === 'production') {
+      console.log("🌍 Modo: Producción");
+      
       // Servir archivos estáticos del frontend
       app.use(express.static(path.join(__dirname, "../frontend/build")));
 
@@ -348,6 +336,8 @@ const iniciarServidor = async () => {
       });
 
     } else {
+      console.log("💻 Modo: Desarrollo");
+      
       // En desarrollo
       app.use((req, res, next) => {
         if (req.path.startsWith("/api") && !req.path.startsWith("/api-docs")) {
@@ -375,7 +365,18 @@ const iniciarServidor = async () => {
 
     // Manejo de errores global
     app.use((err, req, res, next) => {
-      console.error('Error del servidor:', err);
+      console.error('❌ Error del servidor:', err);
+      
+      // Manejar errores CORS específicamente
+      if (err.message === 'Not allowed by CORS') {
+        return res.status(403).json({
+          success: false,
+          message: 'Origen no permitido por CORS',
+          origin: req.get('origin'),
+          allowedOrigins: [FRONTEND_URL, 'https://equipo5-web-app-onboarding-creditos-rosy.vercel.app']
+        });
+      }
+      
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'
@@ -386,48 +387,47 @@ const iniciarServidor = async () => {
 
     // Iniciar servidor
     const server = app.listen(PORT, () => {
-      console.log(`\n. ¡Servidor ejecutándose correctamente!`);
-      console.log(`. Puerto: ${PORT}`);
-      console.log(`. URL: http://localhost:${PORT}`);
-      console.log(`. Documentación API: http://localhost:${PORT}/api-docs`);
-      console.log(`. Diagnóstico: http://localhost:${PORT}/api-docs/debug`);
-      console.log(`\n. Endpoints disponibles:`);
-      console.log(`   Health:    GET  http://localhost:${PORT}/api/health`);
-      console.log(`   Registro:  POST http://localhost:${PORT}/api/usuarios/registro`);
-      console.log(`   Login:     POST http://localhost:${PORT}/api/usuarios/login`);
-      console.log(`   Session:   GET  http://localhost:${PORT}/api/usuarios/session`);
-      console.log(`   Perfil:    GET  http://localhost:${PORT}/api/usuario/perfil`);
+      console.log(`\n🎉 ¡Servidor ejecutándose correctamente!`);
+      console.log(`🔹 Puerto: ${PORT}`);
+      console.log(`🔹 Backend: ${BACKEND_URL}`);
+      console.log(`🔹 Frontend: ${FRONTEND_URL}`);
+      console.log(`🔹 Documentación: ${BACKEND_URL}/api-docs`);
+      console.log(`🔹 Diagnóstico: ${BACKEND_URL}/api-docs/debug`);
+      console.log(`\n📋 Endpoints principales:`);
+      console.log(`   Health:    GET  ${BACKEND_URL}/api/health`);
+      console.log(`   Registro:  POST ${BACKEND_URL}/api/usuarios/registro`);
+      console.log(`   Login:     POST ${BACKEND_URL}/api/usuarios/login`);
     });
 
     // Manejo elegante de cierre
     process.on("SIGTERM", () => {
-      console.log("Recibido SIGTERM, cerrando servidor...");
+      console.log("📩 Recibido SIGTERM, cerrando servidor...");
       server.close(() => {
-        console.log(". Servidor cerrado correctamente");
+        console.log("✅ Servidor cerrado correctamente");
         process.exit(0);
       });
     });
 
     process.on("SIGINT", () => {
-      console.log(" Recibido SIGINT, cerrando servidor...");
+      console.log("📩 Recibido SIGINT, cerrando servidor...");
       server.close(() => {
-        console.log(". Servidor cerrado correctamente");
+        console.log("✅ Servidor cerrado correctamente");
         process.exit(0);
       });
     });
   } catch (error) {
-    console.error(". Error crítico iniciando servidor:", error.message);
+    console.error("💥 Error crítico iniciando servidor:", error.message);
     process.exit(1);
   }
 };
 
 // Manejar errores no capturados
 process.on("unhandledRejection", (reason, promise) => {
-  console.error(". Promise rechazada no manejada:", reason);
+  console.error("⚠️ Promise rechazada no manejada:", reason);
 });
 
 process.on("uncaughtException", (error) => {
-  console.error(". Excepción no capturada:", error);
+  console.error("💥 Excepción no capturada:", error);
   process.exit(1);
 });
 
