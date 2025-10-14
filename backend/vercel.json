@@ -9,7 +9,8 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/index.js"
+      "dest": "/index.js",
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     },
     {
       "src": "/api-docs",
@@ -17,6 +18,10 @@
     },
     {
       "src": "/api-docs/(.*)",
+      "dest": "/index.js"
+    },
+    {
+      "src": "/healthz",
       "dest": "/index.js"
     }
   ]
