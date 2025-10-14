@@ -672,6 +672,53 @@ router.get("/usuarios/session", authController.getSession);
  */
 router.get("/auth/restablecer-cuenta", procesarRecuperacionCuenta);
 router.post('/usuario/solicitar-reactivacion', solicitarReactivacionCuenta);
+/**
+ * @swagger
+ * /api/usuarios/recuperar-contrasena:
+ *   post:
+ *     summary: Recuperar contraseña
+ *     tags: [Contraseña]
+ *     description: Permite restablecer la contraseña de un usuario sin necesidad de autenticación.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - nueva_contrasena
+ *               - confirmar_contrasena
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email del usuario
+ *               nueva_contrasena:
+ *                 type: string
+ *                 description: Nueva contraseña
+ *               confirmar_contrasena:
+ *                 type: string
+ *                 description: Confirmación de la nueva contraseña
+ *             example:
+ *               email: "usuario@ejemplo.com"
+ *               nueva_contrasena: "nueva1234"
+ *               confirmar_contrasena: "nueva1234"
+ *     responses:
+ *       200:
+ *         description: Contraseña recuperada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Response'
+ *       400:
+ *         description: Error en la recuperación (email inválido o contraseñas no coinciden)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/usuarios/recuperar-contrasena', usuariosController.recuperarContrasena);
 
 /**
  * @swagger
