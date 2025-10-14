@@ -18,10 +18,7 @@
     },
     {
       "src": "/api-docs/swagger.json",
-      "dest": "/index.js",
-      "headers": {
-        "Content-Type": "application/json"
-      }
+      "dest": "/index.js"
     },
     {
       "src": "/healthz",
@@ -36,10 +33,5 @@
       "dest": "/index.js",
       "methods": ["GET"]
     }
-  ],
-  "functions": {
-    "index.js": {
-      "includeFiles": "**/*.js"
-    }
-  }
+  ]
 }

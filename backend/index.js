@@ -7,15 +7,18 @@ const swaggerJsDoc = require("swagger-jsdoc");
 const routes = require("./routes/routes");
 const datosIniciales = require("./datos_iniciales");
 const { verificarConexion } = require("./config/conexion");
-const {configurarStorage}= require("./config/configStorage");
+const { configurarStorage } = require("./config/configStorage");
 const { createCanvas, Canvas, Image, ImageData } = require('canvas');
 
+// Configuración de Canvas para global
 globalThis.Canvas = Canvas;
 globalThis.Image = Image;
 globalThis.ImageData = ImageData;
 globalThis.createCanvas = createCanvas;
 
 const app = express();
+
+// ==================== CONFIGURACIÓN SWAGGER (VERSIÓN VERCEL) ====================
 
 const swaggerOptions = {
   definition: {
@@ -61,7 +64,7 @@ app.get('/api-docs/swagger.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-// Ruta principal de Swagger UI usando CDN
+// Ruta principal de Swagger UI usando CDN (SOLUCIÓN PARA VERCEL)
 app.get('/api-docs', (req, res) => {
   const html = `
   <!DOCTYPE html>
@@ -122,6 +125,7 @@ app.get('/api-docs', (req, res) => {
   res.send(html);
 });
 
+// ==================== CONFIGURACIÓN GENERAL ====================
 
 // Headers de seguridad
 app.use((req, res, next) => {
@@ -160,13 +164,14 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Conectar a Supabase y ejecutar datos iniciales
+// ==================== INICIO DEL SERVIDOR ====================
+
 const iniciarServidor = async () => {
   try {
-    console.log("🚀 Iniciando servidor...");
+    console.log(". Iniciando servidor...");
 
     // Verificar conexión a Supabase
-    console.log("🔗 Verificando conexión a Supabase...");
+    console.log(". Verificando conexión a Supabase...");
     const conexionExitosa = await verificarConexion();
 
     if (!conexionExitosa) {
@@ -175,17 +180,17 @@ const iniciarServidor = async () => {
       );
     }
 
-    console.log("✅ Conectado a Supabase PostgreSQL");
+    console.log(". Conectado a Supabase PostgreSQL");
 
     // Ejecutar datos iniciales
     console.log("📥 Cargando datos iniciales...");
     try {
       await datosIniciales();
     } catch (error) {
-      console.log("⚠️ Error en datos iniciales:", error.message);
+      console.log(". Error en datos iniciales:", error.message);
     }
 
-    console.log('💾 Verificando configuración de Storage...');
+    console.log(' Verificando configuración de Storage...');
     await configurarStorage();
     
     // Usar rutas API
@@ -201,7 +206,7 @@ const iniciarServidor = async () => {
         res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
       });
 
-      // Crear rutas específicas para las rutas conocidas del frontend
+      // Rutas específicas para el frontend
       const frontendRoutes = [
         '/login', '/register', '/solicitante', '/operador', 
         '/confirmacion', '/confirmacion-exitosa', '/error'
@@ -227,8 +232,6 @@ const iniciarServidor = async () => {
 
     } else {
       // En desarrollo
-      
-      // Middleware para rutas API no encontradas
       app.use((req, res, next) => {
         if (req.path.startsWith("/api") && !req.path.startsWith("/api-docs")) {
           return res.status(404).json({
@@ -239,7 +242,6 @@ const iniciarServidor = async () => {
         next();
       });
 
-      // Para rutas no API en desarrollo
       app.use((req, res) => {
         if (!req.path.startsWith("/api") && !req.path.startsWith("/api-docs")) {
           return res.status(404).json({
@@ -247,7 +249,6 @@ const iniciarServidor = async () => {
             message: "Ruta no encontrada. En desarrollo, el frontend debe ejecutarse en puerto 3000"
           });
         }
-        // Si llega aquí, es una ruta API que debería haber sido manejada
         res.status(404).json({
           success: false,
           message: `Endpoint no encontrado: ${req.path}`
@@ -257,7 +258,7 @@ const iniciarServidor = async () => {
 
     // Manejo de errores global
     app.use((err, req, res, next) => {
-      console.error('❌ Error del servidor:', err);
+      console.error('Error del servidor:', err);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'
@@ -268,12 +269,11 @@ const iniciarServidor = async () => {
 
     // Iniciar servidor
     const server = app.listen(PORT, () => {
-      console.log(`\n🎉 ¡Servidor ejecutándose correctamente!`);
-      console.log(`📍 Puerto: ${PORT}`);
-      console.log(`🌐 URL: http://localhost:${PORT}`);
-      console.log(`📚 Documentación API: http://localhost:${PORT}/api-docs`);
-      console.log(`🔗 JSON Swagger: http://localhost:${PORT}/api-docs/swagger.json`);
-      console.log(`\n📋 Endpoints disponibles:`);
+      console.log(`\n. ¡Servidor ejecutándose correctamente!`);
+      console.log(`. Puerto: ${PORT}`);
+      console.log(`. URL: http://localhost:${PORT}`);
+      console.log(`. Documentación API: http://localhost:${PORT}/api-docs`);
+      console.log(`\n. Endpoints disponibles:`);
       console.log(`   Health:    GET  http://localhost:${PORT}/api/health`);
       console.log(`   Registro:  POST http://localhost:${PORT}/api/usuarios/registro`);
       console.log(`   Login:     POST http://localhost:${PORT}/api/usuarios/login`);
@@ -283,33 +283,33 @@ const iniciarServidor = async () => {
 
     // Manejo elegante de cierre
     process.on("SIGTERM", () => {
-      console.log("🛑 Recibido SIGTERM, cerrando servidor...");
+      console.log("Recibido SIGTERM, cerrando servidor...");
       server.close(() => {
-        console.log("✅ Servidor cerrado correctamente");
+        console.log(". Servidor cerrado correctamente");
         process.exit(0);
       });
     });
 
     process.on("SIGINT", () => {
-      console.log("🛑 Recibido SIGINT, cerrando servidor...");
+      console.log(" Recibido SIGINT, cerrando servidor...");
       server.close(() => {
-        console.log("✅ Servidor cerrado correctamente");
+        console.log(". Servidor cerrado correctamente");
         process.exit(0);
       });
     });
   } catch (error) {
-    console.error("💥 Error crítico iniciando servidor:", error.message);
+    console.error(". Error crítico iniciando servidor:", error.message);
     process.exit(1);
   }
 };
 
 // Manejar errores no capturados
 process.on("unhandledRejection", (reason, promise) => {
-  console.error("⚠️ Promise rechazada no manejada:", reason);
+  console.error(". Promise rechazada no manejada:", reason);
 });
 
 process.on("uncaughtException", (error) => {
-  console.error("💥 Excepción no capturada:", error);
+  console.error(". Excepción no capturada:", error);
   process.exit(1);
 });
 
