@@ -61,15 +61,6 @@ const swaggerOptions = {
 };
 
 const swaggerSpec = swaggerJsDoc(swaggerOptions);
-
-// Headers de seguridad
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
 const swaggerUiOptions = {
   explorer: true,
   customCss: '.swagger-ui .topbar { display: none }',
@@ -86,6 +77,27 @@ const swaggerUiOptions = {
     ]
   }
 };
+// Headers de seguridad
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+// Configurar Swagger UI
+app.use(
+  "/api-docs",
+  swaggerUI.serve,
+  (req, res, next) => {
+    // Middleware para asegurar que los recursos se carguen correctamente
+    if (req.path.endsWith('.css') || req.path.endsWith('.js')) {
+      res.setHeader('Content-Type', req.path.endsWith('.css') ? 'text/css' : 'application/javascript');
+    }
+    next();
+  },
+  swaggerUI.setup(swaggerSpec, swaggerUiOptions)
+);
 // Configurar CORS
 app.use(cors({
   origin: [
@@ -101,19 +113,7 @@ app.use(cors({
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Configurar Swagger UI
-app.use(
-  "/api-docs",
-  swaggerUI.serve,
-  (req, res, next) => {
-    // Middleware para asegurar que los recursos se carguen correctamente
-    if (req.path.endsWith('.css') || req.path.endsWith('.js')) {
-      res.setHeader('Content-Type', req.path.endsWith('.css') ? 'text/css' : 'application/javascript');
-    }
-    next();
-  },
-  swaggerUI.setup(swaggerSpec, swaggerUiOptions)
-);
+
 
 // Servir archivos estáticos
 app.use("/img", express.static(path.join(__dirname, "../frontend/public/img")));
