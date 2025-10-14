@@ -3,13 +3,14 @@ const express = require("express");
 const path = require("path");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const swaggerUI = require("swagger-ui-express");
 const swaggerJsDoc = require("swagger-jsdoc");
 const routes = require("./routes/routes");
 const datosIniciales = require("./datos_iniciales");
 const { verificarConexion } = require("./config/conexion");
-const {configurarStorage}= require("./config/configStorage");
+const { configurarStorage } = require("./config/configStorage");
 const { createCanvas, Canvas, Image, ImageData } = require('canvas');
+
+// Configuración de Canvas para global
 globalThis.Canvas = Canvas;
 globalThis.Image = Image;
 globalThis.ImageData = ImageData;
@@ -17,7 +18,8 @@ globalThis.createCanvas = createCanvas;
 
 const app = express();
 
-// Configuración de Swagger
+// ==================== CONFIGURACIÓN SWAGGER (VERSIÓN VERCEL) ====================
+
 const swaggerOptions = {
   definition: {
     openapi: "3.0.0",
@@ -29,17 +31,13 @@ const swaggerOptions = {
         name: "Equipo de Desarrollo",
         email: "castle2004josh2@gmail.com",
       },
-      servers: [
-        {
-          url: process.env.NODE_ENV === "production" 
-            ? "https://equipo5-web-app-onboarding-creditos-backend.vercel.app"
-            : `http://localhost:${process.env.PORT || 3001}`,
-          description: process.env.NODE_ENV === "production" 
-            ? "Servidor de Producción" 
-            : "Servidor de Desarrollo",
-        },
-      ],
     },
+    servers: [
+      {
+        url: "https://equipo5-web-app-onboarding-creditos-backend-dbe5xecrk.vercel.app",
+        description: "Servidor de Producción",
+      },
+    ],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -59,59 +57,42 @@ const swaggerOptions = {
 };
 
 const swaggerSpec = swaggerJsDoc(swaggerOptions);
-const swaggerUiOptions = {
-  explorer: true,
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: "API Sistema de Créditos",
-  swaggerOptions: {
-    persistAuthorization: true,
-    // Forzar URLs absolutas para los recursos de Swagger
-    configUrl: '/api-docs/swagger.json',
-    urls: [
-      {
-        url: '/api-docs/swagger.json',
-        name: 'API v1'
-      }
-    ]
-  },
-  customJs: [
-    'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js',
-    'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js'
-  ],
-  customCssUrl: [
-    'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css'
-  ]
-};
 
-// Ruta para servir el spec de Swagger como JSON
+// Ruta para el JSON de Swagger
 app.get('/api-docs/swagger.json', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.send(swaggerSpec);
 });
-// Configurar Swagger UI con CDN para recursos estáticos
-app.use(
-  "/api-docs",
-  swaggerUI.serveFiles(swaggerSpec, swaggerUiOptions),
-  (req, res, next) => {
-    // Solo servir el HTML de Swagger UI en la ruta principal
-    if (req.path === '/' || req.path === '') {
-      return swaggerUI.setup(swaggerSpec, swaggerUiOptions)(req, res, next);
-    }
-    next();
-  }
-);
-// Ruta principal de Swagger UI
+
+// Ruta principal de Swagger UI usando CDN (SOLUCIÓN PARA VERCEL)
 app.get('/api-docs', (req, res) => {
   const html = `
   <!DOCTYPE html>
   <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <title>API Sistema de Créditos</title>
+    <title>API Sistema de Créditos - Documentación</title>
     <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
+    <link rel="icon" type="image/png" href="https://unpkg.com/swagger-ui-dist@5.9.0/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="https://unpkg.com/swagger-ui-dist@5.9.0/favicon-16x16.png" sizes="16x16" />
     <style>
-      .topbar { display: none !important; }
-      body { margin: 0; padding: 0; }
+      html {
+        box-sizing: border-box;
+        overflow: -moz-scrollbars-vertical;
+        overflow-y: scroll;
+      }
+      *,
+      *:before,
+      *:after {
+        box-sizing: inherit;
+      }
+      body {
+        margin: 0;
+        background: #fafafa;
+      }
+      .topbar { 
+        display: none !important; 
+      }
     </style>
   </head>
   <body>
@@ -132,7 +113,8 @@ app.get('/api-docs', (req, res) => {
             SwaggerUIBundle.plugins.DownloadUrl
           ],
           layout: "StandaloneLayout",
-          persistAuthorization: true
+          persistAuthorization: true,
+          validatorUrl: null
         });
         window.ui = ui;
       }
@@ -142,6 +124,9 @@ app.get('/api-docs', (req, res) => {
   `;
   res.send(html);
 });
+
+// ==================== CONFIGURACIÓN GENERAL ====================
+
 // Headers de seguridad
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -166,8 +151,6 @@ app.use(cors({
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-
-
 // Servir archivos estáticos
 app.use("/img", express.static(path.join(__dirname, "../frontend/public/img")));
 
@@ -181,7 +164,8 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Conectar a Supabase y ejecutar datos iniciales
+// ==================== INICIO DEL SERVIDOR ====================
+
 const iniciarServidor = async () => {
   try {
     console.log(". Iniciando servidor...");
@@ -212,7 +196,7 @@ const iniciarServidor = async () => {
     // Usar rutas API
     app.use("/api", routes);
 
-    // Configuración para producción - SOLUCIÓN DEFINITIVA PARA EXPRESS 5
+    // Configuración para producción
     if (process.env.NODE_ENV === "production") {
       // Servir archivos estáticos del frontend
       app.use(express.static(path.join(__dirname, "../frontend/build")));
@@ -222,7 +206,7 @@ const iniciarServidor = async () => {
         res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
       });
 
-      // SOLUCIÓN: Crear rutas específicas para las rutas conocidas del frontend
+      // Rutas específicas para el frontend
       const frontendRoutes = [
         '/login', '/register', '/solicitante', '/operador', 
         '/confirmacion', '/confirmacion-exitosa', '/error'
@@ -247,9 +231,7 @@ const iniciarServidor = async () => {
       });
 
     } else {
-      // En desarrollo - SIN USAR PATRONES DE RUTA COMPLEJOS
-      
-      // Middleware para rutas API no encontradas
+      // En desarrollo
       app.use((req, res, next) => {
         if (req.path.startsWith("/api") && !req.path.startsWith("/api-docs")) {
           return res.status(404).json({
@@ -260,7 +242,6 @@ const iniciarServidor = async () => {
         next();
       });
 
-      // Para rutas no API en desarrollo
       app.use((req, res) => {
         if (!req.path.startsWith("/api") && !req.path.startsWith("/api-docs")) {
           return res.status(404).json({
@@ -268,7 +249,6 @@ const iniciarServidor = async () => {
             message: "Ruta no encontrada. En desarrollo, el frontend debe ejecutarse en puerto 3000"
           });
         }
-        // Si llega aquí, es una ruta API que debería haber sido manejada
         res.status(404).json({
           success: false,
           message: `Endpoint no encontrado: ${req.path}`
