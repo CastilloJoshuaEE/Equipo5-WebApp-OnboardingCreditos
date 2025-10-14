@@ -7,7 +7,6 @@ const validarTelefono = (telefono) => {
   if (!telefono) return true; // Teléfono es opcional
   const telefonoLimpio = telefono.replace(/[\s\-\(\)]/g, '');
   
-  // Validar formato internacional (Ej: +593987654321) o nacional
   const telefonoRegex = /^(\+?\d{1,4})?[\s\-]?\(?(\d{1,4})?\)?[\s\-]?(\d{3,4})[\s\-]?(\d{3,4})$/;
   
   if (!telefonoRegex.test(telefono)) {
@@ -29,7 +28,7 @@ const   validarCamposRegistro=(data, rol)=>{
     errors.push('Formato de email inválido');
   }
   if(data.telefono && !validarTelefono(data.telefono)){
-    errors.push('Formato de teléfono inválido. Use formato: +593987654321');
+    errors.push('Formato de teléfono inválido. Use formato: +593...');
   }
   if(rol=== 'solicitante'){
     if(!data.nombre_empresa) errors.push('Nombre de empresa es requerido para solicitantes');
