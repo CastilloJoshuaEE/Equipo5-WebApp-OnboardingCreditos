@@ -31,14 +31,12 @@ const swaggerOptions = {
       },
       servers: [
         {
-          url:
-            process.env.NODE_ENV === "production"
-              ? "https://tu-dominio.com/api"
-              : `http://localhost:${process.env.PORT || 3001}/api`,
-          description:
-            process.env.NODE_ENV === "production"
-              ? "Servidor de Producción"
-              : "Servidor de Desarrollo",
+          url: process.env.NODE_ENV === "production" 
+            ? "https://equipo5-web-app-onboarding-creditos-backend.vercel.app/api"
+            : `http://localhost:${process.env.PORT || 3001}/api`,
+          description: process.env.NODE_ENV === "production" 
+            ? "Servidor de Producción" 
+            : "Servidor de Desarrollo",
         },
       ],
     },
@@ -67,16 +65,24 @@ const swaggerUiOptions = {
   customSiteTitle: "API Sistema de Créditos",
   swaggerOptions: {
     persistAuthorization: true,
-    // Configuración para cargar recursos desde CDN
-    customJs: [
-      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-bundle.min.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-standalone-preset.min.js'
-    ],
-    customCssUrl: [
-      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui.min.css'
-    ]
   }
 };
+// Configurar Swagger UI con manejo mejorado de rutas
+app.use(
+  "/api-docs",
+  swaggerUI.serve,
+  (req, res, next) => {
+    // Middleware para prevenir que Vercel sirva React en rutas de Swagger
+    if (req.path.includes('.js') || req.path.includes('.css') || req.path.includes('.png')) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Recurso de Swagger no encontrado' 
+      });
+    }
+    next();
+  },
+  swaggerUI.setup(swaggerSpec, swaggerUiOptions)
+);
 // Headers de seguridad
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -85,19 +91,7 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   next();
 });
-// Configurar Swagger UI
-app.use(
-  "/api-docs",
-  swaggerUI.serve,
-  (req, res, next) => {
-    // Middleware para asegurar que los recursos se carguen correctamente
-    if (req.path.endsWith('.css') || req.path.endsWith('.js')) {
-      res.setHeader('Content-Type', req.path.endsWith('.css') ? 'text/css' : 'application/javascript');
-    }
-    next();
-  },
-  swaggerUI.setup(swaggerSpec, swaggerUiOptions)
-);
+
 // Configurar CORS
 app.use(cors({
   origin: [

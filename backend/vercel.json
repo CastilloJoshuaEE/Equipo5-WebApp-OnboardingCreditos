@@ -23,6 +23,11 @@
     {
       "src": "/healthz",
       "dest": "/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.js",
+      "methods": ["GET"]
     }
   ]
 }
