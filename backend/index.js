@@ -29,17 +29,13 @@ const swaggerOptions = {
         name: "Equipo de Desarrollo",
         email: "castle2004josh2@gmail.com",
       },
-      servers: [
-        {
-          url: process.env.NODE_ENV === "production" 
-            ? "https://equipo5-web-app-onboarding-creditos-backend.vercel.app"
-            : `http://localhost:${process.env.PORT || 3001}`,
-          description: process.env.NODE_ENV === "production" 
-            ? "Servidor de Producción" 
-            : "Servidor de Desarrollo",
-        },
-      ],
     },
+    servers: [
+      {
+        url: "https://equipo5-web-app-onboarding-creditos-backend-dbe5xecrk.vercel.app",
+        description: "Servidor de Producción",
+      },
+    ],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -59,6 +55,11 @@ const swaggerOptions = {
 };
 
 const swaggerSpec = swaggerJsDoc(swaggerOptions);
+app.get('/api-docs/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
 const swaggerUiOptions = {
   explorer: true,
   customCss: '.swagger-ui .topbar { display: none }',
@@ -83,23 +84,7 @@ const swaggerUiOptions = {
   ]
 };
 
-// Ruta para servir el spec de Swagger como JSON
-app.get('/api-docs/swagger.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerSpec);
-});
-// Configurar Swagger UI con CDN para recursos estáticos
-app.use(
-  "/api-docs",
-  swaggerUI.serveFiles(swaggerSpec, swaggerUiOptions),
-  (req, res, next) => {
-    // Solo servir el HTML de Swagger UI en la ruta principal
-    if (req.path === '/' || req.path === '') {
-      return swaggerUI.setup(swaggerSpec, swaggerUiOptions)(req, res, next);
-    }
-    next();
-  }
-);
+
 // Ruta principal de Swagger UI
 app.get('/api-docs', (req, res) => {
   const html = `
@@ -107,11 +92,28 @@ app.get('/api-docs', (req, res) => {
   <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <title>API Sistema de Créditos</title>
+    <title>API Sistema de Créditos - Documentación</title>
     <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
+    <link rel="icon" type="image/png" href="https://unpkg.com/swagger-ui-dist@5.9.0/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="https://unpkg.com/swagger-ui-dist@5.9.0/favicon-16x16.png" sizes="16x16" />
     <style>
-      .topbar { display: none !important; }
-      body { margin: 0; padding: 0; }
+      html {
+        box-sizing: border-box;
+        overflow: -moz-scrollbars-vertical;
+        overflow-y: scroll;
+      }
+      *,
+      *:before,
+      *:after {
+        box-sizing: inherit;
+      }
+      body {
+        margin: 0;
+        background: #fafafa;
+      }
+      .topbar { 
+        display: none !important; 
+      }
     </style>
   </head>
   <body>
@@ -132,7 +134,8 @@ app.get('/api-docs', (req, res) => {
             SwaggerUIBundle.plugins.DownloadUrl
           ],
           layout: "StandaloneLayout",
-          persistAuthorization: true
+          persistAuthorization: true,
+          validatorUrl: null
         });
         window.ui = ui;
       }
