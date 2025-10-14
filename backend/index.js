@@ -3,13 +3,13 @@ const express = require("express");
 const path = require("path");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const swaggerUI = require("swagger-ui-express");
 const swaggerJsDoc = require("swagger-jsdoc");
 const routes = require("./routes/routes");
 const datosIniciales = require("./datos_iniciales");
 const { verificarConexion } = require("./config/conexion");
 const {configurarStorage}= require("./config/configStorage");
 const { createCanvas, Canvas, Image, ImageData } = require('canvas');
+
 globalThis.Canvas = Canvas;
 globalThis.Image = Image;
 globalThis.ImageData = ImageData;
@@ -17,7 +17,6 @@ globalThis.createCanvas = createCanvas;
 
 const app = express();
 
-// Configuración de Swagger
 const swaggerOptions = {
   definition: {
     openapi: "3.0.0",
@@ -55,37 +54,14 @@ const swaggerOptions = {
 };
 
 const swaggerSpec = swaggerJsDoc(swaggerOptions);
+
+// Ruta para el JSON de Swagger
 app.get('/api-docs/swagger.json', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.send(swaggerSpec);
 });
 
-const swaggerUiOptions = {
-  explorer: true,
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: "API Sistema de Créditos",
-  swaggerOptions: {
-    persistAuthorization: true,
-    // Forzar URLs absolutas para los recursos de Swagger
-    configUrl: '/api-docs/swagger.json',
-    urls: [
-      {
-        url: '/api-docs/swagger.json',
-        name: 'API v1'
-      }
-    ]
-  },
-  customJs: [
-    'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js',
-    'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js'
-  ],
-  customCssUrl: [
-    'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css'
-  ]
-};
-
-
-// Ruta principal de Swagger UI
+// Ruta principal de Swagger UI usando CDN
 app.get('/api-docs', (req, res) => {
   const html = `
   <!DOCTYPE html>
@@ -145,6 +121,8 @@ app.get('/api-docs', (req, res) => {
   `;
   res.send(html);
 });
+
+
 // Headers de seguridad
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -169,8 +147,6 @@ app.use(cors({
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-
-
 // Servir archivos estáticos
 app.use("/img", express.static(path.join(__dirname, "../frontend/public/img")));
 
@@ -187,10 +163,10 @@ app.get("/api/health", (req, res) => {
 // Conectar a Supabase y ejecutar datos iniciales
 const iniciarServidor = async () => {
   try {
-    console.log(". Iniciando servidor...");
+    console.log("🚀 Iniciando servidor...");
 
     // Verificar conexión a Supabase
-    console.log(". Verificando conexión a Supabase...");
+    console.log("🔗 Verificando conexión a Supabase...");
     const conexionExitosa = await verificarConexion();
 
     if (!conexionExitosa) {
@@ -199,23 +175,23 @@ const iniciarServidor = async () => {
       );
     }
 
-    console.log(". Conectado a Supabase PostgreSQL");
+    console.log("✅ Conectado a Supabase PostgreSQL");
 
     // Ejecutar datos iniciales
     console.log("📥 Cargando datos iniciales...");
     try {
       await datosIniciales();
     } catch (error) {
-      console.log(". Error en datos iniciales:", error.message);
+      console.log("⚠️ Error en datos iniciales:", error.message);
     }
 
-    console.log(' Verificando configuración de Storage...');
+    console.log('💾 Verificando configuración de Storage...');
     await configurarStorage();
     
     // Usar rutas API
     app.use("/api", routes);
 
-    // Configuración para producción - SOLUCIÓN DEFINITIVA PARA EXPRESS 5
+    // Configuración para producción
     if (process.env.NODE_ENV === "production") {
       // Servir archivos estáticos del frontend
       app.use(express.static(path.join(__dirname, "../frontend/build")));
@@ -225,7 +201,7 @@ const iniciarServidor = async () => {
         res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
       });
 
-      // SOLUCIÓN: Crear rutas específicas para las rutas conocidas del frontend
+      // Crear rutas específicas para las rutas conocidas del frontend
       const frontendRoutes = [
         '/login', '/register', '/solicitante', '/operador', 
         '/confirmacion', '/confirmacion-exitosa', '/error'
@@ -250,7 +226,7 @@ const iniciarServidor = async () => {
       });
 
     } else {
-      // En desarrollo - SIN USAR PATRONES DE RUTA COMPLEJOS
+      // En desarrollo
       
       // Middleware para rutas API no encontradas
       app.use((req, res, next) => {
@@ -281,7 +257,7 @@ const iniciarServidor = async () => {
 
     // Manejo de errores global
     app.use((err, req, res, next) => {
-      console.error('Error del servidor:', err);
+      console.error('❌ Error del servidor:', err);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'
@@ -292,11 +268,12 @@ const iniciarServidor = async () => {
 
     // Iniciar servidor
     const server = app.listen(PORT, () => {
-      console.log(`\n. ¡Servidor ejecutándose correctamente!`);
-      console.log(`. Puerto: ${PORT}`);
-      console.log(`. URL: http://localhost:${PORT}`);
-      console.log(`. Documentación API: http://localhost:${PORT}/api-docs`);
-      console.log(`\n. Endpoints disponibles:`);
+      console.log(`\n🎉 ¡Servidor ejecutándose correctamente!`);
+      console.log(`📍 Puerto: ${PORT}`);
+      console.log(`🌐 URL: http://localhost:${PORT}`);
+      console.log(`📚 Documentación API: http://localhost:${PORT}/api-docs`);
+      console.log(`🔗 JSON Swagger: http://localhost:${PORT}/api-docs/swagger.json`);
+      console.log(`\n📋 Endpoints disponibles:`);
       console.log(`   Health:    GET  http://localhost:${PORT}/api/health`);
       console.log(`   Registro:  POST http://localhost:${PORT}/api/usuarios/registro`);
       console.log(`   Login:     POST http://localhost:${PORT}/api/usuarios/login`);
@@ -306,33 +283,33 @@ const iniciarServidor = async () => {
 
     // Manejo elegante de cierre
     process.on("SIGTERM", () => {
-      console.log("Recibido SIGTERM, cerrando servidor...");
+      console.log("🛑 Recibido SIGTERM, cerrando servidor...");
       server.close(() => {
-        console.log(". Servidor cerrado correctamente");
+        console.log("✅ Servidor cerrado correctamente");
         process.exit(0);
       });
     });
 
     process.on("SIGINT", () => {
-      console.log(" Recibido SIGINT, cerrando servidor...");
+      console.log("🛑 Recibido SIGINT, cerrando servidor...");
       server.close(() => {
-        console.log(". Servidor cerrado correctamente");
+        console.log("✅ Servidor cerrado correctamente");
         process.exit(0);
       });
     });
   } catch (error) {
-    console.error(". Error crítico iniciando servidor:", error.message);
+    console.error("💥 Error crítico iniciando servidor:", error.message);
     process.exit(1);
   }
 };
 
 // Manejar errores no capturados
 process.on("unhandledRejection", (reason, promise) => {
-  console.error(". Promise rechazada no manejada:", reason);
+  console.error("⚠️ Promise rechazada no manejada:", reason);
 });
 
 process.on("uncaughtException", (error) => {
-  console.error(". Excepción no capturada:", error);
+  console.error("💥 Excepción no capturada:", error);
   process.exit(1);
 });
 
