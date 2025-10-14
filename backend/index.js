@@ -18,7 +18,39 @@ globalThis.createCanvas = createCanvas;
 
 const app = express();
 
-// ==================== CONFIGURACIÓN SWAGGER (VERSIÓN VERCEL) ====================
+// ==================== CONFIGURACIÓN SWAGGER CORREGIDA ====================
+
+// Función para diagnóstico de archivos
+const diagnosticarSwagger = () => {
+  const fs = require('fs');
+  console.log('\n🔍 DIAGNÓSTICO SWAGGER:');
+  console.log('📁 Directorio actual:', __dirname);
+  
+  // Verificar rutas críticas
+  const rutasCriticas = [
+    './routes/routes.js',
+    './controladores/',
+    './routes/'
+  ];
+  
+  rutasCriticas.forEach(ruta => {
+    const rutaCompleta = path.join(__dirname, ruta);
+    try {
+      const existe = fs.existsSync(rutaCompleta);
+      console.log(`   ${ruta}: ${existe ? '✅ EXISTE' : '❌ NO EXISTE'}`);
+      
+      if (existe && fs.statSync(rutaCompleta).isDirectory()) {
+        const archivos = fs.readdirSync(rutaCompleta);
+        console.log(`     Archivos: ${archivos.slice(0, 5).join(', ')}${archivos.length > 5 ? '...' : ''}`);
+      }
+    } catch (error) {
+      console.log(`   ${ruta}: ❌ ERROR - ${error.message}`);
+    }
+  });
+};
+
+// Ejecutar diagnóstico
+diagnosticarSwagger();
 
 const swaggerOptions = {
   definition: {
@@ -34,7 +66,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: "https://equipo5-web-app-onboarding-creditos-backend-dbe5xecrk.vercel.app",
+        url: "https://equipo5-web-app-onboarding-creditos-backend-703b9gq7j.vercel.app",
         description: "Servidor de Producción",
       },
     ],
@@ -53,10 +85,32 @@ const swaggerOptions = {
       },
     ],
   },
-  apis: ["./routes/*.js", "./controladores/*.js"],
+  // RUTAS CORREGIDAS - versión más específica
+  apis: [
+    path.join(__dirname, './routes/routes.js'),
+    path.join(__dirname, './controladores/*.js')
+  ],
 };
 
+console.log('\n🔄 Generando documentación Swagger...');
+console.log('📄 Archivos a escanear:');
+swaggerOptions.apis.forEach(api => console.log(`   - ${api}`));
+
 const swaggerSpec = swaggerJsDoc(swaggerOptions);
+
+// Log del resultado
+console.log('\n📊 RESULTADO SWAGGER:');
+console.log(`   - Total de paths encontrados: ${Object.keys(swaggerSpec.paths || {}).length}`);
+console.log(`   - Tags: ${(swaggerSpec.tags || []).map(t => t.name).join(', ') || 'Ninguno'}`);
+
+if (swaggerSpec.paths && Object.keys(swaggerSpec.paths).length > 0) {
+  console.log('   - Paths encontrados:');
+  Object.keys(swaggerSpec.paths).forEach(path => {
+    console.log(`     ${path}`);
+  });
+} else {
+  console.log('   ⚠️  NO SE ENCONTRARON PATHS - Revisa la documentación JSDoc en tus archivos');
+}
 
 // Ruta para el JSON de Swagger
 app.get('/api-docs/swagger.json', (req, res) => {
@@ -64,8 +118,24 @@ app.get('/api-docs/swagger.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-// Ruta principal de Swagger UI usando CDN (SOLUCIÓN PARA VERCEL)
+// Ruta de diagnóstico para verificar en producción
+app.get('/api-docs/debug', (req, res) => {
+  res.json({
+    success: true,
+    totalPaths: Object.keys(swaggerSpec.paths || {}).length,
+    paths: Object.keys(swaggerSpec.paths || {}),
+    config: {
+      apis: swaggerOptions.apis,
+      baseDir: __dirname
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Ruta principal de Swagger UI - VERSIÓN MEJORADA
 app.get('/api-docs', (req, res) => {
+  const totalPaths = Object.keys(swaggerSpec.paths || {}).length;
+  
   const html = `
   <!DOCTYPE html>
   <html lang="en">
@@ -93,14 +163,41 @@ app.get('/api-docs', (req, res) => {
       .topbar { 
         display: none !important; 
       }
+      .swagger-ui .info .title {
+        color: #3b4151;
+        font-family: sans-serif;
+        font-size: 36px;
+        margin: 0;
+      }
+      .swagger-ui .info hgroup.main a {
+        display: none;
+      }
+      .diagnostic-banner {
+        background: ${totalPaths > 0 ? '#e8f5e8' : '#ffeaa7'};
+        border: 1px solid ${totalPaths > 0 ? '#4caf50' : '#fdcb6e'};
+        border-radius: 4px;
+        padding: 10px 15px;
+        margin: 10px 0;
+        font-family: monospace;
+      }
     </style>
   </head>
   <body>
+    ${totalPaths === 0 ? `
+    <div class="diagnostic-banner">
+      ⚠️ <strong>Diagnóstico:</strong> No se encontraron endpoints documentados. 
+      <a href="/api-docs/debug" target="_blank">Ver detalles del problema</a>
+    </div>
+    ` : ''}
+    
     <div id="swagger-ui"></div>
     <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
     <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
     <script>
       window.onload = function() {
+        console.log('🚀 Inicializando Swagger UI...');
+        console.log('Total de paths en spec:', ${totalPaths});
+        
         const ui = SwaggerUIBundle({
           url: '/api-docs/swagger.json',
           dom_id: '#swagger-ui',
@@ -114,9 +211,29 @@ app.get('/api-docs', (req, res) => {
           ],
           layout: "StandaloneLayout",
           persistAuthorization: true,
-          validatorUrl: null
+          validatorUrl: null,
+          displayRequestDuration: true,
+          docExpansion: 'list',
+          filter: true,
+          showExtensions: true
         });
+        
         window.ui = ui;
+        
+        // Verificar después de cargar
+        setTimeout(() => {
+          const operations = document.querySelectorAll('.opblock-tag-section');
+          console.log('Operaciones cargadas:', operations.length);
+          
+          if (operations.length === 0) {
+            console.warn('❌ No se cargaron operaciones. Posible problema con el spec.');
+            fetch('/api-docs/debug')
+              .then(r => r.json())
+              .then(debug => {
+                console.log('🔍 Debug info:', debug);
+              });
+          }
+        }, 1000);
       }
     </script>
   </body>
@@ -273,6 +390,7 @@ const iniciarServidor = async () => {
       console.log(`. Puerto: ${PORT}`);
       console.log(`. URL: http://localhost:${PORT}`);
       console.log(`. Documentación API: http://localhost:${PORT}/api-docs`);
+      console.log(`. Diagnóstico: http://localhost:${PORT}/api-docs/debug`);
       console.log(`\n. Endpoints disponibles:`);
       console.log(`   Health:    GET  http://localhost:${PORT}/api/health`);
       console.log(`   Registro:  POST http://localhost:${PORT}/api/usuarios/registro`);
