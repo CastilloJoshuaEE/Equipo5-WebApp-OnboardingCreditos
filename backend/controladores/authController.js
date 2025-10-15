@@ -139,7 +139,7 @@ const login = async (req, res) => {
       }
     }
 
-    // 5. Obtener perfil completo del usuario (usar ID de Auth después de la corrección)
+    // 5. Obtener perfil completo del usuario (usar ID de Auth después de la .)
     const { data: userProfile, error: profileError } = await supabase
       .from('usuarios')
       .select('*')

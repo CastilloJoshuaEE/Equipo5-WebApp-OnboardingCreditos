@@ -127,7 +127,7 @@ const iniciarServidor = async () => {
     console.log(". Conectado a Supabase PostgreSQL");
 
     // Ejecutar datos iniciales
-    console.log("📥 Cargando datos iniciales...");
+    console.log(". Cargando datos iniciales...");
     try {
       await datosIniciales();
     } catch (error) {

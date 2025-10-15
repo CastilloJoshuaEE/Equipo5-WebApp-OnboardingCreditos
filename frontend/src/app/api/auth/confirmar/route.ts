@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // CORRECCIÓN: Llamar al backend con la URL correcta
+    // .: Llamar al backend con la URL correcta
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
     const response = await fetch(
       `${API_URL}/auth/confirmar?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`,

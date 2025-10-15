@@ -1,10 +1,10 @@
 const express = require("express");
 const { proteger, autorizar } = require("../middleware/auth");
 const authController = require("../controladores/authController");
-const usuariosController = require("../controladores/usuariosController");
+const usuariosController = require("../controladores/UsuarioController");
 const confirmacionController = require("../controladores/confirmacionController");
-const solicitudesController = require('../controladores/solicitudesController');
-const { descargarDocumento } = require('../controladores/documentosController');
+const solicitudesController = require('../controladores/SolicitudesController');
+const { descargarDocumento } = require('../controladores/DocumentoController');
 const { solicitarReactivacionCuenta, reactivarCuenta, procesarRecuperacionCuenta  } = require('../controladores/reactivacionController');
 // Estas deben apuntar a middleware existentes
 const {
@@ -25,14 +25,14 @@ const {
   solicitarInformacionAdicional,
   obtenerEstadisticas,
   iniciarVerificacionKYC
-} = require('../controladores/solicitudesController');
+} = require('../controladores/SolicitudesController');
 
 // Estas deben apuntar a controladores de documentos existentes
 const {
   subirDocumento,
   obtenerDocumentosSolicitud,
   validarDocumento
-} = require('../controladores/documentosController');
+} = require('../controladores/DocumentoController');
 
 // Esta debe apuntar a webhooksController existente
 const { handleDiditWebhook } = require('../controladores/webhooksController');
@@ -670,7 +670,7 @@ router.get("/usuarios/session", authController.getSession);
  *       302:
  *         description: Redirección al frontend con resultado
  */
-router.get("/auth/restablecer-cuenta", procesarRecuperacionCuenta);
+router.get("/api/auth/restablecer-cuenta", procesarRecuperacionCuenta);
 router.post('/usuario/solicitar-reactivacion', solicitarReactivacionCuenta);
 /**
  * @swagger

@@ -20,7 +20,7 @@ const enviarEmailConfirmacion = async (email, nombre, userId) => {
     
     const tokenConfirmacion = generarTokenConfirmacion(userId, email);
     
-    // CORRECCIÓN: Usar FRONTEND_URL en lugar de BACKEND_URL
+    // .: Usar FRONTEND_URL en lugar de BACKEND_URL
     const frontendUrl = getFrontendUrl();
     const enlaceConfirmacion = `${frontendUrl}/api/auth/confirmar?token=${tokenConfirmacion}&email=${encodeURIComponent(email)}`;
     
