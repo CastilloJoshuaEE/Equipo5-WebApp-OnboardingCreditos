@@ -4,8 +4,7 @@ import React, { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import RegisterForm from '@/components/auth/RegisterForm';
-import { Box, CircularProgress, Grid } from '@mui/material';
-import Image from 'next/image';
+import { Box, CircularProgress, Grid, Container } from '@mui/material';
 import { UserRole } from '@/types/auth.types';
 
 export default function RegisterPage() {
@@ -38,47 +37,22 @@ export default function RegisterPage() {
   }
 
   return (
-    <Grid
-      container
-      justifyContent="center"
-      alignItems="center"
-      minHeight="95vh"
-      sx={{
-        bgcolor: '#fafafa',
-        px: { xs: 2, md: 4 },
-        gap: { xs: 3, md: 6 },
-      }}
-    >
-      {/* Columna izquierda: formulario */}
-      <Grid item xs={12} md={7}>
-        <RegisterForm />
+    <Container maxWidth="lg" sx={{ py: 6 }}>
+      <Grid container spacing={4} justifyContent="center" alignItems="stretch">
+        {/* Columna principal: aquí colocamos sólo el formulario (RegisterForm contiene su propio bloque informativo) */}
+        <Grid item xs={12}>
+          <Box
+            sx={{
+              bgcolor: 'background.paper',
+              p: { xs: 2, md: 4 },
+              borderRadius: 2,
+              boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
+            }}
+          >
+            <RegisterForm />
+          </Box>
+        </Grid>
       </Grid>
-
-      {/* Columna derecha: imagen informativa */}
-      <Grid
-        item
-        md={4}
-        sx={{
-          display: { xs: 'none', md: 'flex' },
-          bgcolor: '#F3CDFB',
-          justifyContent: 'center',
-          alignItems: 'center',
-          flexDirection: 'column',
-          borderRadius: 3,
-          boxShadow: 2,
-          height: '95vh',
-        }}
-      >
-        <Box textAlign="center" p={3}>
-          <Image
-            src=""
-            alt="Registro ilustración"
-            width={350}
-            height={350}
-            style={{ objectFit: 'contain', marginBottom: '1rem' }}
-          />
-        </Box>
-      </Grid>
-    </Grid>
+    </Container>
   );
 }
