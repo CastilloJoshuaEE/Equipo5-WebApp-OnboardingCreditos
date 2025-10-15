@@ -94,7 +94,7 @@ const proteger = async (req, res, next) => {
   }
 };
 
-// . Función de corrección .
+// . Función de . .
 const corregirInconsistenciaIDs = async (authId, tablaId, email) => {
   try {
     console.log('. [Middleware] Corrigiendo inconsistencia de IDs...');
@@ -150,7 +150,7 @@ const corregirInconsistenciaIDs = async (authId, tablaId, email) => {
     console.log('. Inconsistencia corregida en middleware');
     return true;
   } catch (error) {
-    console.error('. Error en corrección middleware:', error);
+    console.error('. Error en . middleware:', error);
     return false;
   }
 };

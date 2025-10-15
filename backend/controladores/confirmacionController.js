@@ -79,7 +79,7 @@ const confirmarEmail = async (req, res) => {
     // Validar parámetros requeridos
     if (!token || !email) {
       const frontendUrl = getFrontendUrl();
-      // CORRECCIÓN: Usar URL segura en producción
+      // .: Usar URL segura en producción
       return res.redirect(`${frontendUrl}/login?error=token_o_email_faltante`);
     }
 
@@ -158,7 +158,7 @@ const confirmarEmail = async (req, res) => {
 
       console.log('. Cuenta activada exitosamente para:', email);
 
-      // CORRECCIÓN CRÍTICA: Redirigir siempre al frontend seguro
+      // . CRÍTICA: Redirigir siempre al frontend seguro
       const frontendUrl = getFrontendUrl();
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -175,7 +175,7 @@ const confirmarEmail = async (req, res) => {
   } catch (error) {
     console.error('. Error en confirmarEmail:', error);
     
-    // CORRECCIÓN: Redirigir siempre al frontend
+    // .: Redirigir siempre al frontend
     const frontendUrl = getFrontendUrl();
     return res.redirect(`${frontendUrl}/login?error=confirmacion_fallida`);
   }

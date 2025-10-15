@@ -101,7 +101,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Estructura de respuesta inválida');
         } catch (error) {
           console.error('. Authorize error:', error);
-          // . CORRECCIÓN: Usar type guard en lugar de 'any'
+          // . .: Usar type guard en lugar de 'any'
           if (error instanceof Error) {
             throw new Error(error.message || 'Error de autenticación');
           } else {
@@ -113,7 +113,7 @@ export const authOptions: NextAuthOptions = {
   ],
   pages: {
     signIn: '/login',
-    // CORRECCIÓN: 'signUp' no existe, usar 'newUser' en su lugar
+    // .: 'signUp' no existe, usar 'newUser' en su lugar
     newUser: '/register',
     error: '/error',
   },
