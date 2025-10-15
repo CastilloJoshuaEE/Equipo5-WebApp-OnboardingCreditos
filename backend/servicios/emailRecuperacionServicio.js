@@ -6,7 +6,7 @@ const enviarEmailRecuperacionCuenta = async (email, nombre, userId) => {
     
     const tokenRecuperacion = generarTokenRecuperacion(userId, email);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const enlaceRecuperacion = `${frontendUrl}/api/auth/restablecer-cuenta?token=${tokenRecuperacion}&email=${encodeURIComponent(email)}`;    
+    const enlaceRecuperacion = `${frontendUrl}/restablecer-cuenta?token=${tokenRecuperacion}&email=${encodeURIComponent(email)}`;    
     const asunto = 'Recuperación de cuenta - Sistema de créditos';
     const contenidoHTML = crearPlantillaRecuperacionHTML(nombre, enlaceRecuperacion);
     const contenidoTexto = crearPlantillaRecuperacionTexto(nombre, enlaceRecuperacion);
@@ -67,7 +67,10 @@ const enviarEmailReactivacionCuenta = async (email, nombre, userId) => {
 const generarTokenRecuperacion = (userId, email) => {
   const timestamp = Date.now();
   const tokenData = `${userId}:${email}:${timestamp}:recuperacion`;
-  return Buffer.from(tokenData).toString('base64');
+  console.log('. Generando token con datos:', tokenData);
+  const token = Buffer.from(tokenData).toString('base64');
+  console.log('. Token generado (base64):', token);
+  return token;
 };
 
 const crearPlantillaReactivacionHTML = (nombre, enlaceReactivacion) => {

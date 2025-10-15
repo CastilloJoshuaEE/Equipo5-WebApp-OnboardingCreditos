@@ -1,6 +1,23 @@
 const { supabase } = require('../config/conexion.js');
 const { supabaseAdmin } = require('../config/supabaseAdmin.js');
 const { enviarEmailRecuperacionCuenta } = require('../servicios/emailRecuperacionServicio');
+
+/**
+ * @typedef {Object} ReactivacionRequest
+ * @property {string} email
+ */
+
+/**
+ * @typedef {Object} ReactivacionResponse
+ * @property {boolean} success
+ * @property {string} message
+ */
+
+/**
+ * Solicita la reactivación de cuenta
+ * @param {import('express').Request<{}, {}, ReactivacionRequest>} req
+ * @param {import('express').Response<ReactivacionResponse>} res
+ */
 const solicitarReactivacionCuenta = async (req, res) => {
   try {
     const { email } = req.body;
@@ -87,6 +104,11 @@ const solicitarReactivacionCuenta = async (req, res) => {
   }
 };
 
+/**
+ * Reactiva cuenta con email y password
+ * @param {import('express').Request<{}, {}, {email: string, password: string}>} req
+ * @param {import('express').Response} res
+ */
 const reactivarCuenta = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -162,34 +184,63 @@ const reactivarCuenta = async (req, res) => {
     });
   }
 };
+
+/**
+ * Obtiene la URL del frontend
+ * @returns {string}
+ */
 const getFrontendUrl = () => {
   if (process.env.NODE_ENV === 'production') {
     return 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
   }
   return process.env.FRONTEND_URL || 'http://localhost:3000';
 };
+/**
+ * Procesa la recuperación de cuenta via token (versión JSON para frontend)
+ * @param {import('express').Request<{}, {}, {}, {token: string, email: string}>} req
+ * @param {import('express').Response} res
+ */
 const procesarRecuperacionCuenta = async (req, res) => {
   try {
     const { token, email } = req.query;
 
-    console.log('. [RECUPERACIÓN] Procesando recuperación de cuenta:', { token, email });
+    console.log('. [RECUPERACIÓN] Procesando recuperación de cuenta (JSON):', { 
+      token: token ? `${token.substring(0, 20)}...` : 'undefined',
+      email 
+    });
 
     // Validar parámetros requeridos
     if (!token || !email) {
-      const frontendUrl = getFrontendUrl();
-      return res.redirect(`${frontendUrl}/login?error=token_o_email_faltante`);
+      return res.status(400).json({
+        success: false,
+        message: 'Token o email faltante'
+      });
     }
 
     // Decodificar y validar el token
     let decodedToken;
     try {
+      // Decodificar el token base64
       decodedToken = Buffer.from(token, 'base64').toString('utf-8');
-      const [userId, userEmail, timestamp, tipo] = decodedToken.split(':');
+      console.log('. Token decodificado:', decodedToken);
+      
+      const parts = decodedToken.split(':');
+      console.log('. Partes del token:', parts);
+      
+      // Validar que tenga las partes esperadas
+      if (parts.length < 3) {
+        throw new Error('Formato de token inválido');
+      }
+
+      const [userId, userEmail, timestamp, tipo] = parts;
       
       // Verificar que el email coincida
       if (userEmail !== email) {
-        const frontendUrl = getFrontendUrl();
-        return res.redirect(`${frontendUrl}/login?error=token_invalido`);
+        console.error('. Email no coincide:', { userEmail, email });
+        return res.status(400).json({
+          success: false,
+          message: 'Token inválido'
+        });
       }
 
       // Verificar expiración (1 hora)
@@ -198,63 +249,119 @@ const procesarRecuperacionCuenta = async (req, res) => {
       const oneHour = 60 * 60 * 1000;
       
       if (currentTime - tokenTime > oneHour) {
-        const frontendUrl = getFrontendUrl();
-        return res.redirect(`${frontendUrl}/login?error=token_expirado`);
+        console.error('. Token expirado:', { tokenTime, currentTime });
+        return res.status(400).json({
+          success: false,
+          message: 'Token expirado'
+        });
       }
 
       console.log('. Token válido, buscando usuario:', email);
 
-      // Buscar usuario inactivo
+      // Buscar usuario (activo o inactivo)
       const { data: usuario, error: usuarioError } = await supabase
         .from('usuarios')
         .select('*')
         .eq('email', email)
         .single();
+
+      if (usuarioError || !usuario) {
+        console.error('. Usuario no encontrado:', email);
+        return res.status(404).json({
+          success: false,
+          message: 'Usuario no encontrado'
+        });
+      }
+
+      // VERIFICACIÓN CRÍTICA: Comprobar si hay inconsistencia de IDs
+      if (usuario.id !== userId) {
+        console.warn('. INCONSISTENCIA DE ID DETECTADA:', {
+          tokenUserId: userId,
+          tablaUserId: usuario.id,
+          email: email
+        });
+        
+        // CORREGIR LA INCONSISTENCIA: Actualizar el ID en la tabla
+        console.log('. Corrigiendo inconsistencia de ID...');
+        const { error: updateError } = await supabaseAdmin
+          .from('usuarios')
+          .update({ id: userId })
+          .eq('email', email);
+
+        if (updateError) {
+          console.error('. Error corrigiendo ID:', updateError);
+          // Continuar con el proceso usando el ID del token
+        } else {
+          console.log('. ID corregido exitosamente');
+        }
+      }
+
+      // Si la cuenta YA está activa, informar al usuario
       if (usuario.cuenta_activa) {
         console.log('. Usuario ya está activo:', email);
-        const frontendUrl = getFrontendUrl();
-        return res.redirect(`${frontendUrl}/login?message=cuenta_ya_activa`);
-      }
-      if (usuarioError || !usuario) {
-        const frontendUrl = getFrontendUrl();
-        return res.redirect(`${frontendUrl}/login?error=usuario_no_encontrado`);
+        return res.json({
+          success: true,
+          message: 'Cuenta ya activa',
+          cuenta_activa: true
+        });
       }
 
       console.log('. Usuario inactivo encontrado, reactivando cuenta...');
 
-      // Reactivar la cuenta
-      const { error: updateError } = await supabase
+      // Reactivar la cuenta usando el ID del token (que es el correcto)
+      const { error: updateError } = await supabaseAdmin
         .from('usuarios')
         .update({
           cuenta_activa: true,
           fecha_desactivacion: null,
           updated_at: new Date().toISOString()
         })
-        .eq('email', email);
+        .eq('id', userId); // Usar el ID del token que es el correcto
 
       if (updateError) {
-        throw updateError;
+        console.error('. Error reactivando cuenta:', updateError);
+        
+        // Intentar con el email como fallback
+        console.log('. Intentando reactivación por email...');
+        const { error: fallbackError } = await supabaseAdmin
+          .from('usuarios')
+          .update({
+            cuenta_activa: true,
+            fecha_desactivacion: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('email', email);
+
+        if (fallbackError) {
+          throw fallbackError;
+        }
       }
 
       console.log('. Cuenta reactivada exitosamente para:', email);
 
-      // Redirigir al frontend con mensaje de éxito
-      const frontendUrl = getFrontendUrl();
-      return res.redirect(`${frontendUrl}/login?message=cuenta_reactivada`);
+      return res.json({
+        success: true,
+        message: 'Cuenta reactivada exitosamente',
+        cuenta_reactivada: true,
+        email: email
+      });
 
     } catch (decodeError) {
       console.error('. Error decodificando token:', decodeError);
-      const frontendUrl = getFrontendUrl();
-      return res.redirect(`${frontendUrl}/login?error=token_invalido`);
+      return res.status(400).json({
+        success: false,
+        message: 'Token inválido'
+      });
     }
 
   } catch (error) {
     console.error('. Error en procesarRecuperacionCuenta:', error);
-    const frontendUrl = getFrontendUrl();
-    return res.redirect(`${frontendUrl}/login?error=recuperacion_fallida`);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
   }
 };
-
 module.exports = {
   solicitarReactivacionCuenta,
   procesarRecuperacionCuenta,

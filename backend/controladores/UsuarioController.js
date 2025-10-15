@@ -1011,6 +1011,39 @@ static async actualizarEmailRecuperacion(req, res) {
       });
     }
   }
+  static async obtenerConfiguracionCuenta(req, res) {
+  try {
+    const usuarioId = req.usuario.id;
+    
+    console.log('Obteniendo configuración de cuenta para usuario ID:', usuarioId);
+
+    const usuario = await UsuarioModel.findById(usuarioId);
+    
+    if (!usuario) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        email_principal: usuario.email,
+        email_recuperacion: usuario.email_recuperacion,
+        cuenta_activa: usuario.cuenta_activa,
+        fecha_desactivacion: usuario.fecha_desactivacion
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en obtenerConfiguracionCuenta:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener configuración de cuenta'
+    });
+  }
+}
 }
   
 module.exports= UsuarioController;

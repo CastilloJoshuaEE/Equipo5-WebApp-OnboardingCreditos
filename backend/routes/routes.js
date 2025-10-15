@@ -670,7 +670,7 @@ router.get("/usuarios/session", authController.getSession);
  *       302:
  *         description: Redirección al frontend con resultado
  */
-router.get("/api/auth/restablecer-cuenta", procesarRecuperacionCuenta);
+router.get("/auth/restablecer-cuenta", procesarRecuperacionCuenta);
 router.post('/usuario/solicitar-reactivacion', solicitarReactivacionCuenta);
 /**
  * @swagger
@@ -957,7 +957,40 @@ router.put(
   proteger,
   usuariosController.desactivarCuenta
 );
-
+/**
+ * @swagger
+ * /api/usuario/configuracion-cuenta:
+ *   get:
+ *     summary: Obtener configuración de cuenta del usuario
+ *     tags: [Usuario]
+ *     description: Obtiene la configuración de cuenta incluyendo email de recuperación
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Configuración de cuenta obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         email_principal:
+ *                           type: string
+ *                         email_recuperacion:
+ *                           type: string
+ *                         cuenta_activa:
+ *                           type: boolean
+ *                         fecha_desactivacion:
+ *                           type: string
+ *       401:
+ *         description: No autorizado
+ */
+router.get("/usuario/configuracion-cuenta", proteger, usuariosController.obtenerConfiguracionCuenta);
 /**
  * @swagger
  * /api/usuario/solicitar-reactivacion:
