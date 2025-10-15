@@ -39,7 +39,7 @@ export default function RegisterPage() {
   return (
     <Container maxWidth="lg" sx={{ py: 6 }}>
       <Grid container spacing={4} justifyContent="center" alignItems="stretch">
-        {/* Columna principal: aquí colocamos sólo el formulario (RegisterForm contiene su propio bloque informativo) */}
+       
         <Grid item xs={12}>
           <Box
             sx={{
