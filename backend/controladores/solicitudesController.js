@@ -67,8 +67,6 @@ class SolicitudesController {
 static async enviarSolicitud(req, res) {
   try {
     const { solicitud_id } = req.params;
-
-    // Verificar documentos obligatorios
     const documentosCompletos = await DocumentoModel.verificarDocumentosObligatorios(solicitud_id);
     
     if (!documentosCompletos.completos) {
