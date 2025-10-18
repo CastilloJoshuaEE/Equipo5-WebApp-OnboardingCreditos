@@ -8,14 +8,20 @@ const swaggerJsDoc = require("swagger-jsdoc");
 const routes = require("./routes/routes");
 const datosIniciales = require("./datos_iniciales");
 const { verificarConexion } = require("./config/conexion");
-const {configurarStorage}= require("./config/configStorage");
+const { configurarStorage } = require("./config/configStorage");
+const { proteger, autorizar } = require("./middleware/auth"); // . AGREGAR ESTA IMPORTACIÓN
+const { supabase } = require("./config/conexion"); // . AGREGAR PARA SSE
 const { createCanvas, Canvas, Image, ImageData } = require('canvas');
+
 globalThis.Canvas = Canvas;
 globalThis.Image = Image;
 globalThis.ImageData = ImageData;
 globalThis.createCanvas = createCanvas;
 
 const app = express();
+
+// . AGREGAR: Objeto para almacenar conexiones SSE
+const clients = {};
 
 // Configuración de Swagger
 const swaggerOptions = {
@@ -107,6 +113,81 @@ app.get("/api/health", (req, res) => {
     database: "Supabase PostgreSQL",
     timestamp: new Date().toISOString(),
   });
+});
+
+// . MOVER LAS RUTAS SSE DESPUÉS DE LA CONFIGURACIÓN BÁSICA
+
+// Configurar SSE para notificaciones en tiempo real
+app.get('/api/notificaciones/stream', proteger, (req, res) => {
+    const userId = req.usuario.id;
+    
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+    });
+
+    // Agregar cliente a la lista de conexiones
+    const clientId = Date.now();
+    clients[userId] = clients[userId] || [];
+    clients[userId].push({ id: clientId, res });
+
+    // Enviar ping cada 30 segundos
+    const pingInterval = setInterval(() => {
+        res.write('data: {"type": "ping"}\n\n');
+    }, 30000);
+
+    // Limpiar cuando se cierra la conexión
+    req.on('close', () => {
+        clearInterval(pingInterval);
+        if (clients[userId]) {
+            clients[userId] = clients[userId].filter(client => client.id !== clientId);
+        }
+    });
+});
+
+// . FUNCIÓN PARA ENVIAR NOTIFICACIÓN EN TIEMPO REAL
+function enviarNotificacionTiempoReal(userId, notificacion) {
+    if (clients[userId]) {
+        clients[userId].forEach(client => {
+            client.res.write(`data: ${JSON.stringify(notificacion)}\n\n`);
+        });
+    }
+}
+
+// . EJEMPLO DE USO CUANDO SE ASIGNA UNA SOLICITUD
+app.put('/solicitudes/:id/asignar', proteger, autorizar('operador'), async (req, res) => {
+    try {
+        const solicitudId = req.params.id;
+        const operadorId = req.body.operador_id;
+        
+        // Asignar operador
+        const { data: solicitud, error } = await supabase
+            .from('solicitudes_credito')
+            .update({ 
+                operador_id: operadorId,
+                estado: 'en_revision'
+            })
+            .eq('id', solicitudId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // Enviar notificación en tiempo real
+        enviarNotificacionTiempoReal(operadorId, {
+            type: 'nueva_solicitud',
+            titulo: 'Nueva solicitud asignada',
+            mensaje: `Se te ha asignado la solicitud ${solicitud.numero_solicitud}`,
+            solicitud_id: solicitudId,
+            timestamp: new Date().toISOString()
+        });
+
+        res.json({ success: true, data: solicitud });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
 });
 
 // Conectar a Supabase y ejecutar datos iniciales
@@ -227,6 +308,7 @@ const iniciarServidor = async () => {
       console.log(`   Login:     POST http://localhost:${PORT}/api/usuarios/login`);
       console.log(`   Session:   GET  http://localhost:${PORT}/api/usuarios/session`);
       console.log(`   Perfil:    GET  http://localhost:${PORT}/api/usuario/perfil`);
+      console.log(`   Operador:  GET  http://localhost:${PORT}/api/operador/dashboard`);
     });
 
     // Manejo elegante de cierre
@@ -263,3 +345,6 @@ process.on("uncaughtException", (error) => {
 
 // Iniciar servidor
 iniciarServidor();
+
+// . EXPORTAR LA FUNCIÓN PARA USAR EN OTROS ARCHIVOS
+module.exports = { enviarNotificacionTiempoReal };

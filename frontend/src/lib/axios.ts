@@ -1,15 +1,8 @@
-// lib/axios.ts - .
+// lib/axios.ts
 import axios from 'axios';
 import { getSession } from 'next-auth/react';
 
 const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-
-const axiosInstance = axios.create({
-  baseURL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
 
 // Extender el tipo de Session para incluir nuestras propiedades personalizadas
 interface ExtendedSession {
@@ -27,16 +20,20 @@ interface ExtendedSession {
   expires?: string;
 }
 
+const axiosInstance = axios.create({
+  baseURL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 axiosInstance.interceptors.request.use(
   async (config) => {
     const session = await getSession() as ExtendedSession;
 
-    // . USAR TOKEN DE SUPABASE
+    // USAR TOKEN DE SUPABASE
     if (session?.accessToken) {
       config.headers['Authorization'] = `Bearer ${session.accessToken}`;
-      console.log('. Axios: Usando token Supabase para request');
-    } else {
-      console.warn('. Axios: Sin token de Supabase disponible');
     }
 
     return config;
@@ -55,7 +52,6 @@ axiosInstance.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        console.log('. Axios: Token expirado, intentando refresh...');
         const session = await getSession() as ExtendedSession;
         
         if (session?.refreshToken) {
@@ -67,13 +63,12 @@ axiosInstance.interceptors.response.use(
           if (refreshResponse.data.success) {
             const newToken = refreshResponse.data.data.access_token;
             originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
-            console.log('. Token refrescado exitosamente');
             
             return axiosInstance(originalRequest);
           }
         }
       } catch (refreshError) {
-        console.error('. Error refreshing token:', refreshError);
+        console.error('Error refreshing token:', refreshError);
         // Forzar logout
         if (typeof window !== 'undefined') {
           window.location.href = '/login?error=session_expired';
@@ -86,3 +81,21 @@ axiosInstance.interceptors.response.use(
 );
 
 export default axiosInstance;
+
+// Exportar funciones auxiliares para uso específico
+export const api = {
+  // GET request
+  get: (url: string, config?: any) => axiosInstance.get(url, config),
+  
+  // POST request
+  post: (url: string, data?: any, config?: any) => axiosInstance.post(url, data, config),
+  
+  // PUT request
+  put: (url: string, data?: any, config?: any) => axiosInstance.put(url, data, config),
+  
+  // DELETE request
+  delete: (url: string, config?: any) => axiosInstance.delete(url, config),
+  
+  // PATCH request
+  patch: (url: string, data?: any, config?: any) => axiosInstance.patch(url, data, config),
+};

@@ -101,7 +101,8 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
 
       if (!response.ok) {
         // Si no hay endpoint específico, usar la URL pública de Supabase
-        const supabaseUrl = `https://ezqszozrtecuksfjaakq.supabase.co/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+           const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ;
+const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
         window.open(supabaseUrl, '_blank');
         return;
       }
@@ -118,13 +119,15 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
     } catch (error) {
       console.error('Error descargando documento:', error);
       // Fallback: abrir en nueva pestaña
-      const supabaseUrl = `https://ezqszozrtecuksfjaakq.supabase.co/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ;
+const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
       window.open(supabaseUrl, '_blank');
     }
   };
 
   const verDocumento = (documento: Documento) => {
-    const supabaseUrl = `https://ezqszozrtecuksfjaakq.supabase.co/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ;
+const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
     window.open(supabaseUrl, '_blank');
   };
 

@@ -1,6 +1,7 @@
 const SolicitudModel=require('../modelos/SolicitudModel');
 const DocumentoModel=require('../modelos/DocumentoModel');
 const VerificacionKycModel = require('../modelos/VerificacionKycModel');
+const OperadorController=require('../controladores/OperadorController')
 const { supabase } = require('../config/conexion');
 const { supabaseAdmin } = require('../config/supabaseAdmin');
 const diditService = require('../servicios/diditService');
@@ -62,40 +63,60 @@ class SolicitudesController {
   }
 
   // Enviar solicitud para revisión
-  static async enviarSolicitud(req, res) {
-    try {
-      const { solicitud_id } = req.params;
+// Enviar solicitud para revisión - CORREGIDO
+static async enviarSolicitud(req, res) {
+  try {
+    const { solicitud_id } = req.params;
 
-      // Verificar documentos obligatorios
-      const documentosCompletos = await DocumentoModel.verificarDocumentosObligatorios(solicitud_id);
-      
-      if (!documentosCompletos.completos) {
-        return res.status(400).json({
-          success: false,
-          message: `Documentos obligatorios faltantes: ${documentosCompletos.documentosFaltantes.join(', ')}`
-        });
-      }
-
-      // Actualizar estado de la solicitud
-      const solicitud = await SolicitudModel.cambiarEstado(solicitud_id, 'enviado');
-
-      // Calcular nivel de riesgo
-      await SolicitudesController.calcularNivelRiesgo(solicitud_id);
-
-      res.json({
-        success: true,
-        message: 'Solicitud enviada exitosamente para revisión',
-        data: solicitud
-      });
-
-    } catch (error) {
-      console.error('. Error enviando solicitud:', error);
-      res.status(500).json({
+    // Verificar documentos obligatorios
+    const documentosCompletos = await DocumentoModel.verificarDocumentosObligatorios(solicitud_id);
+    
+    if (!documentosCompletos.completos) {
+      return res.status(400).json({
         success: false,
-        message: error.message || 'Error al enviar solicitud'
+        message: `Documentos obligatorios faltantes: ${documentosCompletos.documentosFaltantes.join(', ')}`
       });
     }
+
+    // Actualizar estado de la solicitud
+    const solicitud = await SolicitudModel.cambiarEstado(solicitud_id, 'enviado');
+
+    // Calcular nivel de riesgo
+    await SolicitudesController.calcularNivelRiesgo(solicitud_id);
+
+    // Asignar operador automáticamente - CORRECCIÓN: Usar SolicitudesController en lugar de this
+    const operadorAsignado = await SolicitudesController.asignarOperador(solicitud_id);
+
+    // Crear notificación en tiempo real
+    await supabase
+      .from('notificaciones')
+      .insert({
+        usuario_id: operadorAsignado,
+        solicitud_id: solicitud_id,
+        tipo: 'nueva_solicitud',
+        titulo: 'Nueva solicitud asignada',
+        mensaje: 'Buenas tardes, tienes una nueva solicitud de crédito para revisar.',
+        leida: false,
+        created_at: new Date().toISOString()
+      });
+
+    res.json({
+      success: true,
+      message: 'Solicitud enviada exitosamente para revisión',
+      data: {
+        ...solicitud,
+        operador_asignado: operadorAsignado
+      }
+    });
+
+  } catch (error) {
+    console.error('. Error enviando solicitud:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al enviar solicitud'
+    });
   }
+}
 
   // Obtener mis solicitudes
   static async obtenerMisSolicitudes(req, res) {
@@ -196,32 +217,68 @@ class SolicitudesController {
   }
 
   // Asignar operador a una solicitud
-  static async asignarOperador(req, res) {
-    try {
-      const { solicitud_id } = req.params;
-      const { operador_id } = req.body;
+  static async asignarOperador(solicitudId) {
+     try {
+        // Buscar operador con menos solicitudes pendientes
+        const { data: operadores, error } = await supabase
+            .from('operadores')
+            .select(`
+                id,
+                nivel,
+                usuarios!inner(nombre_completo, cuenta_activa),
+                solicitudes_credito!left(
+                    id,
+                    estado
+                )
+            `)
+            .eq('usuarios.cuenta_activa', true)
+            .eq('nivel', 'analista');
 
-      if (!operador_id) {
-        return res.status(400).json({
-          success: false,
-          message: 'ID del operador es requerido'
+        if (error) throw error;
+
+        // Contar solicitudes pendientes por operador
+        const operadoresConCarga = operadores.map(operador => {
+            const solicitudesPendientes = operador.solicitudes_credito?.filter(
+                sol => sol.estado === 'en_revision' || sol.estado === 'pendiente_info'
+            ) || [];
+            
+            return {
+                ...operador,
+                carga: solicitudesPendientes.length
+            };
         });
-      }
 
-      const solicitud = await SolicitudModel.asignarOperador(solicitud_id, operador_id);
+        // Ordenar por carga (menos solicitudes primero) y aleatorio si hay empate
+        operadoresConCarga.sort((a, b) => {
+            if (a.carga === b.carga) {
+                return Math.random() - 0.5; // Aleatorio si hay empate
+            }
+            return a.carga - b.carga;
+        });
 
-      res.json({
-        success: true,
-        message: 'Operador asignado exitosamente',
-        data: solicitud
-      });
+        const operadorAsignado = operadoresConCarga[0]?.id;
+
+        if (!operadorAsignado) {
+            throw new Error('No hay operadores disponibles para asignar');
+        }
+
+        // Asignar operador a la solicitud
+        await supabase
+            .from('solicitudes_credito')
+            .update({
+                operador_id: operadorAsignado,
+                estado: 'en_revision',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', solicitudId);
+
+        console.log(`. Operador ${operadorAsignado} asignado a solicitud ${solicitudId}`);
+
+        return operadorAsignado;
 
     } catch (error) {
-      console.error('. Error asignando operador:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Error al asignar operador'
-      });
+        console.error('. Error asignando operador automático:', error);
+        throw error;
     }
   }
 
