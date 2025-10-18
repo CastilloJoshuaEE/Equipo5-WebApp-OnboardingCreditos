@@ -4,6 +4,7 @@ const authController = require("../controladores/authController");
 const usuariosController = require("../controladores/UsuarioController");
 const confirmacionController = require("../controladores/confirmacionController");
 const solicitudesController = require('../controladores/SolicitudesController');
+const OperadorController=require('../controladores/OperadorController');
 const { descargarDocumento } = require('../controladores/DocumentoController');
 const { solicitarReactivacionCuenta, reactivarCuenta, procesarRecuperacionCuenta  } = require('../controladores/reactivacionController');
 // Estas deben apuntar a middleware existentes
@@ -2053,4 +2054,129 @@ router.get('/documentos/:documento_id/descargar', proteger, descargarDocumento);
  */
 router.post('/webhooks/didit', handleDiditWebhook);
 
+/**
+ * @swagger
+ * /api/operador/dashboard:
+ *   get:
+ *     summary: Obtener dashboard del operador
+ *     tags: [Operador]
+ *     description: Obtiene las solicitudes asignadas al operador con filtros
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: estado
+ *         schema:
+ *           type: string
+ *           enum: [en_revision, pendiente_info, aprobado, rechazado]
+ *         description: Filtrar por estado
+ *       - in: query
+ *         name: fecha_desde
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filtrar desde fecha
+ *       - in: query
+ *         name: fecha_hasta
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filtrar hasta fecha
+ *       - in: query
+ *         name: nivel_riesgo
+ *         schema:
+ *           type: string
+ *           enum: [bajo, medio, alto]
+ *         description: Filtrar por nivel de riesgo
+ *     responses:
+ *       200:
+ *         description: Dashboard obtenido exitosamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Sin permisos (solo operadores)
+ */
+router.get('/operador/dashboard', proteger, autorizar('operador'), OperadorController.obtenerDashboard);
+
+/**
+ * @swagger
+ * /api/operador/solicitudes/{solicitud_id}/revision:
+ *   get:
+ *     summary: Iniciar revisión de solicitud
+ *     tags: [Operador]
+ *     description: Abre el modal de revisión con documentos e información BCRA
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Información de revisión obtenida
+ *       404:
+ *         description: Solicitud no encontrada
+ */
+router.get('/operador/solicitudes/:solicitud_id/revision', proteger, autorizar('operador'), OperadorController.iniciarRevision);
+/**
+ * @swagger
+ * /api/operador/solicitudes/{solicitud_id}/documentos/{documento_id}/validar-balance:
+ *   put:
+ *     summary: Validar balance contable
+ *     tags: [Operador]
+ *     description: Valida el documento de balance contable y recalcula scoring
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *       - in: path
+ *         name: documento_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del documento
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - validado
+ *             properties:
+ *               validado:
+ *                 type: boolean
+ *                 description: Si el documento es válido
+ *               comentarios:
+ *                 type: string
+ *                 description: Comentarios de validación
+ *               informacion_extraida:
+ *                 type: object
+ *                 description: Información extraída del balance
+ *     responses:
+ *       200:
+ *         description: Documento validado exitosamente
+ *       400:
+ *         description: Datos inválidos
+ */
+router.put('/operador/solicitudes/:solicitud_id/documentos/:documento_id/validar-balance', proteger, autorizar('operador'), OperadorController.validarBalanceContable);
+router.get('/operador/health', proteger, autorizar('operador'), (req, res) => {
+  res.json({
+    success: true,
+    message: 'Operador endpoint funcionando',
+    usuario: req.usuario.id,
+    timestamp: new Date().toISOString()
+  });
+});
 module.exports = router;

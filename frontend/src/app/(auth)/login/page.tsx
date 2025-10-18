@@ -14,7 +14,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Stack
 } from '@mui/material';
 import { loginSchema } from '@/schemas/auth.schema';
 import type { LoginInput } from '@/types/auth.types';
@@ -23,9 +24,15 @@ export default function LoginForm() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [recuperarOpen, setRecuperarOpen] = useState(false);
+  const [recuperarContrasenaOpen, setRecuperarContrasenaOpen] = useState(false);
   const [emailRecuperacion, setEmailRecuperacion] = useState('');
   const [recuperarLoading, setRecuperarLoading] = useState(false);
   const [recuperarMessage, setRecuperarMessage] = useState('');
+  const [recuperarContrasenaData, setRecuperarContrasenaData] = useState({
+    email: '',
+    nueva_contrasena: '',
+    confirmar_contrasena: ''
+  });
   const router = useRouter();
   
   const { 
@@ -95,6 +102,7 @@ export default function LoginForm() {
     }
   };
 
+  // Función para recuperar cuenta inactiva
   const handleRecuperarCuenta = async () => {
     if (!emailRecuperacion) {
       setRecuperarMessage('Por favor ingresa tu email');
@@ -128,6 +136,66 @@ export default function LoginForm() {
     } catch (error) {
       console.error('Error recuperando cuenta:', error);
       setRecuperarMessage('Error de conexión al solicitar reactivación');
+    } finally {
+      setRecuperarLoading(false);
+    }
+  };
+
+  // Función para recuperar contraseña
+  const handleRecuperarContrasena = async () => {
+    const { email, nueva_contrasena, confirmar_contrasena } = recuperarContrasenaData;
+
+    if (!email || !nueva_contrasena || !confirmar_contrasena) {
+      setRecuperarMessage('Por favor completa todos los campos');
+      return;
+    }
+
+    if (nueva_contrasena !== confirmar_contrasena) {
+      setRecuperarMessage('Las contraseñas no coinciden');
+      return;
+    }
+
+    if (nueva_contrasena.length < 6) {
+      setRecuperarMessage('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    try {
+      setRecuperarLoading(true);
+      setRecuperarMessage('');
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/usuarios/recuperar-contrasena`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email,
+          nueva_contrasena,
+          confirmar_contrasena
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setRecuperarMessage('Contraseña actualizada exitosamente. Ahora puedes iniciar sesión con tu nueva contraseña.');
+        setRecuperarContrasenaData({
+          email: '',
+          nueva_contrasena: '',
+          confirmar_contrasena: ''
+        });
+        setTimeout(() => {
+          setRecuperarContrasenaOpen(false);
+          setRecuperarMessage('');
+        }, 3000);
+      } else {
+        setRecuperarMessage(data.message || 'Error al recuperar la contraseña');
+      }
+    } catch (error) {
+      console.error('Error recuperando contraseña:', error);
+      setRecuperarMessage('Error de conexión al recuperar contraseña');
     } finally {
       setRecuperarLoading(false);
     }
@@ -179,11 +247,12 @@ export default function LoginForm() {
           {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
         </Button>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 2 }} justifyContent="space-between">
           <Button
             variant="text"
             onClick={() => router.push('/register')}
             disabled={isLoading}
+            size="small"
           >
             ¿No tienes cuenta? Regístrate
           </Button>
@@ -191,15 +260,101 @@ export default function LoginForm() {
           <Button
             variant="text"
             color="secondary"
+            onClick={() => setRecuperarContrasenaOpen(true)}
+            disabled={isLoading}
+            size="small"
+          >
+            ¿Olvidaste tu contraseña?
+          </Button>
+          
+          <Button
+            variant="text"
+            color="warning"
             onClick={() => setRecuperarOpen(true)}
             disabled={isLoading}
+            size="small"
           >
-            Recuperar Cuenta
+            Recuperar Cuenta Inactiva
           </Button>
-        </Box>
+        </Stack>
       </Box>
 
-      {/* Modal de Recuperar Cuenta */}
+      {/* Modal de Recuperar Contraseña */}
+      <Dialog open={recuperarContrasenaOpen} onClose={() => setRecuperarContrasenaOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Typography variant="h6" component="div">
+            Recuperar Contraseña
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Ingresa tu email y establece una nueva contraseña para tu cuenta.
+          </Typography>
+          
+          {recuperarMessage && (
+            <Alert severity={recuperarMessage.includes('exitosamente') ? 'success' : 'error'} sx={{ mb: 2 }}>
+              {recuperarMessage}
+            </Alert>
+          )}
+
+          <Stack spacing={2}>
+            <TextField
+              label="Email de la cuenta"
+              type="email"
+              fullWidth
+              value={recuperarContrasenaData.email}
+              onChange={(e) => setRecuperarContrasenaData(prev => ({
+                ...prev,
+                email: e.target.value
+              }))}
+              margin="normal"
+              placeholder="ejemplo@email.com"
+            />
+
+            <TextField
+              label="Nueva Contraseña"
+              type="password"
+              fullWidth
+              value={recuperarContrasenaData.nueva_contrasena}
+              onChange={(e) => setRecuperarContrasenaData(prev => ({
+                ...prev,
+                nueva_contrasena: e.target.value
+              }))}
+              margin="normal"
+              helperText="Mínimo 6 caracteres"
+            />
+
+            <TextField
+              label="Confirmar Contraseña"
+              type="password"
+              fullWidth
+              value={recuperarContrasenaData.confirmar_contrasena}
+              onChange={(e) => setRecuperarContrasenaData(prev => ({
+                ...prev,
+                confirmar_contrasena: e.target.value
+              }))}
+              margin="normal"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setRecuperarContrasenaOpen(false);
+            setRecuperarMessage('');
+          }} disabled={recuperarLoading}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleRecuperarContrasena} 
+            variant="contained"
+            disabled={recuperarLoading || !recuperarContrasenaData.email || !recuperarContrasenaData.nueva_contrasena || !recuperarContrasenaData.confirmar_contrasena}
+          >
+            {recuperarLoading ? 'Procesando...' : 'Restablecer Contraseña'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Recuperar Cuenta Inactiva */}
       <Dialog open={recuperarOpen} onClose={() => setRecuperarOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Typography variant="h6" component="div">

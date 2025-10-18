@@ -181,7 +181,7 @@ static async extraerInformacionDocumento(pdfUrl, tipo, buffer) {
         viewport: viewport
       }).promise;
 
-      console.log('🔄 Aplicando OCR...');
+      console.log('. Aplicando OCR...');
       const { data: { text } } = await Tesseract.recognize(
         canvas.toBuffer(),
         'spa',
