@@ -23,15 +23,17 @@ import { UserRole } from '@/types/auth.types';
 export default function RegisterForm() {
   const [error, setError] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const formRef = useRef<HTMLDivElement>(null);
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     watch,
     setValue,
+    trigger,
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
     defaultValues: { rol: undefined },
@@ -65,21 +67,33 @@ export default function RegisterForm() {
   const onSubmit = async (data: RegisterInput) => {
     try {
       setError('');
+      setIsSubmitting(true);
+      
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       const response = await fetch(`${API_URL}/usuarios/registro`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(data),
       });
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Error en el registro');
       }
+
+      const result = await response.json();
+      console.log('Registro exitoso:', result);
+      
       alert('Registro exitoso. Revisá tu email para confirmar tu cuenta.');
       router.push('/login');
+      
     } catch (error) {
       console.error('Error en registro:', error);
       setError(error instanceof Error ? error.message : 'Error al registrar usuario');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -87,15 +101,15 @@ export default function RegisterForm() {
     <Box
       sx={{
         width: '100%',
-        minheight: '85vh',
-       /* overflowY: 'hidden', revisar porque no sirve con solicitud pyme */
+        minHeight: '100vh',
+        backgroundColor: '#f3edf5',
         display: 'flex',
         flexDirection: 'column',
         gap: 2,
         p: 2,
       }}
     >
-    
+      {/* Contenido principal */}
       <Box
         sx={{
           display: 'flex',
@@ -106,7 +120,7 @@ export default function RegisterForm() {
           flexGrow: 1,
         }}
       >
-   
+        {/* Formulario */}
         <Box
           ref={formRef}
           component="form"
@@ -129,17 +143,23 @@ export default function RegisterForm() {
             Registro de Usuario
           </Typography>
 
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
 
-     
-          <Typography sx={{ fontSize: '1.25rem', mt: 1 }}>Rol</Typography>
-          <FormControl fullWidth sx={{ mb: 2 }}>
+          {/* Selección de Rol */}
+          <Typography sx={{ fontSize: '1.25rem', mt: 1, fontWeight: 'bold' }}>Rol</Typography>
+          <FormControl fullWidth sx={{ mb: 2 }} error={!!errors.rol}>
             <Select
+              {...register('rol')}
               value={rol || ''}
               onChange={(e) => {
                 const value = e.target.value as UserRole;
                 setValue('rol', value);
                 setSelectedRole(value);
+                trigger('rol');
               }}
               displayEmpty
               sx={{
@@ -152,10 +172,15 @@ export default function RegisterForm() {
               <MenuItem value={UserRole.SOLICITANTE}>Solicitante PYME</MenuItem>
               <MenuItem value={UserRole.OPERADOR}>Operador</MenuItem>
             </Select>
+            {errors.rol && (
+              <Typography color="error" variant="caption" sx={{ mt: 0.5, ml: 2 }}>
+                {errors.rol.message}
+              </Typography>
+            )}
           </FormControl>
 
-      
-          <Typography sx={{ fontSize: '1.25rem', mt: 2 }}>Datos de contacto</Typography>
+          {/* Datos de contacto */}
+          <Typography sx={{ fontSize: '1.25rem', mt: 2, fontWeight: 'bold' }}>Datos de contacto</Typography>
           <Box
             sx={{
               display: 'flex',
@@ -165,15 +190,37 @@ export default function RegisterForm() {
               width: '100%',
             }}
           >
-            <TextField {...register('email')} placeholder="Email" fullWidth />
-            <TextField {...register('password')} type="password" placeholder="Password" fullWidth />
+            <TextField 
+              {...register('email')} 
+              label="Email" 
+              placeholder="Email"
+              fullWidth 
+              error={!!errors.email}
+              helperText={errors.email?.message}
+            />
+            <TextField 
+              {...register('password')} 
+              type="password" 
+              label="Contraseña"
+              placeholder="Password" 
+              fullWidth 
+              error={!!errors.password}
+              helperText={errors.password?.message}
+            />
           </Box>
           <Box sx={{ mt: 2 }}>
-            <TextField {...register('telefono')} placeholder="Teléfono" fullWidth />
+            <TextField 
+              {...register('telefono')} 
+              label="Teléfono"
+              placeholder="Teléfono" 
+              fullWidth 
+              error={!!errors.telefono}
+              helperText={errors.telefono?.message}
+            />
           </Box>
 
-          {/* DATOS PERSONALES */}
-          <Typography sx={{ fontSize: '1.25rem', mt: 2 }}>Datos personales del contacto</Typography>
+          {/* Datos Personales */}
+          <Typography sx={{ fontSize: '1.25rem', mt: 2, fontWeight: 'bold' }}>Datos personales del contacto</Typography>
           <Box
             sx={{
               display: 'flex',
@@ -183,14 +230,28 @@ export default function RegisterForm() {
               width: '100%',
             }}
           >
-            <TextField {...register('nombre_completo')} placeholder="Nombre" fullWidth />
-            <TextField {...register('dni')} placeholder="DNI" fullWidth />
+            <TextField 
+              {...register('nombre_completo')} 
+              label="Nombre Completo"
+              placeholder="Nombre" 
+              fullWidth 
+              error={!!errors.nombre_completo}
+              helperText={errors.nombre_completo?.message}
+            />
+            <TextField 
+              {...register('dni')} 
+              label="DNI"
+              placeholder="DNI" 
+              fullWidth 
+              error={!!errors.dni}
+              helperText={errors.dni?.message}
+            />
           </Box>
 
-          {/* SOLO PYME */}
+          {/* Solo PYME */}
           {rol === UserRole.SOLICITANTE && (
             <>
-              <Typography sx={{ fontSize: '1.25rem', mt: 2 }}>Datos de la Empresa</Typography>
+              <Typography sx={{ fontSize: '1.25rem', mt: 2, fontWeight: 'bold' }}>Datos de la Empresa</Typography>
               <Box
                 sx={{
                   display: 'flex',
@@ -200,26 +261,54 @@ export default function RegisterForm() {
                   width: '100%',
                 }}
               >
-                <TextField {...register('nombre_empresa')} placeholder="Nombre de la Empresa" fullWidth />
-                <TextField {...register('cuit')} placeholder="CUIT" fullWidth />
+                <TextField 
+                  {...register('nombre_empresa')} 
+                  label="Nombre de la Empresa"
+                  placeholder="Nombre de la Empresa" 
+                  fullWidth 
+                  error={!!errors.nombre_empresa}
+                  helperText={errors.nombre_empresa?.message}
+                />
+                <TextField 
+                  {...register('cuit')} 
+                  label="CUIT"
+                  placeholder="CUIT" 
+                  fullWidth 
+                  error={!!errors.cuit}
+                  helperText={errors.cuit?.message}
+                />
               </Box>
               <Box sx={{ mt: 2 }}>
-                <TextField {...register('domicilio')} placeholder="Domicilio de la Empresa" fullWidth />
+                <TextField 
+                  {...register('domicilio')} 
+                  label="Domicilio de la Empresa"
+                  placeholder="Domicilio de la Empresa" 
+                  fullWidth 
+                  error={!!errors.domicilio}
+                  helperText={errors.domicilio?.message}
+                />
               </Box>
 
-              <Typography sx={{ fontSize: '1.25rem', mt: 2 }}>Representante Legal</Typography>
-              <TextField {...register('representante_legal')} placeholder="Representante Legal" fullWidth />
+              <Typography sx={{ fontSize: '1.25rem', mt: 2, fontWeight: 'bold' }}>Representante Legal</Typography>
+              <TextField 
+                {...register('representante_legal')} 
+                label="Representante Legal"
+                placeholder="Representante Legal" 
+                fullWidth 
+                error={!!errors.representante_legal}
+                helperText={errors.representante_legal?.message}
+              />
             </>
           )}
 
-      
+          {/* Términos y Condiciones */}
           <FormControlLabel
-            control={<Checkbox />}
+            control={<Checkbox required />}
             label="Al registrarse, acepta nuestros Términos y Condiciones y nuestra política de Privacidad"
             sx={{ fontSize: '0.85rem', mt: 2 }}
           />
 
-      
+          {/* Botón de Registro */}
           <Button
             type="submit"
             variant="contained"
@@ -234,21 +323,29 @@ export default function RegisterForm() {
               fontSize: '1.15rem',
               letterSpacing: '0.15rem',
               '&:hover': { bgcolor: '#b792c9' },
+              '&:disabled': {
+                backgroundColor: '#e0e0e0',
+                color: '#9e9e9e'
+              }
             }}
           >
-            {rol === UserRole.SOLICITANTE ? 'Registrar Solicitante Pyme' : 'Registrarse'}
+            {isSubmitting ? 'Registrando...' : rol === UserRole.SOLICITANTE ? 'Registrar Solicitante Pyme' : 'Registrarse'}
           </Button>
 
-         
+          {/* Enlace a Login */}
           <Typography sx={{ textAlign: 'center', fontSize: '0.875rem', color: '#9ba39c', mt: 1 }}>
             ¿Ya tenés una cuenta?{' '}
-            <Box component="span" sx={{ color: '#da68f2', cursor: 'pointer' }} onClick={() => router.push('/login')}>
+            <Box 
+              component="span" 
+              sx={{ color: '#da68f2', cursor: 'pointer' }} 
+              onClick={() => router.push('/login')}
+            >
               Iniciar Sesión
             </Box>
           </Typography>
         </Box>
 
-    
+        {/* Panel lateral informativo */}
         <Fade in timeout={600} key={rol}>
           <Box
             sx={{
@@ -281,7 +378,7 @@ export default function RegisterForm() {
         </Fade>
       </Box>
 
- 
+      {/* Enlace para volver al inicio */}
       <Typography
         sx={{
           textAlign: 'center',
