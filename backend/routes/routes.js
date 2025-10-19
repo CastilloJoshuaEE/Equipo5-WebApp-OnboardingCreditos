@@ -1,42 +1,17 @@
 const express = require("express");
-const { proteger, autorizar } = require("../middleware/auth");
+const AuthMiddleware = require("../middleware/auth");
 const authController = require("../controladores/authController");
 const usuariosController = require("../controladores/UsuarioController");
 const confirmacionController = require("../controladores/confirmacionController");
-const solicitudesController = require('../controladores/SolicitudesController');
-const OperadorController=require('../controladores/OperadorController');
-const { descargarDocumento } = require('../controladores/DocumentoController');
-const { solicitarReactivacionCuenta, reactivarCuenta, procesarRecuperacionCuenta  } = require('../controladores/reactivacionController');
-// Estas deben apuntar a middleware existentes
-const {
-  validateEmailBeforeAuth,
-  verifyEmailOnly,
-} = require("../middleware/emailValidation");
+const notificacionesController = require("../controladores/NotificacionesController");
+const SolicitudesController = require('../controladores/SolicitudesController');
+const OperadorController = require('../controladores/OperadorController');
+const DocumentoController = require('../controladores/DocumentoController');
+const reactivacionController = require('../controladores/reactivacionController'); // Cambiado
+const webhooksController = require('../controladores/webhooksController'); // Cambiado
+const EmailValidationMiddleware = require("../middleware/emailValidation");
 
-// Estas deben apuntar a controladores de solicitudes existentes
-const {
-  crearSolicitud,
-  enviarSolicitud,
-  obtenerMisSolicitudes,
-  obtenerTodasSolicitudes,
-  obtenerSolicitudDetalle,
-  asignarOperador,
-  aprobarSolicitud,
-  rechazarSolicitud,
-  solicitarInformacionAdicional,
-  obtenerEstadisticas,
-  iniciarVerificacionKYC
-} = require('../controladores/SolicitudesController');
-
-// Estas deben apuntar a controladores de documentos existentes
-const {
-  subirDocumento,
-  obtenerDocumentosSolicitud,
-  validarDocumento
-} = require('../controladores/DocumentoController');
-
-// Esta debe apuntar a webhooksController existente
-const { handleDiditWebhook } = require('../controladores/webhooksController');
+// Middleware existentes
 const router = express.Router();
 const multer = require('multer');
 const storage = multer.memoryStorage();
@@ -54,313 +29,6 @@ const upload = multer({
     }
   }
 });
-/**
- * @swagger
- * components:
- *   schemas:
- *     Usuario:
- *       type: object
- *       properties:
- *         id:
- *           type: integer
- *           description: ID único del usuario
- *         email:
- *           type: string
- *           format: email
- *           description: Email del usuario
- *         nombre_completo:
- *           type: string
- *           description: Nombre completo del usuario
- *         dni:
- *           type: string
- *           description: Documento de identidad
- *         telefono:
- *           type: string
- *           description: Número de teléfono
- *         rol:
- *           type: string
- *           enum: [solicitante, operador]
- *           description: Rol del usuario en el sistema
- *         email_confirmado:
- *           type: boolean
- *           description: Estado de confirmación del email
- *         activo:
- *           type: boolean
- *           description: Estado activo del usuario
- *         fecha_creacion:
- *           type: string
- *           format: date-time
- *           description: Fecha de creación del usuario
- *         nombre_empresa:
- *           type: string
- *           description: Nombre de la empresa (solo solicitantes)
- *         cuit:
- *           type: string
- *           description: CUIT de la empresa (solo solicitantes)
- *         representante_legal:
- *           type: string
- *           description: Representante legal (solo solicitantes)
- *         domicilio:
- *           type: string
- *           description: Domicilio de la empresa (solo solicitantes)
- *       example:
- *         id: 1
- *         email: "usuario@ejemplo.com"
- *         nombre_completo: "Juan Pérez"
- *         dni: "12345678"
- *         telefono: "+573001234567"
- *         rol: "solicitante"
- *         email_confirmado: true
- *         activo: true
- *         fecha_creacion: "2024-01-01T00:00:00Z"
- *         nombre_empresa: "Mi Empresa SA"
- *         cuit: "30-12345678-9"
- *         representante_legal: "Juan Pérez"
- *         domicilio: "Calle 123"
- *
- *     UsuarioRegistro:
- *       type: object
- *       required:
- *         - email
- *         - password
- *         - nombre_completo
- *         - dni
- *         - telefono
- *       properties:
- *         email:
- *           type: string
- *           format: email
- *           description: Email del usuario
- *         password:
- *           type: string
- *           minLength: 6
- *           description: Contraseña del usuario
- *         nombre_completo:
- *           type: string
- *           description: Nombre completo del usuario
- *         dni:
- *           type: string
- *           description: Documento de identidad
- *         telefono:
- *           type: string
- *           description: Número de teléfono
- *         rol:
- *           type: string
- *           enum: [solicitante, operador]
- *           default: solicitante
- *           description: Rol del usuario
- *         nombre_empresa:
- *           type: string
- *           description: Nombre de la empresa (requerido si rol es solicitante)
- *         cuit:
- *           type: string
- *           description: CUIT de la empresa (requerido si rol es solicitante)
- *         representante_legal:
- *           type: string
- *           description: Representante legal (requerido si rol es solicitante)
- *         domicilio:
- *           type: string
- *           description: Domicilio de la empresa (requerido si rol es solicitante)
- *       example:
- *         email: "nuevo@ejemplo.com"
- *         password: "password123"
- *         nombre_completo: "María García"
- *         dni: "87654321"
- *         telefono: "+573009876543"
- *         rol: "solicitante"
- *         nombre_empresa: "Empresa de María"
- *         cuit: "30-87654321-9"
- *         representante_legal: "María García"
- *         domicilio: "Av. Principal 456"
- *
- *     Login:
- *       type: object
- *       required:
- *         - email
- *         - password
- *       properties:
- *         email:
- *           type: string
- *           format: email
- *           description: Email del usuario
- *         password:
- *           type: string
- *           description: Contraseña del usuario
- *       example:
- *         email: "usuario@ejemplo.com"
- *         password: "password123"
- *
- *     SuccessResponse:
- *       type: object
- *       properties:
- *         success:
- *           type: boolean
- *           example: true
- *         message:
- *           type: string
- *           description: Mensaje descriptivo del resultado
- *         data:
- *           type: object
- *           description: Datos de respuesta (opcional)
- *         token:
- *           type: string
- *           description: Token JWT (solo en login exitoso)
- *       example:
- *         success: true
- *         message: "Operación exitosa"
- *         data: {}
- *         token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
- *
- *     Error:
- *       type: object
- *       properties:
- *         success:
- *           type: boolean
- *           example: false
- *         message:
- *           type: string
- *           description: Mensaje de error
- *         error:
- *           type: string
- *           description: Detalles técnicos del error (opcional)
- *       example:
- *         success: false
- *         message: "Error en la operación"
- *         error: "Detalles del error"
- *
- *     SolicitudCredito:
- *       type: object
- *       properties:
- *         id:
- *           type: string
- *           format: uuid
- *           description: ID único de la solicitud
- *         numero_solicitud:
- *           type: string
- *           description: Número único de solicitud
- *         solicitante_id:
- *           type: string
- *           format: uuid
- *           description: ID del solicitante
- *         operador_id:
- *           type: string
- *           format: uuid
- *           description: ID del operador asignado
- *         monto:
- *           type: number
- *           format: float
- *           description: Monto solicitado
- *         moneda:
- *           type: string
- *           enum: [ARS, USD]
- *           description: Moneda del crédito
- *         plazo_meses:
- *           type: integer
- *           description: Plazo en meses
- *         proposito:
- *           type: string
- *           description: Propósito del crédito
- *         estado:
- *           type: string
- *           enum: [borrador, enviado, en_revision, pendiente_info, aprobado, rechazado]
- *           description: Estado de la solicitud
- *         nivel_riesgo:
- *           type: string
- *           enum: [bajo, medio, alto]
- *           description: Nivel de riesgo calculado
- *         comentarios:
- *           type: string
- *           description: Comentarios del operador
- *         motivo_rechazo:
- *           type: string
- *           description: Motivo de rechazo
- *         created_at:
- *           type: string
- *           format: date-time
- *           description: Fecha de creación
- *         updated_at:
- *           type: string
- *           format: date-time
- *           description: Fecha de última actualización
- *         fecha_envio:
- *           type: string
- *           format: date-time
- *           description: Fecha de envío
- *         fecha_decision:
- *           type: string
- *           format: date-time
- *           description: Fecha de decisión
- *       example:
- *         id: "123e4567-e89b-12d3-a456-426614174000"
- *         numero_solicitud: "SOL-2024-001"
- *         solicitante_id: "123e4567-e89b-12d3-a456-426614174001"
- *         monto: 50000.00
- *         moneda: "ARS"
- *         plazo_meses: 12
- *         proposito: "Capital de trabajo"
- *         estado: "en_revision"
- *         nivel_riesgo: "medio"
- *         created_at: "2024-01-01T00:00:00Z"
- *         updated_at: "2024-01-01T00:00:00Z"
- *
- *     Documento:
- *       type: object
- *       properties:
- *         id:
- *           type: string
- *           format: uuid
- *           description: ID único del documento
- *         solicitud_id:
- *           type: string
- *           format: uuid
- *           description: ID de la solicitud
- *         tipo:
- *           type: string
- *           enum: [dni, cuit, comprobante_domicilio, balance_contable, estado_financiero, declaracion_impuestos]
- *           description: Tipo de documento
- *         nombre_archivo:
- *           type: string
- *           description: Nombre del archivo
- *         ruta_storage:
- *           type: string
- *           description: Ruta en storage
- *         tamanio_bytes:
- *           type: integer
- *           description: Tamaño en bytes
- *         estado:
- *           type: string
- *           enum: [pendiente, validado, rechazado]
- *           description: Estado del documento
- *         comentarios:
- *           type: string
- *           description: Comentarios de validación
- *         informacion_extraida:
- *           type: object
- *           description: Información extraída del documento
- *         created_at:
- *           type: string
- *           format: date-time
- *           description: Fecha de subida
- *         validado_en:
- *           type: string
- *           format: date-time
- *           description: Fecha de validación
- *       example:
- *         id: "123e4567-e89b-12d3-a456-426614174002"
- *         solicitud_id: "123e4567-e89b-12d3-a456-426614174000"
- *         tipo: "dni"
- *         nombre_archivo: "dni_frontal.jpg"
- *         ruta_storage: "/documentos/solicitud_001/dni_frontal.jpg"
- *         tamanio_bytes: 2048576
- *         estado: "validado"
- *         created_at: "2024-01-01T00:00:00Z"
- *
- *   securitySchemes:
- *     bearerAuth:
- *       type: http
- *       scheme: bearer
- *       bearerFormat: JWT
- */
 
 // ==================== RUTAS DE CONFIRMACIÓN ====================
 
@@ -484,7 +152,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/usuarios/verificar-email", verifyEmailOnly, (req, res) => {
+router.post("/usuarios/verificar-email",  EmailValidationMiddleware.verifyEmailOnly, (req, res) => {
   res.json({
     success: true,
     message: "Verificación de email completada",
@@ -554,7 +222,7 @@ router.post("/usuarios/verificar-email", verifyEmailOnly, (req, res) => {
  */
 router.post(
   "/usuarios/registro",
-  validateEmailBeforeAuth,
+  EmailValidationMiddleware.validateEmailBeforeAuth,
   usuariosController.registrar
 );
 
@@ -671,8 +339,7 @@ router.get("/usuarios/session", authController.getSession);
  *       302:
  *         description: Redirección al frontend con resultado
  */
-router.get("/auth/restablecer-cuenta", procesarRecuperacionCuenta);
-router.post('/usuario/solicitar-reactivacion', solicitarReactivacionCuenta);
+router.get("/auth/restablecer-cuenta", reactivacionController.procesarRecuperacionCuenta);
 /**
  * @swagger
  * /api/usuarios/recuperar-contrasena:
@@ -774,7 +441,7 @@ router.post('/usuarios/recuperar-contrasena', usuariosController.recuperarContra
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put('/usuario/cambiar-contrasena', proteger, usuariosController.cambiarContrasena);
+router.put('/usuario/cambiar-contrasena', AuthMiddleware.proteger, usuariosController.cambiarContrasena);
 /**
  * @swagger
  * /api/usuario/estado-confirmacion:
@@ -809,7 +476,7 @@ router.put('/usuario/cambiar-contrasena', proteger, usuariosController.cambiarCo
  */
 router.get(
   "/usuario/estado-confirmacion",
-  proteger,
+  AuthMiddleware.proteger,
   confirmacionController.estadoConfirmacionEmail
 );
 
@@ -844,15 +511,14 @@ router.get(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/usuario/perfil", proteger, usuariosController.obtenerPerfil);
-
+router.get("/usuario/perfil", AuthMiddleware.proteger, usuariosController.obtenerPerfil);
 /**
  * @swagger
- * /api/usuario/perfil:
+ * /api/usuario/editar-perfil:
  *   put:
- *     summary: Actualizar perfil del usuario autenticado
+ *     summary: Editar perfil del usuario autenticado
  *     tags: [Usuario]
- *     description: Actualiza los datos del perfil del usuario autenticado
+ *     description: Permite al usuario autenticado editar su perfil
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -868,12 +534,15 @@ router.get("/usuario/perfil", proteger, usuariosController.obtenerPerfil);
  *               telefono:
  *                 type: string
  *                 description: Número de teléfono
- *               dni:
+ *               direccion:
  *                 type: string
- *                 description: Documento de identidad
+ *                 description: Dirección personal
  *               nombre_empresa:
  *                 type: string
  *                 description: Nombre de la empresa (solo solicitantes)
+ *               cuit:
+ *                 type: string
+ *                 description: CUIT de la empresa (solo solicitantes)
  *               representante_legal:
  *                 type: string
  *                 description: Representante legal (solo solicitantes)
@@ -882,14 +551,51 @@ router.get("/usuario/perfil", proteger, usuariosController.obtenerPerfil);
  *                 description: Domicilio de la empresa (solo solicitantes)
  *             example:
  *               nombre_completo: "Juan Pérez Actualizado"
- *               telefono: "+573001234567"
- *               dni: "12345678"
- *               nombre_empresa: "Empresa Actualizada SA"
- *               representante_legal: "Juan Pérez Actualizado"
- *               domicilio: "Nueva Dirección 456"
+ *               telefono: "+5491112345678"
+ *               direccion: "Calle Principal 123"
+ *               nombre_empresa: "Mi Empresa SA Actualizada"
+ *               cuit: "30-12345678-9"
+ *               representante_legal: "Juan Pérez"
+ *               domicilio: "Av. Siempre Viva 742"
  *     responses:
  *       200:
  *         description: Perfil actualizado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Usuario'
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ */
+router.put("/usuario/editar-perfil", AuthMiddleware.proteger, usuariosController.actualizarPerfil);
+
+/**
+ * @swagger
+ * /api/usuarios/{id}/perfil-publico:
+ *   get:
+ *     summary: Obtener perfil público de usuario por ID
+ *     tags: [Administración]
+ *     description: Obtiene el perfil público de cualquier usuario por su ID (requiere rol de operador)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del usuario
+ *     responses:
+ *       200:
+ *         description: Perfil público obtenido exitosamente
  *         content:
  *           application/json:
  *             schema:
@@ -902,21 +608,19 @@ router.get("/usuario/perfil", proteger, usuariosController.obtenerPerfil);
  *                       properties:
  *                         usuario:
  *                           $ref: '#/components/schemas/Usuario'
- *       400:
- *         description: Datos inválidos
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  *       401:
  *         description: No autorizado
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Sin permisos (requiere rol de operador)
+ *       404:
+ *         description: Usuario no encontrado
  */
-router.put("/usuario/perfil", proteger, usuariosController.actualizarPerfil);
-
+router.get(
+    "/usuarios/:id/perfil-publico",
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar("operador"),
+    usuariosController.obtenerPerfilUsuario
+);
 /**
  * @swagger
  * /api/usuario/desactivar-cuenta:
@@ -955,7 +659,7 @@ router.put("/usuario/perfil", proteger, usuariosController.actualizarPerfil);
  */
 router.put(
   "/usuario/desactivar-cuenta",
-  proteger,
+  AuthMiddleware.proteger,
   usuariosController.desactivarCuenta
 );
 /**
@@ -991,7 +695,7 @@ router.put(
  *       401:
  *         description: No autorizado
  */
-router.get("/usuario/configuracion-cuenta", proteger, usuariosController.obtenerConfiguracionCuenta);
+router.get("/usuario/configuracion-cuenta", AuthMiddleware.proteger, usuariosController.obtenerConfiguracionCuenta);
 /**
  * @swagger
  * /api/usuario/solicitar-reactivacion:
@@ -1017,7 +721,7 @@ router.get("/usuario/configuracion-cuenta", proteger, usuariosController.obtener
  *       400:
  *         description: Email no válido
  */
-router.post('/usuario/solicitar-reactivacion', solicitarReactivacionCuenta);
+router.post("/usuario/solicitar-reactivacion", reactivacionController.solicitarReactivacionCuenta);
 
 /**
  * @swagger
@@ -1053,7 +757,7 @@ router.post('/usuario/solicitar-reactivacion', solicitarReactivacionCuenta);
  *       401:
  *         description: No autorizado
  */
-router.put("/usuario/email-recuperacion", proteger, usuariosController.actualizarEmailRecuperacion);
+router.put("/usuario/email-recuperacion", AuthMiddleware.proteger, usuariosController.actualizarEmailRecuperacion);
 
 /**
  * @swagger
@@ -1088,7 +792,7 @@ router.put("/usuario/email-recuperacion", proteger, usuariosController.actualiza
  *       401:
  *         description: No autorizado
  */
-router.get("/usuario/estado-cuenta", proteger, usuariosController.verificarEstadoCuenta);
+router.get("/usuario/estado-cuenta", AuthMiddleware.proteger, usuariosController.verificarEstadoCuenta);
 // ==================== RUTAS PARA ADMINISTRADORES ====================
 
 /**
@@ -1143,8 +847,8 @@ router.get("/usuario/estado-cuenta", proteger, usuariosController.verificarEstad
  */
 router.get(
   "/usuarios/:id/perfil",
-  proteger,
-  autorizar("operador"),
+  AuthMiddleware.proteger,
+  AuthMiddleware.autorizar("operador"),
   usuariosController.obtenerPerfilPorId
 );
 
@@ -1235,8 +939,8 @@ router.get(
  */
 router.put(
   "/usuarios/:id/perfil",
-  proteger,
-  autorizar("operador"),
+  AuthMiddleware.proteger,
+  AuthMiddleware.autorizar("operador"),
   usuariosController.actualizarPerfilPorId
 );
 
@@ -1281,7 +985,7 @@ router.put(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/admin/dashboard", proteger, autorizar("operador"), (req, res) => {
+router.get("/admin/dashboard", AuthMiddleware.proteger, AuthMiddleware.autorizar("operador"), (req, res) => {
   res.json({
     success: true,
     message: "Dashboard administrativo",
@@ -1458,8 +1162,8 @@ router.post("/auth/refresh", authController.refreshToken);
  *       403:
  *         description: Sin permisos (para operadores)
  */
-router.post('/solicitudes', proteger, crearSolicitud);
-router.get('/solicitudes', proteger, obtenerMisSolicitudes);
+router.post('/solicitudes', AuthMiddleware.proteger, SolicitudesController.crearSolicitud);
+router.get('/solicitudes', AuthMiddleware.proteger, SolicitudesController.obtenerMisSolicitudes);
 
 /**
  * @swagger
@@ -1487,7 +1191,7 @@ router.get('/solicitudes', proteger, obtenerMisSolicitudes);
  *       401:
  *         description: No autorizado
  */
-router.get('/solicitudes/mis-solicitudes', proteger, obtenerMisSolicitudes);
+router.get('/solicitudes/mis-solicitudes', AuthMiddleware.proteger, SolicitudesController.obtenerMisSolicitudes);
 
 /**
  * @swagger
@@ -1525,7 +1229,7 @@ router.get('/solicitudes/mis-solicitudes', proteger, obtenerMisSolicitudes);
  *       404:
  *         description: Solicitud no encontrada
  */
-router.put('/solicitudes/:solicitud_id/enviar', proteger, enviarSolicitud);
+router.put('/solicitudes/:solicitud_id/enviar', AuthMiddleware.proteger, SolicitudesController.enviarSolicitud);
 
 /**
  * @swagger
@@ -1563,7 +1267,7 @@ router.put('/solicitudes/:solicitud_id/enviar', proteger, enviarSolicitud);
  *       404:
  *         description: Solicitud no encontrada
  */
-router.get('/solicitudes/:solicitud_id', proteger, obtenerSolicitudDetalle);
+router.get('/solicitudes/:solicitud_id', AuthMiddleware.proteger, SolicitudesController.obtenerSolicitudDetalle);
 
 /**
  * @swagger
@@ -1657,17 +1361,17 @@ router.get('/solicitudes/:solicitud_id', proteger, obtenerSolicitudDetalle);
  *       413:
  *         description: Archivo demasiado grande
  */
-router.get('/solicitudes/:solicitud_id/documentos', proteger, obtenerDocumentosSolicitud);
+router.get('/solicitudes/:solicitud_id/documentos', AuthMiddleware.proteger, DocumentoController.obtenerDocumentosSolicitud);
 router.post(
   '/solicitudes/:solicitud_id/documentos',
-  proteger,
-  autorizar('solicitante'),
+  AuthMiddleware.proteger,
+  AuthMiddleware.autorizar('solicitante'),
   upload.single('archivo'),
-  subirDocumento 
+  DocumentoController.subirDocumento 
 );
 
 // Rutas para operadores
-router.get('/solicitudes', proteger, autorizar('operador'), obtenerTodasSolicitudes);
+router.get('/solicitudes', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), SolicitudesController.obtenerTodasSolicitudes);
 
 /**
  * @swagger
@@ -1720,7 +1424,7 @@ router.get('/solicitudes', proteger, autorizar('operador'), obtenerTodasSolicitu
  *       404:
  *         description: Solicitud no encontrada
  */
-router.put('/solicitudes/:solicitud_id/asignar', proteger, autorizar('operador'), asignarOperador);
+router.put('/solicitudes/:solicitud_id/asignar', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), SolicitudesController.asignarOperador);
 
 /**
  * @swagger
@@ -1770,7 +1474,7 @@ router.put('/solicitudes/:solicitud_id/asignar', proteger, autorizar('operador')
  *       404:
  *         description: Solicitud no encontrada
  */
-router.put('/solicitudes/:solicitud_id/aprobar', proteger, autorizar('operador'), aprobarSolicitud);
+router.put('/solicitudes/:solicitud_id/aprobar', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), SolicitudesController.aprobarSolicitud);
 
 /**
  * @swagger
@@ -1822,7 +1526,7 @@ router.put('/solicitudes/:solicitud_id/aprobar', proteger, autorizar('operador')
  *       404:
  *         description: Solicitud no encontrada
  */
-router.put('/solicitudes/:solicitud_id/rechazar', proteger, autorizar('operador'), rechazarSolicitud);
+router.put('/solicitudes/:solicitud_id/rechazar', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), SolicitudesController.rechazarSolicitud);
 
 /**
  * @swagger
@@ -1879,7 +1583,7 @@ router.put('/solicitudes/:solicitud_id/rechazar', proteger, autorizar('operador'
  *       404:
  *         description: Solicitud no encontrada
  */
-router.put('/solicitudes/:solicitud_id/solicitar-info', proteger, autorizar('operador'), solicitarInformacionAdicional);
+router.put('/solicitudes/:solicitud_id/solicitar-info', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), SolicitudesController.solicitarInformacionAdicional);
 
 /**
  * @swagger
@@ -1935,7 +1639,7 @@ router.put('/solicitudes/:solicitud_id/solicitar-info', proteger, autorizar('ope
  *       404:
  *         description: Documento no encontrada
  */
-router.put('/documentos/:documento_id/validar', proteger, autorizar('operador'), validarDocumento);
+router.put('/documentos/:documento_id/validar', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), DocumentoController.validarDocumento);
 
 /**
  * @swagger
@@ -1976,7 +1680,7 @@ router.put('/documentos/:documento_id/validar', proteger, autorizar('operador'),
  *       404:
  *         description: Solicitud no encontrada
  */
-router.post('/solicitudes/:solicitud_id/verificar-kyc', proteger, iniciarVerificacionKYC);
+router.post('/solicitudes/:solicitud_id/verificar-kyc', AuthMiddleware.proteger, SolicitudesController.iniciarVerificacionKYC);
 
 /**
  * @swagger
@@ -2015,8 +1719,8 @@ router.post('/solicitudes/:solicitud_id/verificar-kyc', proteger, iniciarVerific
  *       403:
  *         description: Sin permisos (solo operadores)
  */
-router.get('/estadisticas', proteger, autorizar('operador'), obtenerEstadisticas);
-router.get('/documentos/:documento_id/descargar', proteger, descargarDocumento);
+router.get('/estadisticas', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), SolicitudesController.obtenerEstadisticas);
+router.get('/documentos/:documento_id/descargar', AuthMiddleware.proteger, DocumentoController.descargarDocumento);
 
 /**
  * @swagger
@@ -2052,7 +1756,7 @@ router.get('/documentos/:documento_id/descargar', proteger, descargarDocumento);
  *       404:
  *         description: Verificación no encontrada
  */
-router.post('/webhooks/didit', handleDiditWebhook);
+router.post('/webhooks/didit',  webhooksController.handleDiditWebhook);
 
 /**
  * @swagger
@@ -2096,7 +1800,7 @@ router.post('/webhooks/didit', handleDiditWebhook);
  *       403:
  *         description: Sin permisos (solo operadores)
  */
-router.get('/operador/dashboard', proteger, autorizar('operador'), OperadorController.obtenerDashboard);
+router.get('/operador/dashboard', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), OperadorController.obtenerDashboard);
 
 /**
  * @swagger
@@ -2121,7 +1825,7 @@ router.get('/operador/dashboard', proteger, autorizar('operador'), OperadorContr
  *       404:
  *         description: Solicitud no encontrada
  */
-router.get('/operador/solicitudes/:solicitud_id/revision', proteger, autorizar('operador'), OperadorController.iniciarRevision);
+router.get('/operador/solicitudes/:solicitud_id/revision', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), OperadorController.iniciarRevision);
 /**
  * @swagger
  * /api/operador/solicitudes/{solicitud_id}/documentos/{documento_id}/validar-balance:
@@ -2170,8 +1874,8 @@ router.get('/operador/solicitudes/:solicitud_id/revision', proteger, autorizar('
  *       400:
  *         description: Datos inválidos
  */
-router.put('/operador/solicitudes/:solicitud_id/documentos/:documento_id/validar-balance', proteger, autorizar('operador'), OperadorController.validarBalanceContable);
-router.get('/operador/health', proteger, autorizar('operador'), (req, res) => {
+router.put('/operador/solicitudes/:solicitud_id/documentos/:documento_id/validar-balance', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), OperadorController.validarBalanceContable);
+router.get('/operador/health', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), (req, res) => {
   res.json({
     success: true,
     message: 'Operador endpoint funcionando',
@@ -2179,4 +1883,82 @@ router.get('/operador/health', proteger, autorizar('operador'), (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+/**
+ * @swagger
+ * /api/notificaciones:
+ * get:
+ *   summary: Obtener notificaciones del usuario
+ *   tags: [Notificaciones]
+ *   security:
+ *     - bearerAuth: []
+ *   parameters:
+ *     - in: query
+ *       name: limit
+ *       schema:
+ *         type: integer
+ *       description: Límite de notificaciones
+ *     - in: query
+ *       name: offset
+ *       schema:
+ *         type: integer
+ *       description: Offset para paginación
+ *     - in: query
+ *       name: leida
+ *       schema:
+ *         type: boolean
+ *       description: Filtrar por estado de lectura
+ *   responses:
+ *     200:
+ *       description: Lista de notificaciones
+ */
+router.get('/notificaciones', AuthMiddleware.proteger, notificacionesController.obtenerNotificaciones);
+
+/**
+ * @swagger
+ * /api/notificaciones/contador-no-leidas:
+ * get:
+ *   summary: Obtener contador de notificaciones no leídas
+ *   tags: [Notificaciones]
+ *   security:
+ *     - bearerAuth: []
+ *   responses:
+ *     200:
+ *       description: Contador de notificaciones no leídas
+ */
+router.get('/notificaciones/contador-no-leidas', AuthMiddleware.proteger, notificacionesController.obtenerContadorNoLeidas);
+
+/**
+ * @swagger
+ * /api/notificaciones/{id}/leer:
+ * put:
+ *   summary: Marcar notificación como leída
+ *   tags: [Notificaciones]
+ *   security:
+ *     - bearerAuth: []
+ *   parameters:
+ *     - in: path
+ *       name: id
+ *       required: true
+ *       schema:
+ *         type: string
+ *   responses:
+ *     200:
+ *       description: Notificación marcada como leída
+ */
+router.put('/notificaciones/:id/leer', AuthMiddleware.proteger, notificacionesController.marcarComoLeida);
+
+/**
+ * @swagger
+ * /api/notificaciones/leer-todas:
+ * put:
+ *   summary: Marcar todas las notificaciones como leídas
+ *   tags: [Notificaciones]
+ *   security:
+ *     - bearerAuth: []
+ *   responses:
+ *     200:
+ *       description: Todas las notificaciones marcadas como leídas
+ */
+router.put('/notificaciones/leer-todas', AuthMiddleware.proteger, notificacionesController.marcarTodasComoLeidas);
 module.exports = router;

@@ -5,7 +5,7 @@ const BaseCredentialsSchema = z.object({
     .min(1, 'El email es obligatorio')
     .refine((val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), 'Email no válido'),
   password: z.string()
-    .min(6, 'La contraseña debe tener al menos 6 caracteres'),
+    .min(6, 'La contraseña debe tener al menos 8 caracteres'),
   nombre_completo: z.string()
     .min(1, 'El nombre completo es obligatorio'),
   telefono: z.string()
@@ -28,7 +28,7 @@ export const registerSchema = z.object({
     .min(1, 'El email es obligatorio')
     .email('Email no válido'),
   password: z.string()
-    .min(6, 'La contraseña debe tener al menos 6 caracteres'),
+    .min(6, 'La contraseña debe tener al menos 8 caracteres'),
   nombre_completo: z.string()
     .min(1, 'El nombre completo es obligatorio'),
   telefono: z.string()

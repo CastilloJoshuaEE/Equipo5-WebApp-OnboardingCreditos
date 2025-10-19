@@ -5,7 +5,7 @@ class OperadorController{
 static async obtenerDashboard(req, res) {
   try {
     const operadorId = req.usuario.id;
-    const { estado, fecha_desde, fecha_hasta, nivel_riesgo } = req.query;
+    const { estado, fecha_desde, fecha_hasta, nivel_riesgo, numero_solicitud, dni } = req.query;
 
     console.log(`. Obteniendo dashboard para operador: ${operadorId}`, { 
       estado, fecha_desde, fecha_hasta, nivel_riesgo 
@@ -18,8 +18,8 @@ static async obtenerDashboard(req, res) {
         solicitantes: solicitantes!solicitante_id(
           nombre_empresa,
           cuit,
-          representante_legal,
-          usuarios:usuarios!inner(nombre_completo, email, telefono)
+          representante_legal
+          usuarios:usuarios!inner(nombre_completo, email, telefono, dni)
         )
       `)
       .eq('operador_id', operadorId)
@@ -30,7 +30,10 @@ static async obtenerDashboard(req, res) {
     if (nivel_riesgo) query = query.eq('nivel_riesgo', nivel_riesgo);
     if (fecha_desde) query = query.gte('created_at', fecha_desde);
     if (fecha_hasta) query = query.lte('created_at', fecha_hasta);
-
+if (numero_solicitud) query = query.ilike('numero_solicitud', `%${numero_solicitud}%`);
+if (dni) {
+  query = query.eq('solicitantes.usuarios.dni', dni);
+}
     const { data: solicitudes, error } = await query;
 
     if (error) {
@@ -94,7 +97,8 @@ static async iniciarRevision(req, res) {
                     cuit,
                     representante_legal,
                     domicilio,
-                    usuarios:usuarios!inner(nombre_completo, email, telefono)
+                    dni
+                    usuarios:usuarios!inner(nombre_completo, email, telefono, dni)
                 )
             `)
             .eq('id', solicitud_id)

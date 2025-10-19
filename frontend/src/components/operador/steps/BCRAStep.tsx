@@ -69,7 +69,7 @@ export default function BCRAStep({ infoBCRA }: BCRAStepProps) {
                         <Typography variant="body2">
                             Situación: {ent.situacionDesc} | 
                             Monto: ${(ent.monto * 1000).toLocaleString()} | 
-                            Días atraso: {ent.diasAtraso || 'N/A'}
+                            Días atraso: {ent.diasAtraso || 'No aplica'}
                         </Typography>
                     </CardContent>
                 </Card>

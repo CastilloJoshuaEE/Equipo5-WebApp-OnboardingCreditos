@@ -70,7 +70,7 @@ function RestablecerCuentaContent() {
     }
 
     if (nuevaContrasena.length < 6) {
-      setMessage('La contraseña debe tener al menos 6 caracteres');
+      setMessage('La contraseña debe tener al menos 8 caracteres');
       return;
     }
 
@@ -146,7 +146,7 @@ function RestablecerCuentaContent() {
             fullWidth
             margin="normal"
             disabled={cambiandoContrasena}
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Mínimo 8 caracteres"
           />
           
           <TextField

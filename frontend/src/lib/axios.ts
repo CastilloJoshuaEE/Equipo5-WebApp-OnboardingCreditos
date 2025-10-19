@@ -1,10 +1,13 @@
 // lib/axios.ts
-import axios from 'axios';
-import { getSession } from 'next-auth/react';
+import axios from "axios";
+import { getSession } from "next-auth/react";
+import mitt from "mitt";
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-// Extender el tipo de Session para incluir nuestras propiedades personalizadas
+// === EVENTO GLOBAL PARA SESIÓN EXPIRADA ===
+export const sessionEmitter = mitt<{ expired: void }>();
+
 interface ExtendedSession {
   user?: {
     id: string;
@@ -22,27 +25,22 @@ interface ExtendedSession {
 
 const axiosInstance = axios.create({
   baseURL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { "Content-Type": "application/json" },
 });
 
+// === REQUEST INTERCEPTOR ===
 axiosInstance.interceptors.request.use(
   async (config) => {
-    const session = await getSession() as ExtendedSession;
-
-    // USAR TOKEN DE SUPABASE
+    const session = (await getSession()) as ExtendedSession;
     if (session?.accessToken) {
-      config.headers['Authorization'] = `Bearer ${session.accessToken}`;
+      config.headers["Authorization"] = `Bearer ${session.accessToken}`;
     }
-
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
+// === RESPONSE INTERCEPTOR ===
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -52,27 +50,25 @@ axiosInstance.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const session = await getSession() as ExtendedSession;
-        
+        const session = (await getSession()) as ExtendedSession;
+
         if (session?.refreshToken) {
-          // Llamar a endpoint de refresh en tu backend
           const refreshResponse = await axios.post(`${baseURL}/auth/refresh`, {
-            refresh_token: session.refreshToken
+            refresh_token: session.refreshToken,
           });
 
           if (refreshResponse.data.success) {
             const newToken = refreshResponse.data.data.access_token;
-            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
-            
+            originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
             return axiosInstance(originalRequest);
           }
         }
-      } catch (refreshError) {
-        console.error('Error refreshing token:', refreshError);
-        // Forzar logout
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login?error=session_expired';
-        }
+
+        console.warn("⚠️ Token expirado → emitiendo evento de sesión vencida");
+        sessionEmitter.emit("expired");
+      } catch (e) {
+        console.error("Error al refrescar token:", e);
+        sessionEmitter.emit("expired");
       }
     }
 
@@ -82,20 +78,11 @@ axiosInstance.interceptors.response.use(
 
 export default axiosInstance;
 
-// Exportar funciones auxiliares para uso específico
+// Helpers de conveniencia para tus requests
 export const api = {
-  // GET request
   get: (url: string, config?: any) => axiosInstance.get(url, config),
-  
-  // POST request
   post: (url: string, data?: any, config?: any) => axiosInstance.post(url, data, config),
-  
-  // PUT request
   put: (url: string, data?: any, config?: any) => axiosInstance.put(url, data, config),
-  
-  // DELETE request
   delete: (url: string, config?: any) => axiosInstance.delete(url, config),
-  
-  // PATCH request
   patch: (url: string, data?: any, config?: any) => axiosInstance.patch(url, data, config),
 };

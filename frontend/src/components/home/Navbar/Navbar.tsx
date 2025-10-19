@@ -12,9 +12,7 @@ export default function Navbar() {
   };
 
   const handleSolicitarCredito = () => {
-    router.push("/"); // Ajusta la ruta si tu flujo de solicitud es distinto
-  };
-
+router.push('/register')};
   return (
     <header className={styles.navbar}>
       <div className={styles.navCenter}>
