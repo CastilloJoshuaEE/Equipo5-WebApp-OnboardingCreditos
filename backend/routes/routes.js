@@ -29,7 +29,264 @@ const upload = multer({
     }
   }
 });
+// ==================== COMPONENTS SCHEMAS ====================
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     SuccessResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         message:
+ *           type: string
+ *         data:
+ *           type: object
+ *           description: Datos de respuesta
+ *         token:
+ *           type: string
+ *           description: Token JWT (cuando aplica)
+ * 
+ *     Error:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *         error:
+ *           type: string
+ *         details:
+ *           type: array
+ *           items:
+ *             type: object
+ * 
+ *     Response:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *         message:
+ *           type: string
+ * 
+ *     UsuarioRegistro:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *         - nombre_completo
+ *         - telefono
+ *         - dni
+ *         - rol
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         password:
+ *           type: string
+ *           minLength: 6
+ *         nombre_completo:
+ *           type: string
+ *         telefono:
+ *           type: string
+ *         dni:
+ *           type: string
+ *         rol:
+ *           type: string
+ *           enum: [solicitante, operador]
+ *         nombre_empresa:
+ *           type: string
+ *           description: Requerido para solicitantes
+ *         cuit:
+ *           type: string
+ *           description: Requerido para solicitantes
+ *         representante_legal:
+ *           type: string
+ *           description: Requerido para solicitantes
+ *         domicilio:
+ *           type: string
+ *           description: Requerido para solicitantes
+ * 
+ *     Login:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         password:
+ *           type: string
+ * 
+ *     Usuario:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         email:
+ *           type: string
+ *           format: email
+ *         nombre_completo:
+ *           type: string
+ *         telefono:
+ *           type: string
+ *         dni:
+ *           type: string
+ *         rol:
+ *           type: string
+ *           enum: [solicitante, operador]
+ *         email_confirmado:
+ *           type: boolean
+ *         activo:
+ *           type: boolean
+ *         fecha_creacion:
+ *           type: string
+ *           format: date-time
+ *         fecha_actualizacion:
+ *           type: string
+ *           format: date-time
+ *         nombre_empresa:
+ *           type: string
+ *         cuit:
+ *           type: string
+ *         representante_legal:
+ *           type: string
+ *         domicilio:
+ *           type: string
+ * 
+ *     SolicitudCredito:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         usuario_id:
+ *           type: string
+ *           format: uuid
+ *         monto:
+ *           type: number
+ *           minimum: 0.01
+ *         plazo_meses:
+ *           type: integer
+ *           minimum: 1
+ *         proposito:
+ *           type: string
+ *         moneda:
+ *           type: string
+ *           enum: [ARS, USD]
+ *           default: ARS
+ *         estado:
+ *           type: string
+ *           enum: [borrador, enviado, en_revision, pendiente_info, aprobado, rechazado]
+ *         nivel_riesgo:
+ *           type: string
+ *           enum: [bajo, medio, alto]
+ *         scoring:
+ *           type: integer
+ *           minimum: 0
+ *           maximum: 100
+ *         operador_asignado_id:
+ *           type: string
+ *           format: uuid
+ *         fecha_creacion:
+ *           type: string
+ *           format: date-time
+ *         fecha_actualizacion:
+ *           type: string
+ *           format: date-time
+ *         motivo_rechazo:
+ *           type: string
+ *         informacion_solicitada:
+ *           type: string
+ *         plazo_respuesta_info:
+ *           type: string
+ *           format: date-time
+ *         condiciones_aprobacion:
+ *           type: object
+ * 
+ *     Documento:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         solicitud_id:
+ *           type: string
+ *           format: uuid
+ *         nombre_archivo:
+ *           type: string
+ *         tipo:
+ *           type: string
+ *           enum: [dni, cuit, comprobante_domicilio, balance_contable, estado_financiero, declaracion_impuestos]
+ *         estado:
+ *           type: string
+ *           enum: [pendiente, validado, rechazado]
+ *         url:
+ *           type: string
+ *         tamano:
+ *           type: integer
+ *         mime_type:
+ *           type: string
+ *         fecha_subida:
+ *           type: string
+ *           format: date-time
+ *         fecha_validacion:
+ *           type: string
+ *           format: date-time
+ *         validado_por:
+ *           type: string
+ *           format: uuid
+ *         comentarios_validacion:
+ *           type: string
+ *         informacion_extraida:
+ *           type: object
+ * 
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ */
+/**
+ * @swagger
+ * tags:
+ *   - name: Autenticación
+ *     description: Endpoints de autenticación y gestión de usuarios
+ *   - name: Confirmación
+ *     description: Endpoints de confirmación de email
+ *   - name: Usuario
+ *     description: Endpoints de gestión de perfil de usuario
+ *   - name: Contraseña
+ *     description: Endpoints de gestión de contraseñas
+ *   - name: Cuenta
+ *     description: Endpoints de gestión de cuenta
+ *   - name: Administración
+ *     description: Endpoints administrativos
+ *   - name: Solicitudes
+ *     description: Endpoints de gestión de solicitudes de crédito
+ *   - name: Documentos
+ *     description: Endpoints de gestión de documentos
+ *   - name: Operadores
+ *     description: Endpoints específicos para operadores
+ *   - name: KYC/AML
+ *     description: Endpoints de verificación KYC/AML
+ *   - name: Estadísticas
+ *     description: Endpoints de estadísticas del sistema
+ *   - name: Webhooks
+ *     description: Endpoints para webhooks externos
+ *   - name: Notificaciones
+ *     description: Endpoints de gestión de notificaciones
+ * 
+ * @swagger
+ * security:
+ *   - bearerAuth: []
+ */
 // ==================== RUTAS DE CONFIRMACIÓN ====================
 
 /**
@@ -378,7 +635,7 @@ router.get("/auth/restablecer-cuenta", reactivacionController.procesarRecuperaci
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Response'
+ *               $ref: '#/components/schemas/SuccessResponse'
  *       400:
  *         description: Error en la recuperación (email inválido o contraseñas no coinciden)
  *         content:
