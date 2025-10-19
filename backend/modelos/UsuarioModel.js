@@ -100,17 +100,19 @@ class UsuarioModel{
   }
   //Obtener perfil completo con datos especificos del rol
   static async getProfileWithRoleData(userId){
-    const { data: usuario, error}= await supabase
-    .from('usuarios')
-    .select(`
-      *,
-      solicitantes(*),
-      operadores (*)
-      `)
-    .eq('id', userId)
-    .single();
-    if(error) throw new Error(`Error obteniendo perfil: ${error.message}`);
+    const { data: usuario, error } = await supabase
+        .from('usuarios')
+        .select(`
+            *,
+            solicitantes(*),
+            operadores(*)
+        `)
+        .eq('id', userId)
+        .single();
+
+    if (error) throw new Error(`Error obteniendo perfil: ${error.message}`);
     return usuario;
+
   }
 }
 module.exports= UsuarioModel;

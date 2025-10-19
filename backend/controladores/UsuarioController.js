@@ -3,16 +3,18 @@ const SolicitanteModel= require('../modelos/SolicitanteModel');
 const OperadorModel= require('../modelos/OperadorModel');
 const{supabaseAdmin, getUserByEmail}= require('../config/supabaseAdmin');
 const{enviarEmailBienvenida, enviarEmailConfirmacionCuenta}= require('../servicios/emailServicio');
+const { supabase } = require('../config/conexion');
+
 class UsuarioController{
-  static validarTelefono(telefono){
-    if(!telefono) return true;
-    const telefonoLimpio= telefono.replace(/[\s\-\(\)]/g, '');
-    const telefonoRegex= /^(\+?\d{1,4})?[\s\-]?\(?(\d{1,4})?\)?[\s\-]?(\d{3,4})[\s\-]?(\d{3,4})$/;
-    if (!telefonoRegex.test(telefono)) return false;
-    const soloNumeros=telefonoLimpio.replace(/\D/g, '');
-    return soloNumeros.length>=8 && soloNumeros.length<=15;
-  }
-  static validarCamposRegistro(data, rol){
+static async validarTelefono(telefono) {
+  if (!telefono) return true;
+  const telefonoLimpio = telefono.replace(/[\s\-\(\)]/g, '');
+  const telefonoRegex = /^(\+?\d{1,4})?[\s\-]?\(?(\d{1,4})?\)?[\s\-]?(\d{3,4})[\s\-]?(\d{3,4})$/;
+  if (!telefonoRegex.test(telefono)) return false;
+  const soloNumeros = telefonoLimpio.replace(/\D/g, '');
+  return soloNumeros.length >= 8 && soloNumeros.length <= 15;
+}
+  static async validarCamposRegistro(data, rol){
     const errors=[];
     if(!data.email) errors.push('Email es requerido');
     if(!data.password) errors.push('Contraseña es requerida');
@@ -22,7 +24,7 @@ class UsuarioController{
     if(data.email && !emailRegex.test(data.email)){
       errors.push('Formato de email inválido');
     }
-    if(data.telefono && !this.validarTelefono(data.telefono)){
+    if(data.telefono && !validarTelefono(data.telefono)){
       errors.push('Formato de teléfono inválido');
       
     }
@@ -349,26 +351,60 @@ class UsuarioController{
     }
   }
   static async obtenerPerfil(req, res){
-    try{
-      console.log('Obteniendo perfil para usuario ID:', req.usuario.id);
-      const userProfile= await UsuarioModel.getProfileWithRoleData(req.usuario.id);
-      if(!userProfile){
-        return res.status(404).json({
-          success: false,
-          message: 'Perfil de usuario no encontrado'
+    try {
+        const usuarioId = req.usuario.id;
+        
+        console.log('📋 Obteniendo perfil completo para usuario ID:', usuarioId);
+
+        // Obtener datos base del usuario
+        const usuario = await UsuarioModel.findById(usuarioId);
+        
+        if (!usuario) {
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        // Obtener datos específicos según el rol
+        let datosEspecificos = {};
+        
+        if (usuario.rol === 'solicitante') {
+            const solicitante = await SolicitanteModel.findByUserId(usuarioId);
+            datosEspecificos = {
+                nombre_empresa: solicitante?.nombre_empresa,
+                cuit: solicitante?.cuit,
+                representante_legal: solicitante?.representante_legal,
+                domicilio: solicitante?.domicilio,
+                tipo: solicitante?.tipo
+            };
+        } else if (usuario.rol === 'operador') {
+            const operador = await OperadorModel.findByUserId(usuarioId);
+            datosEspecificos = {
+                nivel: operador?.nivel,
+                permisos: operador?.permisos
+            };
+        }
+
+        // Construir respuesta completa
+        const perfilCompleto = {
+            ...usuario,
+            ...datosEspecificos
+        };
+
+        console.log('. Perfil completo obtenido exitosamente');
+
+        res.json({
+            success: true,
+            data: perfilCompleto
         });
-      }
-      console.log('Perfil obtenido exitosamente');
-      res.json({
-        success:true,
-        data: userProfile
-      });
-    }catch(error){
-      console.error('Error en obtenerPerfil:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
+
+    } catch (error) {
+        console.error('. Error en obtenerPerfilCompleto:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener el perfil completo'
+        });
     }
   }
   static async obtenerPerfilPorId(req, res){
@@ -403,38 +439,155 @@ class UsuarioController{
     }
   }
   static async actualizarPerfil(req, res){
-    try{
-      const{ nombre_completo, telefono, direccion}=req.body;
-      console.log('Actualizando perfil para usuario ID:', req.usuario.id);
-      console.log('Datos a actualizar:',{nombre_completo, telefono, direccion});
-      //Validar que al menos un campo sea proporcionado
-      if(!nombre_completo && !telefono && !direccion){
-        return res.status(400).json({
-          success: false,
-          message: 'Debe proporcionar a menos un campo para actualizar'
+    try {
+        const usuarioId = req.usuario.id;
+        const {
+            nombre_completo,
+            telefono,
+            direccion,
+            // Campos específicos de solicitante
+            nombre_empresa,
+            cuit,
+            representante_legal,
+            domicilio
+        } = req.body;
+
+        console.log('✏️ Editando perfil para usuario ID:', usuarioId);
+        console.log('Datos recibidos:', {
+            nombre_completo,
+            telefono,
+            direccion,
+            nombre_empresa,
+            cuit,
+            representante_legal,
+            domicilio
         });
 
-      }
-      const updates={
-        update_at: new Date().toISOString()
-      }
-      if(nombre_completo) updates.nombre_completo= nombre_completo;
-      if (telefono) updates.telefono= telefono;
-      if(direccion) updates.direccion= direccion;
-      const updatedUser= await UsuarioModel.update(req.usuario.id, updates);
-      console.log('Perfil actualizado exitosamente');
-      res.json({
-        success: true,
-        message: 'Perfil actualizado exitosamente',
-        data: updatedUser
-      });
+        // Validar que al menos un campo sea proporcionado
+        const camposVacios = !nombre_completo && !telefono && !direccion && 
+                           !nombre_empresa && !cuit && !representante_legal && !domicilio;
+        
+        if (camposVacios) {
+            return res.status(400).json({
+                success: false,
+                message: 'Debe proporcionar al menos un campo para actualizar'
+            });
+        }
 
-    } catch(error){
-      console.error('Error en actualizarPerfil:', error);
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
+        // Obtener usuario actual para verificar rol
+        const usuarioActual = await UsuarioModel.findById(usuarioId);
+        
+        if (!usuarioActual) {
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        // Preparar actualizaciones para la tabla usuarios
+        const updatesUsuario = {
+            updated_at: new Date().toISOString()
+        };
+
+        if (nombre_completo) {
+            if (nombre_completo.trim().length < 2) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El nombre completo debe tener al menos 2 caracteres'
+                });
+            }
+            updatesUsuario.nombre_completo = nombre_completo.trim();
+        }
+
+        if (telefono) {
+            if (!UsuarioController.validarTelefono(telefono)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Formato de teléfono inválido'
+                });
+            }
+            updatesUsuario.telefono = telefono;
+        }
+
+        if (direccion) {
+            updatesUsuario.direccion = direccion;
+        }
+
+        // Actualizar tabla usuarios
+        let usuarioActualizado;
+        if (Object.keys(updatesUsuario).length > 1) { // Más de justo el updated_at
+            usuarioActualizado = await UsuarioModel.update(usuarioId, updatesUsuario);
+        }
+
+        // Actualizar datos específicos según el rol
+        if (usuarioActual.rol === 'solicitante') {
+            const updatesSolicitante = {
+                updated_at: new Date().toISOString()
+            };
+
+            if (nombre_empresa) {
+                if (nombre_empresa.trim().length < 2) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'El nombre de empresa debe tener al menos 2 caracteres'
+                    });
+                }
+                updatesSolicitante.nombre_empresa = nombre_empresa.trim();
+            }
+
+            if (cuit) {
+                if (!/^\d{2}-\d{8}-\d{1}$/.test(cuit)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Formato de CUIT inválido. Use: 30-12345678-9'
+                    });
+                }
+                updatesSolicitante.cuit = cuit;
+            }
+
+            if (representante_legal) {
+                if (representante_legal.trim().length < 2) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'El representante legal debe tener al menos 2 caracteres'
+                    });
+                }
+                updatesSolicitante.representante_legal = representante_legal.trim();
+            }
+
+            if (domicilio) {
+                if (domicilio.trim().length < 5) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'El domicilio debe tener al menos 5 caracteres'
+                    });
+                }
+                updatesSolicitante.domicilio = domicilio.trim();
+            }
+
+            // Actualizar tabla solicitantes si hay cambios
+            if (Object.keys(updatesSolicitante).length > 1) {
+                await SolicitanteModel.update(usuarioId, updatesSolicitante);
+            }
+        }
+
+        // Obtener perfil actualizado completo
+        const perfilActualizado = await UsuarioModel.getProfileWithRoleData(usuarioId);
+
+        console.log('. Perfil actualizado exitosamente');
+
+        res.json({
+            success: true,
+            message: 'Perfil actualizado exitosamente',
+            data: perfilActualizado
+        });
+
+    } catch (error) {
+        console.error('. Error en editarPerfil:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Error al actualizar el perfil'
+        });
     }
   }
   //Actualizar perfil de cualquier usuario por ID (solo para operadores)
@@ -484,15 +637,15 @@ class UsuarioController{
   //Cambiar contraseña
   static async cambiarContrasena(req, res){
     try{
-      const{contrasena_actual, nueva_contrasena, confirmarContrasena}= req.body;
+      const{contrasena_actual, nueva_contrasena, confirmar_contrasena}= req.body;
       console.log('Solicitando cambio de contraseña para usuario ID:', req.usuario.id);
       console.log('Datos recibidos:',{
         contrasena_actual: !!contrasena_actual,
         nueva_contrasena: !!nueva_contrasena,
-        confirmar_contrasena: !!confirmarContrasena
+        confirmar_contrasena: !!confirmar_contrasena
       });
       //Validar campos obligatorios
-      if(!contrasena_actual || !nueva_contrasena || !confirmarContrasena){
+      if(!contrasena_actual || !nueva_contrasena || !confirmar_contrasena){
         return res.status(400).json({
           success:false,
           message: ' Contraseña actual, nueva contraseña y confirmación son requeridos',
@@ -500,7 +653,7 @@ class UsuarioController{
             campos_recibidos: {
               contrasena_actual: !!contrasena_actual,
               nueva_contrasena: !!nueva_contrasena,
-              confirmar_Contrasena: !!confirmarContrasena
+              confirmar_Contrasena: !!confirmar_contrasena
             },
             campos_esperados: ['contrasena_actual', 'nueva_contrasena', 'confirmar_contrasena']
           }
@@ -517,7 +670,7 @@ class UsuarioController{
       if(nueva_contrasena.length<6){
         return res.status(400).json({
           success:false,
-          message: 'La contraseña debe tener al menos 6 caracteres'
+          message: 'La contraseña debe tener al menos 8 caracteres'
         });
       }
       //Verificar que la nueva contraseña sea diferente a la actual
@@ -606,7 +759,7 @@ class UsuarioController{
       if (nueva_contrasena.length < 6) {
         return res.status(400).json({
           success: false,
-          message: 'La contraseña debe tener al menos 6 caracteres'
+          message: 'La contraseña debe tener al menos 8 caracteres'
         });
       }
 
@@ -1043,6 +1196,73 @@ static async actualizarEmailRecuperacion(req, res) {
       message: 'Error al obtener configuración de cuenta'
     });
   }
+}
+// Obtener perfil público de usuario por ID (para operadores)
+static async obtenerPerfilUsuario(req, res) {
+    try {
+        const { id } = req.params;
+        
+        console.log('👤 Obteniendo perfil de usuario ID:', id);
+
+        // Verificar que el ID sea un UUID válido
+        if (!id || !id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID de usuario no válido'
+            });
+        }
+
+        // Obtener perfil completo
+        const perfilCompleto = await UsuarioModel.getProfileWithRoleData(id);
+        
+        if (!perfilCompleto) {
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        // Filtrar información sensible para perfil público
+        const perfilPublico = {
+            id: perfilCompleto.id,
+            nombre_completo: perfilCompleto.nombre_completo,
+            email: perfilCompleto.email,
+            telefono: perfilCompleto.telefono,
+            rol: perfilCompleto.rol,
+            cuenta_activa: perfilCompleto.cuenta_activa,
+            created_at: perfilCompleto.created_at
+        };
+
+        // Agregar información específica según el rol
+        if (perfilCompleto.rol === 'solicitante' && perfilCompleto.solicitantes) {
+            perfilPublico.datos_empresa = {
+                nombre_empresa: perfilCompleto.solicitantes.nombre_empresa,
+                cuit: perfilCompleto.solicitantes.cuit,
+                representante_legal: perfilCompleto.solicitantes.representante_legal,
+                domicilio: perfilCompleto.solicitantes.domicilio,
+                tipo: perfilCompleto.solicitantes.tipo
+            };
+        } else if (perfilCompleto.rol === 'operador' && perfilCompleto.operadores) {
+            perfilPublico.datos_operador = {
+                nivel: perfilCompleto.operadores.nivel,
+                permisos: perfilCompleto.operadores.permisos
+            };
+        }
+
+        console.log('. Perfil de usuario obtenido exitosamente');
+
+        res.json({
+            success: true,
+            data: perfilPublico
+        });
+
+    } catch (error) {
+        console.error('. Error en obtenerPerfilUsuario:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener el perfil del usuario'
+        });
+    }
 }
 }
   

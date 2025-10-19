@@ -2,6 +2,7 @@ const SolicitudModel=require('../modelos/SolicitudModel');
 const DocumentoModel=require('../modelos/DocumentoModel');
 const VerificacionKycModel = require('../modelos/VerificacionKycModel');
 const OperadorController=require('../controladores/OperadorController')
+const Notificaciones = require('../controladores/NotificacionesController')
 const { supabase } = require('../config/conexion');
 const { supabaseAdmin } = require('../config/supabaseAdmin');
 const diditService = require('../servicios/diditService');
@@ -63,7 +64,7 @@ class SolicitudesController {
   }
 
   // Enviar solicitud para revisión
-// Enviar solicitud para revisión - CORREGIDO
+// En SolicitudesController.js - método enviarSolicitud
 static async enviarSolicitud(req, res) {
   try {
     const { solicitud_id } = req.params;
@@ -82,21 +83,17 @@ static async enviarSolicitud(req, res) {
     // Calcular nivel de riesgo
     await SolicitudesController.calcularNivelRiesgo(solicitud_id);
 
-    // Asignar operador automáticamente - CORRECCIÓN: Usar SolicitudesController en lugar de this
-    const operadorAsignado = await SolicitudesController.asignarOperador(solicitud_id);
+    // Asignar operador automáticamente usando la función de la base de datos
+    const { supabase } = require('../config/conexion');
+    const { data: operadorAsignado, error: asignacionError } = await supabase
+      .rpc('asignar_operador_automatico', { p_solicitud_id: solicitud_id });
 
-    // Crear notificación en tiempo real
-    await supabase
-      .from('notificaciones')
-      .insert({
-        usuario_id: operadorAsignado,
-        solicitud_id: solicitud_id,
-        tipo: 'nueva_solicitud',
-        titulo: 'Nueva solicitud asignada',
-        mensaje: 'Buenas tardes, tienes una nueva solicitud de crédito para revisar.',
-        leida: false,
-        created_at: new Date().toISOString()
-      });
+    if (asignacionError) {
+      console.error('Error asignando operador:', asignacionError);
+      throw new Error('No se pudo asignar un operador automáticamente');
+    }
+
+    console.log(`Operador asignado: ${operadorAsignado}`);
 
     res.json({
       success: true,
@@ -108,14 +105,13 @@ static async enviarSolicitud(req, res) {
     });
 
   } catch (error) {
-    console.error('. Error enviando solicitud:', error);
+    console.error('Error enviando solicitud:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Error al enviar solicitud'
     });
   }
 }
-
   // Obtener mis solicitudes
   static async obtenerMisSolicitudes(req, res) {
     try {

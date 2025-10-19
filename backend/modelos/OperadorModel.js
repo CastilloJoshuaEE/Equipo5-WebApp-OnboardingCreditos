@@ -22,7 +22,7 @@ class OperadorModel extends UsuarioModel{
         return data[0];
     }
     //Obtener operador por ID de usuario
-    static async findeByUserId(userId){
+    static async findByUserId(userId){
         const {data, error}=await supabase
         .from('operadores')
         .select('*')

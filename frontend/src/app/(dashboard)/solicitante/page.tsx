@@ -25,9 +25,6 @@ import { UserRole } from '@/types/auth.types';
 import SolicitudCreditoForm from '@/components/solicitudes/SolicitudCreditoForm';
 import ListaSolicitudes from '@/components/solicitudes/ListaSolicitudes';
 import GestionDocumentos from '@/components/documentos/GestionDocumentos';
-import DesactivarCuentaModal from '@/components/usuario/DesactivarCuentaModal';
-import EmailRecuperacionForm from '@/components/usuario/EmailRecuperacionForm';
-
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -55,8 +52,6 @@ export default function DashboardSolicitante() {
   const router = useRouter();
   const [tabValue, setTabValue] = useState(0);
   const [solicitudActiva, setSolicitudActiva] = useState<string | null>(null);
-  const [modalDesactivarOpen, setModalDesactivarOpen] = useState(false);
-  const [modalConfigOpen, setModalConfigOpen] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -146,71 +141,7 @@ export default function DashboardSolicitante() {
       await signOut({ callbackUrl: '/login' });
     }
   };
-const handleDesactivarCuenta = async (password: string, motivo?: string) => {
-  try {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    const session = await getSession();
-    
-    if (!session?.accessToken) {
-      throw new Error('No estás autenticado');
-    }
 
-    const response = await fetch(`${API_URL}/usuario/desactivar-cuenta`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.accessToken}`,
-      },
-      credentials: 'include',
-      body: JSON.stringify({ password, motivo }),
-    });
-
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.message);
-    }
-
-    setMessage('Cuenta desactivada exitosamente. Serás redirigido...');
-    
-    // FORZAR CIERRE DE SESIÓN COMPLETO
-    try {
-      // 1. Limpiar localStorage
-      if (session?.user?.id) {
-        const userId = session.user.id;
-        localStorage.removeItem(`solicitud_borrador_${userId}`);
-        
-        // Limpiar todos los borradores
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.includes(`solicitud_borrador_`)) {
-            keysToRemove.push(key);
-          }
-        }
-        keysToRemove.forEach(key => localStorage.removeItem(key));
-      }
-
-      // 2. Cerrar sesión en NextAuth
-      await signOut({ 
-        callbackUrl: '/login?message=cuenta_desactivada',
-        redirect: true 
-      });
-
-      // 3. Forzar recarga para limpiar estado
-      setTimeout(() => {
-        window.location.href = '/login?message=cuenta_desactivada';
-      }, 1000);
-
-    } catch (logoutError) {
-      console.error('Error durante logout:', logoutError);
-      // Fallback: redirigir directamente
-      window.location.href = '/login?message=cuenta_desactivada';
-    }
-  } catch (error: any) {
-    throw new Error(error.message || 'Error al desactivar la cuenta');
-  }
-};
   if (status === 'loading') {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
@@ -240,13 +171,6 @@ const handleDesactivarCuenta = async (password: string, motivo?: string) => {
 
         {/* Botones de acción en el header */}
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button 
-            variant="outlined" 
-            color="primary"
-            onClick={() => setModalConfigOpen(true)}
-          >
-            Configuración
-          </Button>
           <Button 
             variant="outlined" 
             color="error"
@@ -314,65 +238,7 @@ const handleDesactivarCuenta = async (password: string, motivo?: string) => {
         </Card>
       </TabPanel>
 
-      {/* Modal de Configuración */}
-      <Dialog 
-        open={modalConfigOpen} 
-        onClose={() => setModalConfigOpen(false)} 
-        maxWidth="md" 
-        fullWidth
-      >
-        <DialogTitle>
-          <Typography variant="h5" component="div">
-            Configuración de Cuenta
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            {/* Email de Recuperación */}
-            <EmailRecuperacionForm />
-            
-            {/* Separador */}
-            <Box sx={{ my: 4, borderBottom: 1, borderColor: 'divider' }} />
-            
-            {/* Desactivar Cuenta */}
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" gutterBottom color="error">
-                  Zona de Peligro
-                </Typography>
-                
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Una vez que desactives tu cuenta, no podrás acceder al sistema hasta que la reactives.
-                </Typography>
 
-                <Button
-                  variant="outlined"
-                  color="error"
-                  onClick={() => {
-                    setModalConfigOpen(false);
-                    setModalDesactivarOpen(true);
-                  }}
-                  sx={{ mt: 2 }}
-                >
-                  Desactivar Mi Cuenta
-                </Button>
-              </CardContent>
-            </Card>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setModalConfigOpen(false)}>
-            Cerrar
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Modal de Desactivar Cuenta */}
-      <DesactivarCuentaModal
-        open={modalDesactivarOpen}
-        onClose={() => setModalDesactivarOpen(false)}
-        onConfirm={handleDesactivarCuenta}
-      />
     </Box>
   );
 }

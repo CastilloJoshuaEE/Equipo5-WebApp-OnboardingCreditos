@@ -253,14 +253,19 @@ CREATE TRIGGER trigger_iniciar_revision_operador
 BEFORE UPDATE ON solicitudes_credito
 FOR EACH ROW
 EXECUTE FUNCTION trigger_iniciar_revision_operador();
-
--- Actualizar la función en la base de datos
+-- Actualizar la función para asegurar que las notificaciones se creen correctamente
 CREATE OR REPLACE FUNCTION asignar_operador_automatico(p_solicitud_id UUID)
 RETURNS UUID AS $$
 DECLARE
     operador_asignado UUID;
     operadores_carga RECORD;
+    solicitud_numero TEXT;
+    solicitante_nombre TEXT;
 BEGIN
+    -- Obtener información de la solicitud
+    SELECT numero_solicitud, solicitante_id INTO solicitud_numero, solicitante_nombre
+    FROM solicitudes_credito WHERE id = p_solicitud_id;
+
     -- Buscar operador con menos solicitudes en revisión/pendientes
     SELECT op.id, COUNT(sc.id) as carga
     INTO operador_asignado
@@ -290,16 +295,41 @@ BEGIN
         updated_at = NOW()
     WHERE id = p_solicitud_id;
 
-    -- Crear notificación para el operador
-    INSERT INTO notificaciones(usuario_id, solicitud_id, tipo, titulo, mensaje)
+    -- Crear notificación para el operador con mensaje específico
+    INSERT INTO notificaciones(usuario_id, solicitud_id, tipo, titulo, mensaje, leida, created_at)
     VALUES (
         operador_asignado,
         p_solicitud_id,
         'nueva_solicitud',
         'Nueva solicitud asignada',
-        'Buenas tardes, tienes una nueva solicitud de crédito para revisar.'
+        'Buenas tardes, tienes una nueva solicitud de crédito para revisar. Número: ' || solicitud_numero,
+        false,
+        NOW()
+    );
+
+    -- También notificar al solicitante
+    INSERT INTO notificaciones(usuario_id, solicitud_id, tipo, titulo, mensaje, leida, created_at)
+    VALUES (
+        (SELECT solicitante_id FROM solicitudes_credito WHERE id = p_solicitud_id),
+        p_solicitud_id,
+        'cambio_estado',
+        'Solicitud en revisión',
+        'Tu solicitud ha sido enviada y está siendo revisada por nuestro equipo.',
+        false,
+        NOW()
     );
 
     RETURN operador_asignado;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Agregar columna para datos adicionales en notificaciones
+ALTER TABLE notificaciones 
+ADD COLUMN IF NOT EXISTS datos_adicionales JSONB;
+
+-- Crear índice para búsquedas más eficientes
+CREATE INDEX IF NOT EXISTS idx_notificaciones_usuario_leida 
+ON notificaciones(usuario_id, leida);
+
+CREATE INDEX IF NOT EXISTS idx_notificaciones_created_at 
+ON notificaciones(created_at DESC);

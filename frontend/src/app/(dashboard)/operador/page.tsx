@@ -26,8 +26,6 @@ import {
 } from '@mui/material';
 // Cambiar esta importación
 import Grid from '@mui/material/Grid';
-import EmailRecuperacionForm from '@/components/usuario/EmailRecuperacionForm';
-import DesactivarCuentaModal from '@/components/usuario/DesactivarCuentaModal';
 import { Documento } from '@/services/documentos.service';
 interface SolicitudOperador {
     id: string;
@@ -52,16 +50,22 @@ interface SolicitudOperador {
 export default function OperadorDashboard() {
     const [solicitudes, setSolicitudes] = useState<SolicitudOperador[]>([]);
     const [loading, setLoading] = useState(true);
-    const [modalConfigOpen, setModalConfigOpen] = useState(false);
-    const [modalDesactivarOpen, setModalDesactivarOpen] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+const getNombreContacto = (solicitud: SolicitudOperador) => {
+    const usuario = Array.isArray(solicitud.solicitantes.usuarios) 
+        ? solicitud.solicitantes.usuarios[0] 
+        : solicitud.solicitantes.usuarios;
+    return usuario?.nombre_completo || 'Sin contacto';
+};
 
     const [filtros, setFiltros] = useState({
         estado: '',
         nivel_riesgo: '',
         fecha_desde: '',
-        fecha_hasta: ''
+        fecha_hasta: '',
+        numero_solicitud: '',
+        dni: ''
     });
     const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<any>(null);
     const [modalRevision, setModalRevision] = useState(false);
@@ -116,75 +120,9 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
         window.open(supabaseUrl, '_blank');
     };
 
-    const handleDesactivarCuenta = async (password: string, motivo?: string) => {
-        try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-            const session = await getSession();
-            
-            if (!session?.accessToken) {
-                throw new Error('No estás autenticado');
-            }
-
-            const response = await fetch(`${API_URL}/usuario/desactivar-cuenta`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.accessToken}`,
-                },
-                credentials: 'include',
-                body: JSON.stringify({ password, motivo }),
-            });
-
-            const data = await response.json();
-
-            if (!data.success) {
-                throw new Error(data.message);
-            }
-
-            setMessage('Cuenta desactivada exitosamente. Serás redirigido...');
-            
-            // FORZAR CIERRE DE SESIÓN COMPLETO
-            try {
-                // 1. Limpiar localStorage
-                if (session?.user?.id) {
-                    const userId = session.user.id;
-                    localStorage.removeItem(`solicitud_borrador_${userId}`);
-                    
-                    // Limpiar todos los borradores
-                    const keysToRemove = [];
-                    for (let i = 0; i < localStorage.length; i++) {
-                        const key = localStorage.key(i);
-                        if (key && key.includes(`solicitud_borrador_`)) {
-                            keysToRemove.push(key);
-                        }
-                    }
-                    keysToRemove.forEach(key => localStorage.removeItem(key));
-                }
-
-                // 2. Cerrar sesión en NextAuth
-                await signOut({ 
-                    callbackUrl: '/login?message=cuenta_desactivada',
-                    redirect: true 
-                });
-
-                // 3. Forzar recarga para limpiar estado
-                setTimeout(() => {
-                    window.location.href = '/login?message=cuenta_desactivada';
-                }, 1000);
-
-            } catch (logoutError) {
-                console.error('Error durante logout:', logoutError);
-                // Fallback: redirigir directamente
-                window.location.href = '/login?message=cuenta_desactivada';
-            }
-        } catch (error: any) {
-            throw new Error(error.message || 'Error al desactivar la cuenta');
-        }
-    };
-
     useEffect(() => {
         cargarDashboard();
-    }, [filtros]);
+    }, []);
 
     const handleLogout = async () => {
         try {
@@ -326,13 +264,6 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
                 <Box sx={{ display: 'flex', gap: 2 }}>
                     <Button 
                         variant="outlined" 
-                        color="primary"
-                        onClick={() => setModalConfigOpen(true)}
-                    >
-                        Configuración
-                    </Button>
-                    <Button 
-                        variant="outlined" 
                         color="error"
                         onClick={handleLogout}
                     >
@@ -344,6 +275,7 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
             {/* Filtros */}
             <Card sx={{ mb: 3, p: 2 }}>
                 <Grid container spacing={2}>
+
                     <Grid size={{ xs: 12, md: 3 }}>
                         <FormControl fullWidth>
                             <InputLabel>Estado</InputLabel>
@@ -395,6 +327,33 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
                             InputLabelProps={{ shrink: true }}
                         />
                     </Grid>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <TextField
+                            label="Número Solicitud"
+                            fullWidth
+                            value={filtros.numero_solicitud}
+                            onChange={(e) => setFiltros({...filtros, numero_solicitud: e.target.value})}
+                        />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <TextField
+                            label="DNI Solicitante"
+                            fullWidth
+                            value={filtros.dni}
+                            onChange={(e) => setFiltros({...filtros, dni: e.target.value})}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Button
+                            variant="contained"
+                            fullWidth
+                            onClick={cargarDashboard} // Ejecuta la carga con los filtros actuales
+                        >
+                            Buscar
+                        </Button>
+                    </Grid>
+
                 </Grid>
             </Card>
 
@@ -414,12 +373,12 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
                                                 {solicitud.numero_solicitud}
                                             </Typography>
                                             <Typography variant="subtitle1" color="primary">
-                                                {solicitud.solicitantes.nombre_empresa}
+                                                {solicitud.solicitantes?.nombre_empresa || 'Empresa no encontrada'}
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
-                                                CUIT: {solicitud.solicitantes.cuit} | 
-                                                Contacto: {solicitud.solicitantes.usuarios.nombre_completo}
-                                            </Typography>
+                                                CUIT: {solicitud.solicitantes?.cuit || '-'} | 
+                                                Contacto: {getNombreContacto(solicitud)}                                            
+                                                </Typography>
                                         </Box>
                                         <Box sx={{ display: 'flex', gap: 1 }}>
                                             <Chip 
@@ -486,66 +445,6 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
                     )}
                 </DialogContent>
             </Dialog>
-            
-            {/* Modal de Configuración */}
-            <Dialog 
-                open={modalConfigOpen} 
-                onClose={() => setModalConfigOpen(false)} 
-                maxWidth="md" 
-                fullWidth
-            >
-                <DialogTitle>
-                    <Typography variant="h5" component="div">
-                        Configuración de Cuenta
-                    </Typography>
-                </DialogTitle>
-                <DialogContent>
-                    <Box sx={{ mt: 2 }}>
-                        {/* Email de Recuperación */}
-                        <EmailRecuperacionForm />
-                        
-                        {/* Separador */}
-                        <Box sx={{ my: 4, borderBottom: 1, borderColor: 'divider' }} />
-                        
-                        {/* Desactivar Cuenta */}
-                        <Card variant="outlined">
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom color="error">
-                                    Zona de Peligro
-                                </Typography>
-                                
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                    Una vez que desactives tu cuenta, no podrás acceder al sistema hasta que la reactives.
-                                </Typography>
-            
-                                <Button
-                                    variant="outlined"
-                                    color="error"
-                                    onClick={() => {
-                                        setModalConfigOpen(false);
-                                        setModalDesactivarOpen(true);
-                                    }}
-                                    sx={{ mt: 2 }}
-                                >
-                                    Desactivar Mi Cuenta
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    </Box>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setModalConfigOpen(false)}>
-                        Cerrar
-                    </Button>
-                </DialogActions>
-            </Dialog>
-            
-            {/* Modal de Desactivar Cuenta */}
-            <DesactivarCuentaModal
-                open={modalDesactivarOpen}
-                onClose={() => setModalDesactivarOpen(false)}
-                onConfirm={handleDesactivarCuenta}
-            />
         </Box>
     );
 }
@@ -748,7 +647,7 @@ function BCRAStep({ infoBCRA }: any) {
                         <Typography variant="body2" color="text.secondary">
                             <strong>Situación:</strong> {ent.situacionDesc} | 
                             <strong> Monto:</strong> ${ent.monto.toLocaleString()}k | 
-                            <strong> Días atraso:</strong> {ent.diasAtraso || 'N/A'}
+                            <strong> Días atraso:</strong> {ent.diasAtraso || 'No aplica'}
                         </Typography>
                         {ent.refinanciaciones && (
                             <Chip label="Refinanciaciones" size="small" color="warning" sx={{ mt: 0.5, mr: 0.5 }} />

@@ -156,7 +156,7 @@ export default function LoginForm() {
     }
 
     if (nueva_contrasena.length < 6) {
-      setRecuperarMessage('La contraseña debe tener al menos 6 caracteres');
+      setRecuperarMessage('La contraseña debe tener al menos 8 caracteres');
       return;
     }
 
@@ -321,7 +321,7 @@ export default function LoginForm() {
                 nueva_contrasena: e.target.value
               }))}
               margin="normal"
-              helperText="Mínimo 6 caracteres"
+              helperText="Mínimo 8 caracteres"
             />
 
             <TextField
