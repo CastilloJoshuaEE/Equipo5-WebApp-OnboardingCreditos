@@ -69,13 +69,16 @@ export interface InfoBCRA {
 export interface RevisionData {
     solicitud: SolicitudOperador;
     documentos: Documento[];
-    scoring: Scoring;
-    infoBCRA: InfoBCRA | null;
+    infoBCRA: any;
+    scoring: any;
+    solicitante: any;
 }
 
 export interface FiltrosOperador {
-    estado: string;
-    nivel_riesgo: string;
-    fecha_desde: string;
-    fecha_hasta: string;
+    estado?: string;
+    nivel_riesgo?: string;
+    fecha_desde?: string;
+    fecha_hasta?: string;
+    numero_solicitud?: string;
+    dni?: string;
 }

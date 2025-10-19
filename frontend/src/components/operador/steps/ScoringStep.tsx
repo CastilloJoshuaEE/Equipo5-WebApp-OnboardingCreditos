@@ -1,6 +1,5 @@
 import React from 'react';
-import { Box, Typography, Card, CardContent, Chip, LinearProgress } from '@mui/material';
-import Grid from '@mui/material/Unstable_Grid2';
+import { Box, Grid, Typography, Card, CardContent, Chip, LinearProgress } from '@mui/material';
 
 interface ScoringStepProps {
     scoring: any;
@@ -43,7 +42,7 @@ export default function ScoringStep({ scoring }: ScoringStepProps) {
 
             <Grid container spacing={2}>
                 {Object.entries(scoring?.desglose || {}).map(([tipo, info]: [string, any]) => (
-                    <Grid item xs={12} md={6} key={tipo}>
+                                        <Grid size={{ xs: 12, md: 6 }} key={tipo}>
                         <Card variant="outlined">
                             <CardContent>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>

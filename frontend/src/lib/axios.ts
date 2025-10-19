@@ -64,7 +64,7 @@ axiosInstance.interceptors.response.use(
           }
         }
 
-        console.warn("⚠️ Token expirado → emitiendo evento de sesión vencida");
+        console.warn(". Token expirado → emitiendo evento de sesión vencida");
         sessionEmitter.emit("expired");
       } catch (e) {
         console.error("Error al refrescar token:", e);

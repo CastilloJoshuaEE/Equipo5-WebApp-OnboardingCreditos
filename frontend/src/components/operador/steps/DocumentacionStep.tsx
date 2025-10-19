@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { getSession } from 'next-auth/react';
 import {
     Box,
     Typography,
@@ -94,6 +95,59 @@ export default function DocumentacionStep({
 
     // Obtener todos los tipos de documentos únicos que existen en la solicitud
     const tiposDocumentosExistentes = [...new Set(documentos.map(doc => doc.tipo))];
+    const handleDescargarDocumento = async (documento: Documento) => {
+        try {
+            const session = await getSession();
+            
+            if (!session?.accessToken) {
+                throw new Error('No estás autenticado');
+            }
+
+            console.log('📥 Descargando documento:', documento.nombre_archivo);
+
+            // Primero intentar con el endpoint de descarga
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${API_URL}/documentos/${documento.id}/descargar`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${session.accessToken}`,
+                },
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = documento.nombre_archivo;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                console.log('. Documento descargado exitosamente');
+            } else {
+                // Fallback: usar URL directa de Supabase
+                console.log('. Usando fallback de Supabase Storage');
+                const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+                window.open(supabaseUrl, '_blank');
+            }
+        } catch (error) {
+            console.error('❌ Error descargando documento:', error);
+            // Fallback final
+            const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+            window.open(supabaseUrl, '_blank');
+        }
+    };
+
+    // FUNCIÓN CORREGIDA: Ver documento específico
+    const handleVerDocumento = (documento: Documento) => {
+        console.log('👀 Abriendo documento:', documento.nombre_archivo);
+        const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+        window.open(supabaseUrl, '_blank');
+    };
 
     return (
         <Box>
@@ -226,21 +280,12 @@ export default function DocumentacionStep({
                                             variant="contained"
                                             size="small"
                                             startIcon={<CloudDownload />}
-                                            onClick={() => onDescargarDocumento(documento)}
+onClick={() => handleDescargarDocumento(documento)}
                                             fullWidth
                                         >
                                             DESCARGAR
                                         </Button>
                                     </Stack>
-
-                                    {/* Información adicional si existe */}
-                                    {documento.informacion_extraida && (
-                                        <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                                            <Typography variant="caption" color="text.secondary">
-                                                <strong>Información extraída:</strong> Disponible
-                                            </Typography>
-                                        </Box>
-                                    )}
                                 </CardContent>
                             </Card>
                         </Grid>
@@ -248,21 +293,6 @@ export default function DocumentacionStep({
                 </Grid>
             )}
 
-            {/* Información de debugging (solo en desarrollo) */}
-            {process.env.NODE_ENV === 'development' && (
-                <Alert severity="info" sx={{ mt: 2 }}>
-                    <Typography variant="subtitle2">Información de Debug:</Typography>
-                    <Typography variant="body2">
-                        Documentos recibidos: {documentos.length}
-                    </Typography>
-                    <Typography variant="body2">
-                        Tipos de documentos: {tiposDocumentosExistentes.join(', ')}
-                    </Typography>
-                    <Typography variant="body2">
-                        Scoring total: {scoring?.total || 0}%
-                    </Typography>
-                </Alert>
-            )}
         </Box>
     );
 }
