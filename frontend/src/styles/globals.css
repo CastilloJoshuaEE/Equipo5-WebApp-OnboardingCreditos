@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* Variables */
 :root {
   /* FontFamily */
@@ -95,4 +96,37 @@ ul {
 a {
   text-decoration: none;
   color: inherit;
+=======
+/* src/styles/globals.css */
+:root {
+  --bg: #F6EDF4;
+  --card-bg: #fff;
+  --accent: #C8A7E0;
+  --text: #213126;
+}
+
+html, body, #__next {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  font-family: "Roboto", Arial, sans-serif;
+  color: var(--text);
+}
+
+/* Reset images to be responsive */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Small utility */
+.center-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+>>>>>>> origin/dev-estilosloginregister404
 }

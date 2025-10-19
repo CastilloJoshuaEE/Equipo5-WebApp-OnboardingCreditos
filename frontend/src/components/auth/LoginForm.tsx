@@ -1,115 +1,104 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { signIn } from 'next-auth/react';
+import { Box, Typography, TextField, Button } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { Box, Button, TextField, Typography, Alert } from '@mui/material';
-import { loginSchema } from '@/schemas/auth.schema';
-import type { LoginInput } from '@/types/auth.types';
 
 export default function LoginForm() {
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  
-  const { 
-    register, 
-    handleSubmit, 
-    formState: { errors } 
-  } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema)
-  });
-
-  const onSubmit: SubmitHandler<LoginInput> = async (data) => {
-    try {
-      setIsLoading(true);
-      setError('');
-
-      console.log('. Enviando credenciales:', data.email);
-
-      const result = await signIn('credentials', {
-        email: data.email,
-        password: data.password,
-        redirect: false,
-      });
-
-      console.log('. Resultado del signIn:', result);
-
-      if (result?.error) {
-        console.error('. Error en signIn:', result.error);
-        setError('Credenciales inválidas. Por favor verifica tu email y contraseña.');
-        return;
-      }
-
-      // Login exitoso
-      console.log('. Login exitoso, redirigiendo...');
-      router.refresh();
-      router.push('/');
-      
-    } catch (error) {
-      console.error('. Login error:', error);
-      setError('Error al iniciar sesión. Por favor intenta nuevamente.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)} width="100%" maxWidth={400} p={3}>
-      <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
-        Iniciar Sesión
+    <Box
+      sx={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: '16px',
+        boxShadow: '0px 4px 20px 0px #0000001A',
+        py: 2,
+        px: { xs: 2, md: 4 },
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        mb: 2,
+      }}
+    >
+
+      <Typography
+        variant="h1"
+        sx={{
+          fontSize: '1.25rem',
+          fontWeight: 600,
+          textAlign: 'center',
+          mb: 1,
+          color: '#213126',
+        }}
+      >
+        Iniciar sesión
       </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
+
+      <Typography
+        variant="h3"
+        sx={{
+          fontSize: '1rem',
+          textAlign: 'center',
+          color: '#9ba39c',
+          mb: 2,
+        }}
+      >
+        Ingresa tus credenciales para acceder a tu cuenta
+      </Typography>
+
 
       <TextField
-        {...register('email')}
-        label="Correo electrónico"
+        label="Email"
+        placeholder="Email"
         type="email"
         fullWidth
-        margin="normal"
-        error={!!errors.email}
-        helperText={errors.email?.message}
-        disabled={isLoading}
+        sx={{ mb: 2 }}
       />
-
       <TextField
-        {...register('password')}
-        type="password"
         label="Contraseña"
+        placeholder="Password"
+        type="password"
         fullWidth
-        margin="normal"
-        error={!!errors.password}
-        helperText={errors.password?.message}
-        disabled={isLoading}
+        sx={{ mb: 3 }}
       />
 
+   
       <Button
-        type="submit"
         variant="contained"
         fullWidth
-        size="large"
-        disabled={isLoading}
-        sx={{ mt: 2 }}
+        sx={{
+          backgroundColor: '#CDB9D8',
+          color: '#68756b',
+          fontSize: '1rem',
+          letterSpacing: '0.46px',
+          textTransform: 'uppercase',
+          mb: 2,
+          '&:hover': {
+            backgroundColor: '#bca4c7',
+          },
+        }}
       >
-        {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+        Inicia sesión
       </Button>
 
-      <Button
-        variant="text"
-        fullWidth
-        sx={{ mt: 1 }}
-        onClick={() => router.push('/register')}
-        disabled={isLoading}
-      >
-        ¿No tienes cuenta? Regístrate
-      </Button>
+    
+      <Typography sx={{ textAlign: 'center', fontSize: '0.875rem', color: '#9ba39c' }}>
+        ¿No tenés cuenta?{' '}
+        <Box
+          component="span"
+          sx={{
+            color: '#DA68F2',
+            fontSize: '1rem',
+            letterSpacing: '0.15px',
+            cursor: 'pointer',
+          }}
+          onClick={() => router.push('/register')}
+        >
+          Registrate aquí
+        </Box>
+      </Typography>
     </Box>
   );
 }
