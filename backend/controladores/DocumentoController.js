@@ -269,7 +269,7 @@ static async extraerInformacionDocumento(pdfUrl, tipo, buffer) {
       return null;
     }
   }
-
+ // Modificar el método de verificación Didit para usar simulación en desarrollo
   static async iniciarVerificacionDidit(solicitudId, documentoId, archivoBuffer) {
     try {
       console.log(`🔐 Iniciando verificación Didit para documento: ${documentoId}`);
@@ -279,16 +279,36 @@ static async extraerInformacionDocumento(pdfUrl, tipo, buffer) {
       if (resultado.success) {
         const estadoDocumento = (resultado.data.id_verification?.status === 'Approved') ? 'validado' : 'rechazado';
         
+        // Construir información extraída simulada para desarrollo
+        let informacionExtraida = null;
+        if (process.env.NODE_ENV === 'development' && resultado.data.id_verification) {
+          informacionExtraida = {
+            dni: resultado.data.id_verification.document_number || '0977777777',
+            sexo: resultado.data.id_verification.gender || 'M',
+            nombres: resultado.data.id_verification.full_name?.split(' ').slice(0, 2).join(' ') || 'JOSHUA JAVIER',
+            apellido: resultado.data.id_verification.full_name?.split(' ').slice(2).join(' ') || 'CASTILLO',
+            ejemplar: 'A',
+            domicilio: 'Dirección de Javier AV. CORRIENTES 1234, PISO 5, DEPTO B',
+            localidad: 'CIUDAD AUTÓNOMA DE BUENOS AIRES',
+            codigo_postal: 'C1043AAB',
+            fecha_emision: '2020-01-20',
+            fecha_nacimiento: resultado.data.id_verification.date_of_birth || '2004-07-01',
+            lugar_nacimiento: 'BUENOS AIRES, CAPITAL FEDERAL',
+            fecha_vencimiento: '2030-01-20'
+          };
+        }
+
         await supabase
           .from('documentos')
           .update({
             estado: estadoDocumento,
             comentarios: `Verificación Didit: ${resultado.data.id_verification?.status}`,
-            validado_en: new Date().toISOString()
+            validado_en: new Date().toISOString(),
+            ...(informacionExtraida && { informacion_extraida: informacionExtraida })
           })
           .eq('id', documentoId);
 
-        // Guardar en verificaciones_kyc
+        // Guardar en verificaciones_kyc con datos simulados para desarrollo
         await DocumentoController.guardarVerificacionKYC(solicitudId, resultado);
         
         console.log(`. Verificación Didit completada: ${estadoDocumento}`);
@@ -297,15 +317,85 @@ static async extraerInformacionDocumento(pdfUrl, tipo, buffer) {
       console.error('. Error en verificación Didit:', error);
     }
   }
-
+  // Modificar guardarVerificacionKYC para desarrollo
   static async guardarVerificacionKYC(solicitudId, resultado) {
     try {
+      let datosVerificacion = resultado.data;
+      
+      // En desarrollo, enriquecer datos con estructura esperada
+      if (process.env.NODE_ENV === 'development') {
+        datosVerificacion = {
+          created_at: new Date().toISOString(),
+          request_id: `simulado_${Date.now()}`,
+          session_id: resultado.data.session_id,
+          id_verification: {
+            age: 21,
+            mrz: {
+              sex: 'M',
+              name: 'JOSHUA JAV',
+              errors: [],
+              country: 'ECU',
+              mrz_key: '081126020004070123402270',
+              surname: 'CASTILLO MEREJILDO',
+              mrz_type: 'TD1',
+              warnings: ['possible truncating'],
+              birth_date: '040701',
+              final_hash: '2',
+              mrz_string: 'I<ECU0811260200<<<<<0943802926\n0407012M3402270ECU<NO<DONANTE2\nCASTILLO<MEREJILDO<<JOSHUA<JAV',
+              expiry_date: '340227',
+              nationality: 'ECU',
+              document_type: 'ID',
+              optional_data: '0943802926',
+              birth_date_hash: '2',
+              document_number: '081126020',
+              optional_data_2: 'NO<DONANTE',
+              personal_number: '0943802926',
+              expiry_date_hash: '0',
+              document_number_hash: '0'
+            },
+            gender: 'M',
+            status: 'Approved',
+            address: null,
+            barcodes: [],
+            warnings: [],
+            full_name: 'Joshua Javier Castillo Merejildo',
+            last_name: 'Castillo Merejildo',
+            back_image: null,
+            first_name: 'Joshua Javier',
+            front_image: 'https://example.com/simulated-front-image.jpg',
+            nationality: 'ECU',
+            extra_fields: {
+              blood_group: 'O+',
+              first_surname: 'Castillo',
+              second_surname: 'Merejildo'
+            },
+            date_of_birth: '2004-07-01',
+            date_of_issue: '2024-02-27',
+            document_type: 'Identity Card',
+            issuing_state: 'ECU',
+            marital_status: 'SINGLE',
+            parsed_address: null,
+            place_of_birth: 'Guayas Guayaquil, Bolivar (Sagrario)',
+            portrait_image: 'https://example.com/simulated-portrait-image.jpg',
+            document_number: '081126020',
+            expiration_date: '2034-02-27',
+            personal_number: '0943802926',
+            formatted_address: null,
+            issuing_state_name: 'Ecuador'
+          },
+          document_analysis: {
+            type: 'DNI',
+            country: 'AR'
+          }
+        };
+      }
+
       const verificacionData = {
         solicitud_id: solicitudId,
         session_id: resultado.data.session_id || `didit_${Date.now()}`,
         proveedor: 'didit',
         estado: (resultado.data.id_verification?.status || 'approved').toLowerCase(),
-        datos_verificacion: resultado.data,
+        datos_verificacion: datosVerificacion,
         created_at: new Date().toISOString(),
         actualizado_en: new Date().toISOString()
       };
@@ -321,6 +411,7 @@ static async extraerInformacionDocumento(pdfUrl, tipo, buffer) {
       console.error('. Error guardando verificación KYC:', error);
     }
   }
+
 
   // Obtener documentos de una solicitud
   static async obtenerDocumentosSolicitud(req, res) {
@@ -459,6 +550,185 @@ static async extraerInformacionDocumento(pdfUrl, tipo, buffer) {
       });
     }
   }
+  // Actualizar documento existente
+static async actualizarDocumento(req, res) {
+  try {
+    const { documento_id } = req.params;
+    const { tipo } = req.body;
+    const archivo = req.file;
+
+    console.log('📁 Actualizando documento:', { documento_id, tipo, archivo: archivo ? archivo.originalname : 'NO ARCHIVO' });
+
+    if (!documento_id || !tipo || !archivo) {
+      return res.status(400).json({
+        success: false,
+        message: 'Documento ID, tipo y archivo son requeridos'
+      });
+    }
+
+    // Obtener documento actual
+    const { data: documentoActual, error: docError } = await supabase
+      .from('documentos')
+      .select('*')
+      .eq('id', documento_id)
+      .single();
+
+    if (docError || !documentoActual) {
+      return res.status(404).json({
+        success: false,
+        message: 'Documento no encontrado'
+      });
+    }
+
+    console.log(`🔄 Actualizando documento ${tipo} con ID: ${documento_id}`);
+
+    // Eliminar archivo anterior del storage
+    try {
+      const { error: deleteError } = await supabase.storage
+        .from('kyc-documents')
+        .remove([documentoActual.ruta_storage]);
+
+      if (deleteError) {
+        console.warn('. No se pudo eliminar archivo anterior:', deleteError.message);
+      } else {
+        console.log('. Archivo anterior eliminado:', documentoActual.ruta_storage);
+      }
+    } catch (storageError) {
+      console.warn('. Error eliminando archivo anterior:', storageError.message);
+    }
+
+    // Subir nuevo archivo
+    const nombreArchivo = await DocumentoController.subirArchivoStorage(archivo, documentoActual.solicitud_id, tipo);
+    const rutaStorage = `documentos/${documentoActual.solicitud_id}/${nombreArchivo}`;
+    
+    const { data: urlData } = supabase.storage
+      .from('kyc-documents')
+      .getPublicUrl(rutaStorage);
+
+    // Extraer información del nuevo documento
+    let informacionExtraida = null;
+    if (archivo.originalname.toLowerCase().endsWith('.pdf')) {
+      informacionExtraida = await DocumentoController.extraerInformacionDocumento(urlData.publicUrl, tipo, archivo.buffer);
+    }
+
+    // Actualizar documento en base de datos
+    const documentoData = {
+      tipo,
+      nombre_archivo: nombreArchivo,
+      ruta_storage: rutaStorage,
+      tamanio_bytes: archivo.size,
+      estado: 'pendiente', // Resetear estado a pendiente
+      informacion_extraida: informacionExtraida,
+      validado_en: null,
+      comentarios: null,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: documento, error: updateError } = await supabase
+      .from('documentos')
+      .update(documentoData)
+      .eq('id', documento_id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('. Error actualizando documento en BD:', updateError);
+      throw updateError;
+    }
+
+    console.log(`. Documento ${tipo} actualizado en BD con ID:`, documento.id);
+
+    // Si es DNI, iniciar nueva verificación
+    if (tipo === 'dni') {
+      await DocumentoController.iniciarVerificacionDidit(documentoActual.solicitud_id, documento.id, archivo.buffer);
+    }
+
+    res.json({
+      success: true,
+      message: 'Documento actualizado exitosamente',
+      data: {
+        documento,
+        url_publica: urlData.publicUrl,
+        informacion_extraida: informacionExtraida
+      }
+    });
+
+  } catch (error) {
+    console.error('. Error en actualizarDocumento:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error interno al actualizar documento'
+    });
+  }
+}
+// Eliminar documento
+static async eliminarDocumento(req, res) {
+  try {
+    const { documento_id } = req.params;
+
+    console.log('🗑️ Eliminando documento:', documento_id);
+
+    if (!documento_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Documento ID es requerido'
+      });
+    }
+
+    // Obtener documento
+    const { data: documento, error: docError } = await supabase
+      .from('documentos')
+      .select('*')
+      .eq('id', documento_id)
+      .single();
+
+    if (docError || !documento) {
+      return res.status(404).json({
+        success: false,
+        message: 'Documento no encontrado'
+      });
+    }
+
+    // Eliminar archivo del storage
+    try {
+      const { error: deleteError } = await supabase.storage
+        .from('kyc-documents')
+        .remove([documento.ruta_storage]);
+
+      if (deleteError) {
+        console.warn('. No se pudo eliminar archivo:', deleteError.message);
+      } else {
+        console.log('. Archivo eliminado:', documento.ruta_storage);
+      }
+    } catch (storageError) {
+      console.warn('. Error eliminando archivo:', storageError.message);
+    }
+
+    // Eliminar registro de la base de datos
+    const { error: deleteDbError } = await supabase
+      .from('documentos')
+      .delete()
+      .eq('id', documento_id);
+
+    if (deleteDbError) {
+      throw deleteDbError;
+    }
+
+    console.log(`. Documento eliminado: ${documento_id}`);
+
+    res.json({
+      success: true,
+      message: 'Documento eliminado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('. Error en eliminarDocumento:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error interno al eliminar documento'
+    });
+  }
+}
 }
 
 module.exports = DocumentoController;

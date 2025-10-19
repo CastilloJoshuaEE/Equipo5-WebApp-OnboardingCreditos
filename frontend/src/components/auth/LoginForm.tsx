@@ -15,8 +15,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Stack
+  Stack,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { loginSchema } from '@/schemas/auth.schema';
 import type { LoginInput } from '@/types/auth.types';
 
@@ -28,11 +31,14 @@ export default function LoginForm() {
   const [emailRecuperacion, setEmailRecuperacion] = useState('');
   const [recuperarLoading, setRecuperarLoading] = useState(false);
   const [recuperarMessage, setRecuperarMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [recuperarContrasenaData, setRecuperarContrasenaData] = useState({
     email: '',
     nueva_contrasena: '',
     confirmar_contrasena: ''
   });
+  const [showNuevaContrasena, setShowNuevaContrasena] = useState(false);
+  const [showConfirmarContrasena, setShowConfirmarContrasena] = useState(false);
   const router = useRouter();
   
   const { 
@@ -42,6 +48,18 @@ export default function LoginForm() {
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema)
   });
+
+  const handleClickShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const handleClickShowNuevaContrasena = () => {
+    setShowNuevaContrasena(!showNuevaContrasena);
+  };
+
+  const handleClickShowConfirmarContrasena = () => {
+    setShowConfirmarContrasena(!showConfirmarContrasena);
+  };
 
   const onSubmit: SubmitHandler<LoginInput> = async (data) => {
     try {
@@ -282,7 +300,7 @@ export default function LoginForm() {
           {...register('password')}
           label="Contraseña"
           placeholder="Password"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           fullWidth
           margin="normal"
           error={!!errors.password}
@@ -293,6 +311,20 @@ export default function LoginForm() {
             '& .MuiOutlinedInput-root': {
               borderRadius: '8px',
             }
+          }}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label="toggle password visibility"
+                  onClick={handleClickShowPassword}
+                  edge="end"
+                  sx={{ color: '#68756b' }}
+                >
+                  {showPassword ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
+              </InputAdornment>
+            ),
           }}
         />
 
@@ -402,7 +434,7 @@ export default function LoginForm() {
 
             <TextField
               label="Nueva Contraseña"
-              type="password"
+              type={showNuevaContrasena ? 'text' : 'password'}
               fullWidth
               value={recuperarContrasenaData.nueva_contrasena}
               onChange={(e) => setRecuperarContrasenaData(prev => ({
@@ -411,11 +443,25 @@ export default function LoginForm() {
               }))}
               margin="normal"
               helperText="Mínimo 8 caracteres"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleClickShowNuevaContrasena}
+                      edge="end"
+                      sx={{ color: '#68756b' }}
+                    >
+                      {showNuevaContrasena ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
 
             <TextField
               label="Confirmar Contraseña"
-              type="password"
+              type={showConfirmarContrasena ? 'text' : 'password'}
               fullWidth
               value={recuperarContrasenaData.confirmar_contrasena}
               onChange={(e) => setRecuperarContrasenaData(prev => ({
@@ -423,6 +469,20 @@ export default function LoginForm() {
                 confirmar_contrasena: e.target.value
               }))}
               margin="normal"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleClickShowConfirmarContrasena}
+                      edge="end"
+                      sx={{ color: '#68756b' }}
+                    >
+                      {showConfirmarContrasena ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
           </Stack>
         </DialogContent>

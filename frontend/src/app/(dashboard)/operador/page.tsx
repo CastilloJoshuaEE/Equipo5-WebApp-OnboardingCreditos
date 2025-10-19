@@ -27,6 +27,7 @@ import {
 // Cambiar esta importación
 import Grid from '@mui/material/Grid';
 import { Documento } from '@/services/documentos.service';
+
 interface SolicitudOperador {
     id: string;
     numero_solicitud: string;
@@ -47,17 +48,27 @@ interface SolicitudOperador {
     };
 }
 
+// Agregar interfaz para datos de revisión
+interface RevisionData {
+    solicitud: any;
+    documentos: Documento[];
+    infoBCRA: any;
+    scoring: any;
+    solicitante: any;
+}
+
 export default function OperadorDashboard() {
     const [solicitudes, setSolicitudes] = useState<SolicitudOperador[]>([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
-const getNombreContacto = (solicitud: SolicitudOperador) => {
-    const usuario = Array.isArray(solicitud.solicitantes.usuarios) 
-        ? solicitud.solicitantes.usuarios[0] 
-        : solicitud.solicitantes.usuarios;
-    return usuario?.nombre_completo || 'Sin contacto';
-};
+    
+    const getNombreContacto = (solicitud: SolicitudOperador) => {
+        const usuario = Array.isArray(solicitud.solicitantes.usuarios) 
+            ? solicitud.solicitantes.usuarios[0] 
+            : solicitud.solicitantes.usuarios;
+        return usuario?.nombre_completo || 'Sin contacto';
+    };
 
     const [filtros, setFiltros] = useState({
         estado: '',
@@ -67,56 +78,61 @@ const getNombreContacto = (solicitud: SolicitudOperador) => {
         numero_solicitud: '',
         dni: ''
     });
-    const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<any>(null);
+    const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<RevisionData | null>(null);
     const [modalRevision, setModalRevision] = useState(false);
 
+    // FUNCIÓN CORREGIDA: Descargar documento específico
     const handleDescargarDocumento = async (documento: Documento) => {
-     try {
-         const session = await getSession();
-         
-         if (!session?.accessToken) {
-           throw new Error('No estás autenticado');
-         }
-   
-         // Obtener la URL de descarga desde Supabase Storage
-         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-         const response = await fetch(`${API_URL}/documentos/${documento.id}/descargar`, {
-           method: 'GET',
-           headers: {
-             'Authorization': `Bearer ${session.accessToken}`,
-           },
-         });
-   
-         if (!response.ok) {
-           // Si no hay endpoint específico, usar la URL pública de Supabase
-              const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ;
-   const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
-           window.open(supabaseUrl, '_blank');
-           return;
-         }
-   
-         const blob = await response.blob();
-         const url = window.URL.createObjectURL(blob);
-         const link = document.createElement('a');
-         link.href = url;
-         link.download = documento.nombre_archivo;
-         document.body.appendChild(link);
-         link.click();
-         document.body.removeChild(link);
-         window.URL.revokeObjectURL(url);
-       } catch (error) {
-         console.error('Error descargando documento:', error);
-         // Fallback: abrir en nueva pestaña
-      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ;
-   const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
-         window.open(supabaseUrl, '_blank');
-       }
+        try {
+            const session = await getSession();
+            
+            if (!session?.accessToken) {
+                throw new Error('No estás autenticado');
+            }
+
+            console.log('📥 Descargando documento:', documento.nombre_archivo);
+
+            // Primero intentar con el endpoint de descarga
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${API_URL}/documentos/${documento.id}/descargar`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${session.accessToken}`,
+                },
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = documento.nombre_archivo;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                console.log('✅ Documento descargado exitosamente');
+            } else {
+                // Fallback: usar URL directa de Supabase
+                console.log('⚠️ Usando fallback de Supabase Storage');
+                const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+                window.open(supabaseUrl, '_blank');
+            }
+        } catch (error) {
+            console.error('❌ Error descargando documento:', error);
+            // Fallback final
+            const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+            window.open(supabaseUrl, '_blank');
+        }
     };
 
-    const handleVerDocumento = (documento: any) => {
-        // Abrir documento en nueva pestaña
-        const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ;
-const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+    // FUNCIÓN CORREGIDA: Ver documento específico
+    const handleVerDocumento = (documento: Documento) => {
+        console.log('👀 Abriendo documento:', documento.nombre_archivo);
+        const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
         window.open(supabaseUrl, '_blank');
     };
 
@@ -126,16 +142,13 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
 
     const handleLogout = async () => {
         try {
-            // Obtener la sesión actual
             const currentSession = await getSession();
             
-            // Limpiar todos los borradores del usuario actual
             if (currentSession?.user?.id) {
                 const userId = currentSession.user.id;
                 localStorage.removeItem(`solicitud_borrador_${userId}`);
-                console.log('Borrador eliminado para usuario:', userId);
                 
-                // Opcional: Limpiar cualquier otro dato relacionado con el usuario
+                // Limpiar todos los borradores
                 const keysToRemove = [];
                 for (let i = 0; i < localStorage.length; i++) {
                     const key = localStorage.key(i);
@@ -144,14 +157,11 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
                     }
                 }
                 
-                // Eliminar todos los borradores (por si hay múltiples)
                 keysToRemove.forEach(key => {
                     localStorage.removeItem(key);
-                    console.log('Eliminado:', key);
                 });
             }
 
-            // Cerrar sesión
             await signOut({ 
                 callbackUrl: '/login',
                 redirect: true 
@@ -159,7 +169,6 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
 
         } catch (error) {
             console.error('Error durante el logout:', error);
-            // Fallback: cerrar sesión aunque falle la limpieza
             await signOut({ callbackUrl: '/login' });
         }
     };
@@ -197,11 +206,6 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
             } else {
                 const errorText = await response.text();
                 console.error('. Error cargando dashboard:', response.status, errorText);
-                
-                // Mostrar alerta al usuario
-                if (response.status === 404) {
-                    console.error('. Ruta no encontrada - Verificar backend');
-                }
             }
         } catch (error) {
             console.error('. Error cargando dashboard:', error);
@@ -217,9 +221,8 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
             
-            // CAMBIAR: De POST a GET
             const response = await fetch(`${API_URL}/operador/solicitudes/${solicitudId}/revision`, {
-                method: 'GET', // CAMBIAR de POST a GET
+                method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session.accessToken}`
@@ -275,7 +278,6 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
             {/* Filtros */}
             <Card sx={{ mb: 3, p: 2 }}>
                 <Grid container spacing={2}>
-
                     <Grid size={{ xs: 12, md: 3 }}>
                         <FormControl fullWidth>
                             <InputLabel>Estado</InputLabel>
@@ -335,7 +337,6 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
                             onChange={(e) => setFiltros({...filtros, numero_solicitud: e.target.value})}
                         />
                     </Grid>
-
                     <Grid size={{ xs: 12, md: 3 }}>
                         <TextField
                             label="DNI Solicitante"
@@ -348,12 +349,11 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
                         <Button
                             variant="contained"
                             fullWidth
-                            onClick={cargarDashboard} // Ejecuta la carga con los filtros actuales
+                            onClick={cargarDashboard}
                         >
                             Buscar
                         </Button>
                     </Grid>
-
                 </Grid>
             </Card>
 
@@ -363,8 +363,7 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
             ) : (
                 <Grid container spacing={2}>
                     {solicitudes.map((solicitud) => (
-                        <Grid size={{ xs: 12 }}  
-                            key={solicitud.id}>
+                        <Grid size={{ xs: 12 }} key={solicitud.id}>
                             <Card variant="outlined">
                                 <CardContent>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -378,7 +377,7 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
                                             <Typography variant="body2" color="text.secondary">
                                                 CUIT: {solicitud.solicitantes?.cuit || '-'} | 
                                                 Contacto: {getNombreContacto(solicitud)}                                            
-                                                </Typography>
+                                            </Typography>
                                         </Box>
                                         <Box sx={{ display: 'flex', gap: 1 }}>
                                             <Chip 
@@ -449,6 +448,7 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
     );
 }
 
+
 // Componente interno para el modal de revisión
 function RevisionModalContent({ data, onClose, onDescargarDocumento, onVerDocumento }: any) {
     const [pasoActivo, setPasoActivo] = useState(0);
@@ -502,7 +502,7 @@ function RevisionModalContent({ data, onClose, onDescargarDocumento, onVerDocume
         </Box>
     );
 }
-
+// Componente DocumentacionStep - CORREGIDO
 function DocumentacionStep({ documentos, scoring, onDescargarDocumento, onVerDocumento }: any) {
     return (
         <Box>
@@ -517,12 +517,65 @@ function DocumentacionStep({ documentos, scoring, onDescargarDocumento, onVerDoc
             />
 
             <Grid container spacing={2}>
-                {Object.entries(scoring?.desglose || {}).map(([tipo, info]: [string, any]) => (
-                    <Grid size={{ xs: 12, md: 6 }} key={tipo}>
+                {documentos && documentos.map((documento: Documento) => (
+                    <Grid size={{ xs: 12, md: 6 }} key={documento.id}>
                         <Card variant="outlined">
                             <CardContent>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                                     <Typography variant="subtitle1" sx={{ textTransform: 'capitalize' }}>
+                                        {documento.tipo.replace('_', ' ')}
+                                    </Typography>
+                                    <Chip 
+                                        label={documento.estado}
+                                        color={
+                                            documento.estado === 'validado' ? 'success' : 
+                                            documento.estado === 'rechazado' ? 'error' : 'warning'
+                                        }
+                                        size="small"
+                                    />
+                                </Box>
+                                
+                                <Typography variant="body2" color="text.secondary" noWrap>
+                                    {documento.nombre_archivo}
+                                </Typography>
+                                
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                    Subido: {new Date(documento.created_at).toLocaleDateString()}
+                                </Typography>
+
+                                <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                                    <Button 
+                                        onClick={() => onDescargarDocumento(documento)} 
+                                        variant="outlined" 
+                                        size="small"
+                                    >
+                                        Descargar
+                                    </Button>
+                                    <Button 
+                                        onClick={() => onVerDocumento(documento)} 
+                                        variant="outlined" 
+                                        size="small"
+                                    >
+                                        Ver
+                                    </Button>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                ))}
+            </Grid>
+
+            {/* Mostrar también el scoring si está disponible */}
+            {scoring?.desglose && (
+                <Box sx={{ mt: 3 }}>
+                    <Typography variant="h6" gutterBottom>
+                        Puntuación por Documentos
+                    </Typography>
+                    <Grid container spacing={1}>
+                        {Object.entries(scoring.desglose).map(([tipo, info]: [string, any]) => (
+                            <Grid size={{ xs: 12, md: 6 }} key={tipo}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1 }}>
+                                    <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
                                         {tipo.replace('_', ' ')}
                                     </Typography>
                                     <Chip 
@@ -531,36 +584,14 @@ function DocumentacionStep({ documentos, scoring, onDescargarDocumento, onVerDoc
                                         size="small"
                                     />
                                 </Box>
-                                <Typography variant="body2" color="text.secondary">
-                                    Estado: {info.estado}
-                                </Typography>
-                                {info.documento_id && (
-                                    <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                                        <Button 
-                                            onClick={() => onDescargarDocumento(info)} 
-                                            variant="outlined" 
-                                            size="small"
-                                        >
-                                            Descargar
-                                        </Button>
-                                        <Button 
-                                            onClick={() => onVerDocumento(info)} 
-                                            variant="outlined" 
-                                            size="small"
-                                        >
-                                            Ver 
-                                        </Button>
-                                    </Box>
-                                )}
-                            </CardContent>
-                        </Card>
+                            </Grid>
+                        ))}
                     </Grid>
-                ))}
-            </Grid>
+                </Box>
+            )}
         </Box>
     );
 }
-
 function BCRAStep({ infoBCRA }: any) {
     if (!infoBCRA) {
         return (
@@ -598,12 +629,6 @@ function BCRAStep({ infoBCRA }: any) {
             <Typography variant="h6" gutterBottom>
                 Información BCRA - {datosProcesados.denominacion}
             </Typography>
-            
-            {infoBCRA.sinSSL && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                    <strong>Modo desarrollo:</strong> Consulta realizada sin verificación SSL
-                </Alert>
-            )}
             
             <Grid container spacing={2}>
                 <Grid size={{ xs: 12, md: 4 }}>  

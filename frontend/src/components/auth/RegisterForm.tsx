@@ -16,7 +16,10 @@ import {
   FormControlLabel,
   Checkbox,
   Fade,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { registerSchema, RegisterInput } from '@/schemas/auth.schema';
 import { UserRole } from '@/types/auth.types';
 
@@ -24,6 +27,7 @@ export default function RegisterForm() {
   const [error, setError] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +45,10 @@ export default function RegisterForm() {
   });
 
   const rol = watch('rol');
+
+  const handleClickShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
 
   const getBlock2Content = () => {
     switch (rol) {
@@ -200,12 +208,26 @@ export default function RegisterForm() {
             />
             <TextField 
               {...register('password')} 
-              type="password" 
+              type={showPassword ? 'text' : 'password'}
               label="Contraseña"
               placeholder="Password" 
               fullWidth 
               error={!!errors.password}
               helperText={errors.password?.message}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleClickShowPassword}
+                      edge="end"
+                      sx={{ color: '#68756b' }}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
           </Box>
           <Box sx={{ mt: 2 }}>

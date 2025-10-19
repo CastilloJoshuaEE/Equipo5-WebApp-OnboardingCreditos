@@ -47,71 +47,95 @@ class DiditService {
     }
   }
 
-  // Verificación de identidad standalone
-  async verifyIdentity(archivoBuffer) {
-    try {
-      console.log('. Iniciando verificación de identidad con Didit...');
-      
-      // Crear FormData correctamente
-      const FormData = require('form-data');
-      const formData = new FormData();
-      
-      formData.append('front_image', archivoBuffer, {
-        filename: 'documento_dni.pdf',
-        contentType: 'application/pdf'
-      });
-      
-      formData.append('perform_document_liveness', 'true');
-      formData.append('vendor_data', 'identity_verification_pyme');
-
-      console.log('. Enviando documento a Didit...');
-      
-      const response = await axios.post(`${this.baseURL}/id-verification/`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'X-Api-Key': this.apiKey,
-          ...formData.getHeaders() // Esto es crucial para FormData
-        },
-        timeout: 30000,
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity
-      });
-
-      console.log('. Respuesta de Didit recibida');
-      
-      // MEJORA: Estructurar mejor la respuesta
-      const responseData = response.data;
+async verifyIdentity(archivoBuffer) {
+  try {
+    console.log('. Iniciando verificación de identidad con Didit...');
+    
+    // SIMULACIÓN EN MODO DESARROLLO
+    if (process.env.NODE_ENV === 'development') {
+      console.log('. 🛠️  MODO DESARROLLO: Simulando verificación Didit');
       
       return {
         success: true,
         data: {
-          session_id: responseData.session_id || `didit_${Date.now()}`,
+          session_id: `didit_dev_${Date.now()}`,
           id_verification: {
-            status: responseData.status || 'Approved',
-            score: responseData.score || 0.95,
-            verification_date: new Date().toISOString()
+            status: 'Approved',
+            score: 0.95,
+            verification_date: new Date().toISOString(),
+            document_type: 'DNI',
+            document_number: '0977777777',
+            full_name: 'JOSHUA JAVIER CASTILLO',
+            birth_date: '2004-07-01',
+            nationality: 'AR'
           },
-          document_analysis: responseData.document_analysis || {
+          document_analysis: {
             type: 'DNI',
             country: 'AR'
-          },
-          ...responseData // Incluir todos los datos originales
+          }
         }
       };
-    } catch (error) {
-      console.error('. Error detallado en verificación Didit:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers
-      });
-      
-      return {
-        success: false,
-        error: error.response?.data || error.message
-      };
     }
+
+    // CÓDIGO ORIGINAL PARA PRODUCCIÓN
+    const FormData = require('form-data');
+    const formData = new FormData();
+    
+    formData.append('front_image', archivoBuffer, {
+      filename: 'documento_dni.pdf',
+      contentType: 'application/pdf'
+    });
+    
+    formData.append('perform_document_liveness', 'true');
+    formData.append('vendor_data', 'identity_verification_pyme');
+
+    console.log('. Enviando documento a Didit...');
+    
+    const response = await axios.post(`${this.baseURL}/id-verification/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'X-Api-Key': this.apiKey,
+        ...formData.getHeaders()
+      },
+      timeout: 30000,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
+    });
+
+    console.log('. Respuesta de Didit recibida');
+    
+    const responseData = response.data;
+    
+    return {
+      success: true,
+      data: {
+        session_id: responseData.session_id || `didit_${Date.now()}`,
+        id_verification: {
+          status: responseData.status || 'Approved',
+          score: responseData.score || 0.95,
+          verification_date: new Date().toISOString()
+        },
+        document_analysis: responseData.document_analysis || {
+          type: 'DNI',
+          country: 'AR'
+        },
+        ...responseData
+      }
+    };
+  } catch (error) {
+    console.error('. Error detallado en verificación Didit:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      headers: error.response?.headers
+    });
+    
+    return {
+      success: false,
+      error: error.response?.data || error.message
+    };
   }
+}
   // Screening AML
   async performAMLscreening(userData) {
     try {
