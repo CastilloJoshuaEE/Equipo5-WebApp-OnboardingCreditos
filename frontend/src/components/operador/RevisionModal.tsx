@@ -73,8 +73,8 @@ export default function RevisionModal({ open, onClose, data }: RevisionModalProp
             setLoading(true);
             
             // Usar URL directa de Supabase Storage
-const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ;
-const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;            
+            const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;            
             // Crear enlace temporal para descarga
             const link = document.createElement('a');
             link.href = supabaseUrl;
@@ -93,8 +93,9 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
 
     const handleVerDocumento = (documento: any) => {
         // Abrir documento en nueva pestaña
-const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ;
-const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;        window.open(supabaseUrl, '_blank');
+        const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+        window.open(supabaseUrl, '_blank');
     };
 
     return (
@@ -172,10 +173,8 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
                     
                     {pasoActivo === 4 && (
                         <DecisionStep 
-                            onAbrirAccionModal={() => {
-                                // Lógica para tomar decisión
-                                onClose();
-                            }}
+                            solicitud={data.solicitud}
+                            onClose={onClose}
                         />
                     )}
                 </Box>
@@ -185,12 +184,7 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
                 <Button onClick={onClose} variant="outlined">
                     Cerrar
                 </Button>
-                <Button onClick={handleDescargarDocumento} variant="outlined">
-                    Descargar
-                </Button>
-                       <Button onClick={handleVerDocumento} variant="outlined">
-                    Ver 
-                </Button>                   
+                
                 <Box sx={{ flex: 1 }} />
                 
                 <Button 

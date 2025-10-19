@@ -13,12 +13,14 @@ export default function DecisionStep({ solicitud, onClose }: DecisionStepProps) 
         // Lógica para aprobar solicitud
         console.log('Aprobando solicitud:', solicitud.id);
         // Aquí iría la llamada a la API
+        alert('Funcionalidad de aprobación en desarrollo');
     };
 
     const handleRechazar = () => {
         // Lógica para rechazar solicitud
         console.log('Rechazando solicitud:', solicitud.id);
         // Aquí iría la llamada a la API
+        alert('Funcionalidad de rechazo en desarrollo');
     };
 
     return (
