@@ -1,4 +1,3 @@
-// auth/ui/input.tsx
 'use client';
 
 import React from 'react';

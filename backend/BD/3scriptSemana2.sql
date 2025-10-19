@@ -333,3 +333,6 @@ ON notificaciones(usuario_id, leida);
 
 CREATE INDEX IF NOT EXISTS idx_notificaciones_created_at 
 ON notificaciones(created_at DESC);
+
+ALTER TABLE documentos
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();

@@ -1978,7 +1978,83 @@ router.post('/solicitudes/:solicitud_id/verificar-kyc', AuthMiddleware.proteger,
  */
 router.get('/estadisticas', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), SolicitudesController.obtenerEstadisticas);
 router.get('/documentos/:documento_id/descargar', AuthMiddleware.proteger, DocumentoController.descargarDocumento);
+/**
+ * @swagger
+ * /api/documentos/{documento_id}:
+ *   put:
+ *     summary: Actualizar documento existente
+ *     tags: [Documentos]
+ *     description: Reemplaza un documento existente por uno nuevo
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: documento_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del documento a actualizar
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - archivo
+ *               - tipo
+ *             properties:
+ *               archivo:
+ *                 type: string
+ *                 format: binary
+ *                 description: Nuevo archivo a subir
+ *               tipo:
+ *                 type: string
+ *                 enum: [dni, cuit, comprobante_domicilio, balance_contable, estado_financiero, declaracion_impuestos]
+ *                 description: Tipo de documento
+ *     responses:
+ *       200:
+ *         description: Documento actualizado exitosamente
+ *       400:
+ *         description: Datos inválidos
+ *       404:
+ *         description: Documento no encontrado
+ * 
+ *   delete:
+ *     summary: Eliminar documento
+ *     tags: [Documentos]
+ *     description: Elimina un documento y su archivo asociado
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: documento_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del documento a eliminar
+ *     responses:
+ *       200:
+ *         description: Documento eliminado exitosamente
+ *       404:
+ *         description: Documento no encontrado
+ */
+router.put(
+  '/documentos/:documento_id',
+  AuthMiddleware.proteger,
+  AuthMiddleware.autorizar('solicitante'),
+  upload.single('archivo'),
+  DocumentoController.actualizarDocumento
+);
 
+router.delete(
+  '/documentos/:documento_id',
+  AuthMiddleware.proteger,
+  AuthMiddleware.autorizar('solicitante'),
+  DocumentoController.eliminarDocumento
+);
 /**
  * @swagger
  * /api/webhooks/didit:
@@ -2218,4 +2294,6 @@ router.put('/notificaciones/:id/leer', AuthMiddleware.proteger, notificacionesCo
  *       description: Todas las notificaciones marcadas como leídas
  */
 router.put('/notificaciones/leer-todas', AuthMiddleware.proteger, notificacionesController.marcarTodasComoLeidas);
+
+
 module.exports = router;

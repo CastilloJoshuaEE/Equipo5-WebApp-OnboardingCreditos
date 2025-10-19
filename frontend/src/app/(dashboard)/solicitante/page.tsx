@@ -195,9 +195,9 @@ export default function DashboardSolicitante() {
       {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
-          <Tab label="Nueva Solicitud" />
-          <Tab label="Mis Solicitudes" />
-          <Tab label="Documentos" />
+          <Tab label="Nueva solicitud" />
+          <Tab label="Mis solicitudes" />
+          <Tab label="Plantilla de documentos" />
         </Tabs>
       </Box>
 
@@ -206,7 +206,7 @@ export default function DashboardSolicitante() {
         <Card>
           <CardContent>
             <Typography variant="h5" gutterBottom>
-              Nueva Solicitud de Crédito
+              Nueva solicitud de crédito
             </Typography>
             <SolicitudCreditoForm />
           </CardContent>
@@ -221,10 +221,10 @@ export default function DashboardSolicitante() {
         <Card>
           <CardContent>
             <Typography variant="h5" gutterBottom>
-              Gestión de Documentos
+              Plantilla de Documentos
             </Typography>
             <Typography variant="body1" color="text.secondary" gutterBottom>
-              Aquí podrá gestionar todos sus documentos subidos al sistema.
+              Aquí podrán obtener plantillas de los documentos que van a subir en el sistema
             </Typography>
             
             {solicitudActiva ? (

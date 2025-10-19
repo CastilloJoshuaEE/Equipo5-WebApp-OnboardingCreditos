@@ -1,3 +1,4 @@
+// En frontend/src/components/documentos/GestionDocumentos.tsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -15,13 +16,19 @@ import {
   TableRow,
   Paper,
   Chip,
+  Grid,
   Button,
   Alert,
   CircularProgress,
   IconButton,
-  Tooltip
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar
 } from '@mui/material';
-import { Download, Visibility, CloudUpload } from '@mui/icons-material';
+import { Download, Visibility, CloudUpload, Delete, Edit } from '@mui/icons-material';
 
 interface Documento {
   id: string;
@@ -44,6 +51,10 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [documentoAEliminar, setDocumentoAEliminar] = useState<Documento | null>(null);
+  const [subiendoArchivo, setSubiendoArchivo] = useState<string | null>(null);
 
   useEffect(() => {
     cargarDocumentos();
@@ -82,6 +93,115 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
     }
   };
 
+  const handleSubirDocumento = async (tipo: string, archivo: File) => {
+    try {
+      setSubiendoArchivo(tipo);
+      setError('');
+      
+      const session = await getSession();
+      if (!session?.accessToken) {
+        throw new Error('No estás autenticado');
+      }
+
+      const formData = new FormData();
+      formData.append('archivo', archivo);
+      formData.append('solicitud_id', solicitudId);
+      formData.append('tipo', tipo);
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/solicitudes/${solicitudId}/documentos`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al subir documento');
+      }
+
+      setSuccess('Documento subido exitosamente');
+      await cargarDocumentos();
+    } catch (error: any) {
+      console.error('Error subiendo documento:', error);
+      setError(error.message || 'Error al subir documento');
+    } finally {
+      setSubiendoArchivo(null);
+    }
+  };
+
+  const handleActualizarDocumento = async (documentoId: string, tipo: string, archivo: File) => {
+    try {
+      setSubiendoArchivo(tipo);
+      setError('');
+      
+      const session = await getSession();
+      if (!session?.accessToken) {
+        throw new Error('No estás autenticado');
+      }
+
+      const formData = new FormData();
+      formData.append('archivo', archivo);
+      formData.append('tipo', tipo);
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/documentos/${documentoId}`, {
+        method: 'PUT',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al actualizar documento');
+      }
+
+      setSuccess('Documento actualizado exitosamente');
+      await cargarDocumentos();
+    } catch (error: any) {
+      console.error('Error actualizando documento:', error);
+      setError(error.message || 'Error al actualizar documento');
+    } finally {
+      setSubiendoArchivo(null);
+    }
+  };
+
+  const handleEliminarDocumento = async (documento: Documento) => {
+    try {
+      setError('');
+      
+      const session = await getSession();
+      if (!session?.accessToken) {
+        throw new Error('No estás autenticado');
+      }
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/documentos/${documento.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al eliminar documento');
+      }
+
+      setSuccess('Documento eliminado exitosamente');
+      setDialogOpen(false);
+      setDocumentoAEliminar(null);
+      await cargarDocumentos();
+    } catch (error: any) {
+      console.error('Error eliminando documento:', error);
+      setError(error.message || 'Error al eliminar documento');
+    }
+  };
+
   const descargarDocumento = async (documento: Documento) => {
     try {
       const session = await getSession();
@@ -90,7 +210,6 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
         throw new Error('No estás autenticado');
       }
 
-      // Obtener la URL de descarga desde Supabase Storage
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       const response = await fetch(`${API_URL}/documentos/${documento.id}/descargar`, {
         method: 'GET',
@@ -100,9 +219,8 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
       });
 
       if (!response.ok) {
-        // Si no hay endpoint específico, usar la URL pública de Supabase
-           const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ;
-const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+        const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
         window.open(supabaseUrl, '_blank');
         return;
       }
@@ -118,16 +236,15 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error descargando documento:', error);
-      // Fallback: abrir en nueva pestaña
-   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ;
-const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
       window.open(supabaseUrl, '_blank');
     }
   };
 
   const verDocumento = (documento: Documento) => {
-    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ;
-const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
+    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
     window.open(supabaseUrl, '_blank');
   };
 
@@ -160,6 +277,55 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const DocumentoInput = ({ tipo, documentoExistente }: { tipo: string, documentoExistente?: Documento }) => {
+    const inputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+        if (documentoExistente) {
+          handleActualizarDocumento(documentoExistente.id, tipo, file);
+        } else {
+          handleSubirDocumento(tipo, file);
+        }
+        // Reset input
+        if (inputRef.current) {
+          inputRef.current.value = '';
+        }
+      }
+    };
+
+    return (
+      <Box sx={{ mb: 2 }}>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png"
+          onChange={handleFileChange}
+          style={{ display: 'none' }}
+          id={`file-input-${tipo}`}
+        />
+        <label htmlFor={`file-input-${tipo}`}>
+          <Button
+            variant={documentoExistente ? "outlined" : "contained"}
+            component="span"
+            disabled={subiendoArchivo === tipo}
+            startIcon={<CloudUpload />}
+            fullWidth
+          >
+            {subiendoArchivo === tipo ? (
+              <CircularProgress size={20} />
+            ) : documentoExistente ? (
+              `Actualizar ${getTipoDocumentoLabel(tipo)}`
+            ) : (
+              `Subir ${getTipoDocumentoLabel(tipo)}`
+            )}
+          </Button>
+        </label>
+      </Box>
+    );
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" py={4}>
@@ -171,23 +337,57 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
     );
   }
 
-  if (error) {
-    return (
-      <Alert 
-        severity="error"
-        action={
-          <Button color="inherit" size="small" onClick={cargarDocumentos}>
-            Reintentar
-          </Button>
-        }
-      >
-        {error}
-      </Alert>
-    );
-  }
-
   return (
     <Box>
+      {/* Alertas */}
+      <Snackbar
+        open={!!success}
+        autoHideDuration={6000}
+        onClose={() => setSuccess('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="success" onClose={() => setSuccess('')}>
+          {success}
+        </Alert>
+      </Snackbar>
+
+      {error && (
+        <Alert 
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => setError('')}
+        >
+          {error}
+        </Alert>
+      )}
+
+      {/* Sección de Subida de Documentos */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Subir Documentos
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Sube los documentos requeridos para tu solicitud de crédito
+          </Typography>
+
+          <Grid container spacing={2}>
+            {['dni', 'cuit', 'comprobante_domicilio', 'balance_contable', 'declaracion_impuestos'].map((tipo) => {
+              const documentoExistente = documentos.find(doc => doc.tipo === tipo);
+              return (
+                <Grid size={{ xs: 12, md: 6 }} key={tipo}>
+                  <DocumentoInput 
+                    tipo={tipo} 
+                    documentoExistente={documentoExistente}
+                  />
+                </Grid>
+              );
+            })}
+          </Grid>
+        </CardContent>
+      </Card>
+
+      {/* Lista de Documentos Subidos */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h6">
           Documentos Subidos ({documentos.length})
@@ -271,6 +471,30 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
                           <Download />
                         </IconButton>
                       </Tooltip>
+                      <Tooltip title="Actualizar documento">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            const input = document.getElementById(`file-input-${documento.tipo}`) as HTMLInputElement;
+                            if (input) input.click();
+                          }}
+                          color="primary"
+                        >
+                          <Edit />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Eliminar documento">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setDocumentoAEliminar(documento);
+                            setDialogOpen(true);
+                          }}
+                          color="error"
+                        >
+                          <Delete />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -280,10 +504,37 @@ const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documen
         </TableContainer>
       )}
 
+      {/* Dialog de Confirmación para Eliminar */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
+        <DialogTitle>
+          Confirmar Eliminación
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            ¿Estás seguro de que deseas eliminar el documento "{documentoAEliminar?.nombre_archivo}"?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Esta acción no se puede deshacer.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={() => documentoAEliminar && handleEliminarDocumento(documentoAEliminar)}
+            color="error"
+            variant="contained"
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {documentos.length > 0 && (
         <Box mt={2}>
           <Typography variant="caption" color="text.secondary">
-            * Los documentos se almacenan de forma segura en Supabase Storage
+            * Puedes actualizar cualquier documento subiendo un nuevo archivo del mismo tipo
           </Typography>
         </Box>
       )}
