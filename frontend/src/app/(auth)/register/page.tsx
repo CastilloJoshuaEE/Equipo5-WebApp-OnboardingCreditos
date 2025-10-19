@@ -4,9 +4,8 @@ import React, { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import RegisterForm from '@/components/auth/RegisterForm';
-import { Box, CircularProgress } from '@mui/material';
+import { Box, CircularProgress, Container, Grid } from '@mui/material';
 import { UserRole } from '@/types/auth.types';
-
 
 export default function RegisterPage() {
   const { data: session, status } = useSession();
@@ -14,7 +13,6 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user?.rol) {
-      // REDIRIGE NUEVAS CARPETAS
       const dashboardPath = {
         [UserRole.SOLICITANTE]: '/solicitante',
         [UserRole.OPERADOR]: '/operador'
@@ -39,8 +37,8 @@ export default function RegisterPage() {
   }
 
   return (
-    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+    <Container maxWidth="xl" sx={{ py: 0 }}>
       <RegisterForm />
-    </Box>
+    </Container>
   );
 }
