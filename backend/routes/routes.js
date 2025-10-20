@@ -12,6 +12,7 @@ const webhooksController = require('../controladores/webhooksController'); // Ca
 const EmailValidationMiddleware = require("../middleware/emailValidation");
 const ComentariosController = require('../controladores/ComentariosController');
 const PlantillasDocumentoController = require('../controladores/PlantillasDocumentosController');
+const ChatbotController = require('../controladores/ChatbotController');
 
 // Middleware existentes
 const router = express.Router();
@@ -2639,5 +2640,69 @@ router.get('/plantillas', PlantillasDocumentoController.listarPlantillas);
 router.get('/:id/descargar', PlantillasDocumentoController.descargarPlantilla);
 router.post('/plantillas', upload.single('archivo'), PlantillasDocumentoController.subirPlantilla);
 router.put('/:id', upload.single('archivo'), PlantillasDocumentoController.actualizarPlantilla);
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Chatbot
+ *     description: Endpoints para el chatbot de asistencia
+ */
+
+/**
+ * @swagger
+ * /api/chatbot/mensaje:
+ *   post:
+ *     summary: Enviar mensaje al chatbot (público)
+ *     tags: [Chatbot]
+ *     description: Procesa un mensaje del usuario y devuelve respuesta del chatbot. No requiere autenticación.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - mensaje
+ *             properties:
+ *               mensaje:
+ *                 type: string
+ *                 description: Mensaje del usuario para el chatbot
+ *                 example: "¿Qué documentos necesito para solicitar un crédito?"
+ *     responses:
+ *       200:
+ *         description: Respuesta del chatbot
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     respuesta:
+ *                       type: string
+ *                     timestamp:
+ *                       type: string
+ *                     usuario:
+ *                       type: object
+ *                       nullable: true
+ */
+router.post('/chatbot/mensaje', ChatbotController.procesarMensaje);
+
+// Rutas protegidas para usuarios autenticados
+router.post('/chatbot/mensaje-autenticado', 
+    AuthMiddleware.proteger, 
+    ChatbotController.procesarMensaje
+);
+
+router.get('/chatbot/historial',
+    AuthMiddleware.proteger,
+    ChatbotController.obtenerHistorial
+);
+
+// Health check (público)
+router.get('/chatbot/health', ChatbotController.healthCheck);
 
 module.exports = router;

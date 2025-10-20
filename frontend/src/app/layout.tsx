@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./../styles/globals.css";
 import { SessionProvider } from "@/providers/SessionProvider";
 import { SessionExpiredProvider } from '@/providers/SessionExpiredProvider';
-
+import ChatbotWidget from '@/components/chatbot/ChatbotWidget';
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
@@ -31,6 +31,8 @@ export default function RootLayout({
         <SessionProvider>
           <SessionExpiredProvider>
             {children}
+            <ChatbotWidget />
+
           </SessionExpiredProvider>
         </SessionProvider>      
       </body>
