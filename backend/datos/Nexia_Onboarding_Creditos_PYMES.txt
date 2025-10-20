@@ -1,0 +1,174 @@
+==================================================
+DATOS DEL PROYECTO
+==================================================
+
+Nombre del Proyecto: Plataforma Web de Onboarding de Créditos para PYMES  
+Eslogan: "Financiamiento ágil para el crecimiento de tu empresa"
+
+Descripción:
+Nexia es una plataforma Fintech especializada en simplificar y agilizar el proceso de solicitud de créditos para
+Pequeñas y Medianas Empresas (PYMES). Nuestra misión es reducir la burocracia y los tiempos de aprobación mediante
+un proceso digitalizado de onboarding que incluye verificación KYC/AML, evaluación de riesgo automatizada y
+seguimiento en tiempo real.
+
+--------------------------------------------------
+FUNCIONALIDADES PRINCIPALES
+--------------------------------------------------
+
+1. Módulo de Autenticación y Usuarios
+   - Registro con verificación de correo electrónico
+   - Roles: Solicitante (PYMES) y Operador (entidad financiera)
+   - Recuperación de contraseña segura
+   - Gestión de perfiles y configuración
+
+2. Módulo de Solicitudes de Crédito
+   - Formulario dinámico con guardado automático de progreso
+   - Carga de documentos con validación de formato
+   - Envío para revisión con verificación de completitud
+   - Seguimiento del estado de la solicitud en tiempo real
+
+3. Dashboard Operador con Filtros Avanzados
+   - Filtrado por estado, nivel de riesgo, fechas, número de solicitud y DNI
+   - Asignación automática de solicitudes
+   - Modal de revisión integral con múltiples pasos
+
+4. Integraciones Externas
+   - BCRA: Consulta automática de deudas por CUIT
+   - DIDIT: Verificación KYC/AML de identidad
+   - Supabase Storage: Almacenamiento seguro de documentos
+
+--------------------------------------------------
+POLÍTICAS DEL SISTEMA
+--------------------------------------------------
+
+1. Política de Seguridad de Datos
+   - Todos los documentos se almacenan encriptados en Supabase Storage
+   - Autenticación mediante JWT tokens y NextAuth
+   - Verificación de identidad mediante servicios KYC/AML certificados
+   - Acceso basado en roles (solicitante / operador)
+
+2. Política de Procesamiento de Créditos
+   - Evaluación automatizada inicial basada en documentación completa
+   - Scoring de riesgo calculado sobre 100 puntos (20 por documento obligatorio)
+   - Niveles de riesgo: Bajo (≥80), Medio (60-79), Alto (<60)
+   - Tiempo máximo de respuesta: 72 horas hábiles para decisión inicial
+
+3. Política de Documentación Requerida
+   Documentos Obligatorios:
+     * DNI del representante legal
+     * Constancia de CUIT
+     * Comprobante de domicilio
+     * Balance contable
+     * Declaración de impuestos
+
+   Documentos Opcionales:
+     * Estados financieros adicionales
+     * Garantías adicionales
+
+4. Política de Comunicación
+   - Notificaciones automáticas por correo electrónico para cambios de estado
+   - Comentarios visibles para solicitantes (excepto internos)
+   - Tiempo máximo de respuesta de operadores: 24 horas hábiles
+   - Historial auditado de todas las interacciones
+
+5. Política de Privacidad
+   - Los datos se utilizan exclusivamente para evaluación crediticia
+   - Cumplimiento con regulaciones locales de protección de datos
+   - Retención de documentos por 5 años según requerimientos legales
+   - Derecho de los usuarios a solicitar eliminación de datos tras la evaluación
+
+--------------------------------------------------
+MÓDULOS DEL SISTEMA
+--------------------------------------------------
+
+Módulo Operador
+   - Dashboard con métricas y KPIs
+   - Sistema de evaluación por criterios específicos
+   - Integración con BCRA para consulta de deudas
+   - Decisiones de aprobación, rechazo o solicitud de información adicional
+
+Módulo de Documentos
+   - Subida múltiple de archivos (PDF, JPG, PNG)
+   - Extracción automática de información con OCR
+   - Validación por tipo de documento
+   - Almacenamiento seguro en Supabase Storage
+
+--------------------------------------------------
+TECNOLOGÍAS IMPLEMENTADAS
+--------------------------------------------------
+
+Backend:
+   - Node.js con Express.js
+   - Supabase (PostgreSQL + Auth + Storage)
+   - JWT para autenticación
+   - Multer para manejo de archivos
+   - PDF.js y Tesseract.js para procesamiento de documentos
+
+Frontend:
+   - Next.js 14 (App Router)
+   - Material UI para componentes
+   - NextAuth para autenticación
+   - Axios para consumo de APIs
+   - React Hook Form para formularios dinámicos
+
+Servicios Externos:
+   - BCRA API: Consulta de deudas
+   - DIDIT: Verificación KYC/AML
+   - Brevo: Envío de correos transaccionales
+
+--------------------------------------------------
+FLUJO DE TRABAJO DEL SISTEMA
+--------------------------------------------------
+
+Para Solicitantes (PYMES):
+   1. Registro y verificación de cuenta
+   2. Completar solicitud de crédito
+   3. Subir documentación requerida
+   4. Hacer seguimiento del estado en tiempo real
+   5. Comunicación con operadores mediante comentarios
+   6. Recibir decisión final con detalles
+
+Para Operadores (Entidad Financiera):
+   1. Revisar dashboard con solicitudes asignadas
+   2. Evaluar documentación mediante criterios específicos
+   3. Consultar información BCRA automáticamente
+   4. Dejar comentarios y solicitar información adicional
+   5. Tomar decisión basada en scoring de riesgo
+   6. Comunicar resultado al solicitante
+
+--------------------------------------------------
+MÉTRICAS Y KPIs
+--------------------------------------------------
+
+Tiempos de Procesamiento:
+   - Tiempo hasta primera revisión: < 4 horas
+   - Tiempo hasta decisión final: < 72 horas
+   - Tiempo de respuesta a comentarios: < 24 horas
+
+Calidad de Evaluación:
+   - Precisión del scoring: > 90%
+   - Documentación completa en primer envío: > 80%
+   - Satisfacción del usuario: > 4.5 / 5
+
+--------------------------------------------------
+CONSIDERACIONES DE SEGURIDAD
+--------------------------------------------------
+
+Protección de Datos Sensibles:
+   - Encriptación end-to-end para documentos financieros
+   - Validación de identidad multifactor
+   - Auditoría completa de accesos y modificaciones
+   - Backup automático y recuperación ante desastres
+
+Cumplimiento Normativo:
+   - AML/KYC: Verificación mediante DIDIT
+   - Protección de datos: cumplimiento con normativas locales
+   - Reportes automáticos para autoridades competentes
+
+--------------------------------------------------
+CONTACTO
+--------------------------------------------------
+
+Proyecto Nexia - Fintech para PYMES  
+Correo: fintechpymes@nocountry.dev  
+Repositorio: https://github.com/ (opcional)

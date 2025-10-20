@@ -24,7 +24,7 @@ import {
 import { UserRole } from '@/types/auth.types';
 import SolicitudCreditoForm from '@/components/solicitudes/SolicitudCreditoForm';
 import ListaSolicitudes from '@/components/solicitudes/ListaSolicitudes';
-import GestionDocumentos from '@/components/documentos/GestionDocumentos';
+import PlantillasDocumento from '@/components/solicitante/PlantillasDocumento';
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -217,26 +217,22 @@ export default function DashboardSolicitante() {
         <ListaSolicitudes />
       </TabPanel>
 
-      <TabPanel value={tabValue} index={2}>
-        <Card>
-          <CardContent>
-            <Typography variant="h5" gutterBottom>
-              Plantilla de Documentos
-            </Typography>
-            <Typography variant="body1" color="text.secondary" gutterBottom>
-              Aquí podrán obtener plantillas de los documentos que van a subir en el sistema
-            </Typography>
-            
-            {solicitudActiva ? (
-              <GestionDocumentos solicitudId={solicitudActiva} />
-            ) : (
-              <Alert severity="info">
-                No hay una solicitud activa. Cree una nueva solicitud para comenzar a subir documentos.
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      </TabPanel>
+<TabPanel value={tabValue} index={2}>
+  <Card>
+    <CardContent>
+      <Typography variant="h5" gutterBottom>
+        Plantilla de Documentos
+      </Typography>
+      <Typography variant="body1" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+        Aquí podrás ver y descargar los archivos Word de ejemplo disponibles.
+        Recuerde subir los archivos en formato PDF
+      </Typography>
+
+      {/* 👉 Aquí se carga tu componente con la lista y descargas */}
+      <PlantillasDocumento />
+    </CardContent>
+  </Card>
+</TabPanel>
 
 
     </Box>

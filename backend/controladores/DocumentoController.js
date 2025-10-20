@@ -1,7 +1,7 @@
 const { supabase } = require('../config/conexion');
 const { supabaseAdmin } = require('../config/supabaseAdmin');
 const diditService = require('../servicios/diditService');
-
+const OperadorController= require('../controladores/OperadorController');
 // Importar pdfjs-dist legacy para Node.js
 const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 
@@ -15,7 +15,7 @@ static async subirDocumento(req, res) {
     const { solicitud_id, tipo } = req.body;
     const archivo = req.file;
 
-    console.log('📁 Datos recibidos:', { solicitud_id, tipo, archivo: archivo ? archivo.originalname : 'NO ARCHIVO' });
+    console.log('. Datos recibidos:', { solicitud_id, tipo, archivo: archivo ? archivo.originalname : 'NO ARCHIVO' });
 
     if (!solicitud_id || !tipo || !archivo) {
       return res.status(400).json({
@@ -24,7 +24,7 @@ static async subirDocumento(req, res) {
       });
     }
 
-    console.log(`📤 Subiendo documento ${tipo} para solicitud: ${solicitud_id}`);
+    console.log(`. Subiendo documento ${tipo} para solicitud: ${solicitud_id}`);
 
     // Validaciones
     const tiposPermitidos = ['dni', 'cuit', 'comprobante_domicilio', 'balance_contable', 'estado_financiero', 'declaracion_impuestos'];
@@ -104,7 +104,7 @@ static async subirDocumento(req, res) {
     const nombreArchivo = `${solicitudId}_${tipo}_${Date.now()}.${extension}`;
     const rutaStorage = `documentos/${solicitudId}/${nombreArchivo}`;
     
-    console.log('📤 Subiendo a storage:', rutaStorage);
+    console.log('. Subiendo a storage:', rutaStorage);
 
     // USAR supabaseAdmin para bypassear RLS temporalmente
     const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
@@ -557,7 +557,7 @@ static async actualizarDocumento(req, res) {
     const { tipo } = req.body;
     const archivo = req.file;
 
-    console.log('📁 Actualizando documento:', { documento_id, tipo, archivo: archivo ? archivo.originalname : 'NO ARCHIVO' });
+    console.log('. Actualizando documento:', { documento_id, tipo, archivo: archivo ? archivo.originalname : 'NO ARCHIVO' });
 
     if (!documento_id || !tipo || !archivo) {
       return res.status(400).json({
@@ -580,7 +580,7 @@ static async actualizarDocumento(req, res) {
       });
     }
 
-    console.log(`🔄 Actualizando documento ${tipo} con ID: ${documento_id}`);
+    console.log(`.Actualizando documento ${tipo} con ID: ${documento_id}`);
 
     // Eliminar archivo anterior del storage
     try {
@@ -728,6 +728,160 @@ static async eliminarDocumento(req, res) {
       message: error.message || 'Error interno al eliminar documento'
     });
   }
+}
+/**
+ * Evaluar documento con criterios específicos
+ */
+static async evaluarDocumento(req, res) {
+    try {
+        const { documento_id } = req.params;
+        const { criterios, comentarios, estado } = req.body;
+        
+        console.log(`. Evaluando documento ${documento_id}`, { criterios, estado, comentarios });
+
+        // Obtener documento actual
+        const { data: documento, error: docError } = await supabase
+            .from('documentos')
+            .select('*')
+            .eq('id', documento_id)
+            .single();
+
+        if (docError || !documento) {
+            return res.status(404).json({
+                success: false,
+                message: 'Documento no encontrado'
+            });
+        }
+
+        // Calcular scoring basado en criterios aprobados
+        const criteriosAprobados = Object.values(criterios).filter(Boolean).length;
+        const totalCriterios = Object.keys(criterios).length;
+        const porcentajeAprobado = (criteriosAprobados / totalCriterios) * 100;
+
+        // Determinar estado automáticamente si no se proporciona
+        let estadoFinal = estado;
+        if (!estadoFinal) {
+            if (porcentajeAprobado >= 80) {
+                estadoFinal = 'validado';
+            } else if (porcentajeAprobado >= 60) {
+                estadoFinal = 'pendiente';
+            } else {
+                estadoFinal = 'rechazado';
+            }
+        }
+
+        const comentarioEvaluacion = `Evaluación: ${criteriosAprobados}/${totalCriterios} criterios aprobados (${porcentajeAprobado.toFixed(0)}%). ${comentarios || ''}`;
+        const informacionEvaluacion = {
+            ...(documento.informacion_extraida || {}), // Mantener información existente
+            evaluacion: {
+                criterios_aprobados: criteriosAprobados,
+                total_criterios: totalCriterios,
+                porcentaje_aprobado: porcentajeAprobado,
+                fecha_evaluacion: new Date().toISOString(),
+                criterios_detallados: criterios,
+                estado_final: estadoFinal,
+                comentarios: comentarios
+            }
+        };
+
+        // Actualizar documento
+        const { data: documentoActualizado, error: updateError } = await supabase
+            .from('documentos')
+            .update({
+                estado: estadoFinal,
+                comentarios: comentarioEvaluacion,
+                validado_en: new Date().toISOString(),
+                informacion_extraida: informacionEvaluacion // GUARDAR EVALUACIÓN
+            })
+            .eq('id', documento_id)
+            .select()
+            .single();
+
+        if (updateError) throw updateError;
+
+
+      try {
+            // Obtener información de la solicitud para el solicitante
+            const { data: solicitudInfo, error: solError } = await supabase
+                .from('solicitudes_credito')
+                .select('solicitante_id, numero_solicitud')
+                .eq('id', documento.solicitud_id)
+                .single();
+
+            if (!solError && solicitudInfo) {
+                // Crear notificación REAL en la base de datos
+                const notificacionData = {
+                    usuario_id: solicitudInfo.solicitante_id,
+                    solicitud_id: documento.solicitud_id,
+                    tipo: 'documento_evaluado',
+                    titulo: `Documento ${estadoFinal}`,
+                    mensaje: `Tu documento ${documento.tipo} ha sido ${estadoFinal}. ${comentarios ? `Comentarios: ${comentarios}` : ''}`,
+                    leida: false,
+                    datos_adicionales: {
+                        documento_tipo: documento.tipo,
+                        estado: estadoFinal,
+                        comentarios: comentarios,
+                        solicitud_numero: solicitudInfo.numero_solicitud,
+                        criterios_aprobados: criteriosAprobados,
+                        total_criterios: totalCriterios,
+                        porcentaje_aprobado: porcentajeAprobado
+                    },
+                    created_at: new Date().toISOString()
+                };
+
+                const { error: notifError } = await supabase
+                    .from('notificaciones')
+                    .insert([notificacionData]);
+
+                if (notifError) {
+                    console.error('. Error creando notificación:', notifError);
+                } else {
+                    console.log(`📨 Notificación REAL enviada al solicitante sobre documento ${documento.tipo}`);
+                }
+            }
+        } catch (notifError) {
+            console.warn('⚠️ Error creando notificación:', notifError.message);
+            // No fallar la evaluación por error en notificación
+        }
+
+        // Recalcular scoring total de la solicitud
+        await OperadorController.recalcularScoringSolicitud(documento.solicitud_id);
+
+        // Registrar en auditoría
+        await supabase
+            .from('auditoria')
+            .insert({
+                usuario_id: req.usuario.id,
+                solicitud_id: documento.solicitud_id,
+                accion: 'evaluar_documento',
+                detalle: `Documento ${documento.tipo} evaluado: ${estadoFinal} (${porcentajeAprobado.toFixed(0)}%) - ${comentarios || 'Sin comentarios adicionales'}`,
+                estado_anterior: documento.estado,
+                estado_nuevo: estadoFinal,
+                created_at: new Date().toISOString()
+            });
+
+        res.json({
+            success: true,
+            message: 'Documento evaluado exitosamente',
+            data: {
+                documento: documentoActualizado,
+                evaluacion: {
+                    criterios_aprobados: criteriosAprobados,
+                    total_criterios: totalCriterios,
+                    porcentaje_aprobado: porcentajeAprobado,
+                    estado: estadoFinal
+                }
+            }
+        });
+
+
+    } catch (error) {
+        console.error('. Error evaluando documento:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al evaluar documento'
+        });
+    }
 }
 }
 

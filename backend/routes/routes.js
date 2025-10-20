@@ -10,6 +10,8 @@ const DocumentoController = require('../controladores/DocumentoController');
 const reactivacionController = require('../controladores/reactivacionController'); // Cambiado
 const webhooksController = require('../controladores/webhooksController'); // Cambiado
 const EmailValidationMiddleware = require("../middleware/emailValidation");
+const ComentariosController = require('../controladores/ComentariosController');
+const PlantillasDocumentoController = require('../controladores/PlantillasDocumentosController');
 
 // Middleware existentes
 const router = express.Router();
@@ -21,14 +23,22 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024 // 5MB límite
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+const allowedTypes = [
+  'application/pdf',
+  'application/msword',//  .doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+  'image/jpeg',
+  'image/jpg',
+  'image/png'
+];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Tipo de archivo no permitido. Solo PDF, JPG, JPEG, PNG.'), false);
+      cb(new Error('Tipo de archivo no permitido. Solo DOCX, PDF, JPG, JPEG, PNG.'), false);
     }
   }
 });
+
 // ==================== COMPONENTS SCHEMAS ====================
 
 /**
@@ -246,7 +256,104 @@ const upload = multer({
  *           type: string
  *         informacion_extraida:
  *           type: object
+ *     Comentario:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           description: ID único del comentario
+ *         solicitud_id:
+ *           type: string
+ *           format: uuid
+ *           description: ID de la solicitud asociada
+ *         usuario_id:
+ *           type: string
+ *           format: uuid
+ *           description: ID del usuario que creó el comentario
+ *         tipo:
+ *           type: string
+ *           enum: [operador_a_solicitante, solicitante_a_operador, interno]
+ *           description: Tipo de comentario
+ *         comentario:
+ *           type: string
+ *           description: Contenido del comentario
+ *         leido:
+ *           type: boolean
+ *           description: Indica si el comentario ha sido leído por el destinatario
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de creación del comentario
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de última actualización
+ *         usuarios:
+ *           type: object
+ *           properties:
+ *             nombre_completo:
+ *               type: string
+ *               description: Nombre completo del usuario
+ *             email:
+ *               type: string
+ *               format: email
+ *               description: Email del usuario
+ *             rol:
+ *               type: string
+ *               enum: [solicitante, operador]
+ *               description: Rol del usuario
  * 
+ *     ComentarioInput:
+ *       type: object
+ *       required:
+ *         - solicitud_id
+ *         - comentario
+ *       properties:
+ *         solicitud_id:
+ *           type: string
+ *           format: uuid
+ *           description: ID de la solicitud
+ *           example: "123e4567-e89b-12d3-a456-426614174000"
+ *         comentario:
+ *           type: string
+ *           description: Contenido del comentario
+ *           example: "Necesitamos información adicional sobre el balance contable del último trimestre."
+ *         tipo:
+ *           type: string
+ *           enum: [operador_a_solicitante, solicitante_a_operador, interno]
+ *           default: operador_a_solicitante
+ *           description: Tipo de comentario
+ *           example: "operador_a_solicitante"
+ * 
+ *     ComentariosResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         data:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Comentario'
+ *         total:
+ *           type: integer
+ *           description: Total de comentarios
+ *           example: 5
+ * 
+ *     ContadorComentarios:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         data:
+ *           type: object
+ *           properties:
+ *             count:
+ *               type: integer
+ *               description: Número de comentarios no leídos
+ *               example: 3
  *   securitySchemes:
  *     bearerAuth:
  *       type: http
@@ -276,6 +383,8 @@ const upload = multer({
  *     description: Endpoints específicos para operadores
  *   - name: KYC/AML
  *     description: Endpoints de verificación KYC/AML
+ *   - name: Comentarios
+ *     description: Endpoints para gestión de comentarios entre operadores y solicitantes
  *   - name: Estadísticas
  *     description: Endpoints de estadísticas del sistema
  *   - name: Webhooks
@@ -1897,7 +2006,46 @@ router.put('/solicitudes/:solicitud_id/solicitar-info', AuthMiddleware.proteger,
  *         description: Documento no encontrada
  */
 router.put('/documentos/:documento_id/validar', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), DocumentoController.validarDocumento);
-
+/**
+ * @swagger
+ * /api/documentos/{documento_id}/evaluar:
+ *   post:
+ *     summary: Evaluar documento con criterios específicos
+ *     tags: [Documentos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: documento_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - criterios
+ *             properties:
+ *               criterios:
+ *                 type: object
+ *                 description: "Criterios evaluados (clave: valor booleano)"
+ *               comentarios:
+ *                 type: string
+ *               estado:
+ *                 type: string
+ *                 enum: [validado, pendiente, rechazado]
+ *     responses:
+ *       200:
+ *         description: Documento evaluado exitosamente
+ */
+router.post('/documentos/:documento_id/evaluar', 
+    AuthMiddleware.proteger, 
+    AuthMiddleware.autorizar('operador'), 
+    DocumentoController.evaluarDocumento
+);
 /**
  * @swagger
  * /api/solicitudes/{solicitud_id}/verificar-kyc:
@@ -2295,5 +2443,201 @@ router.put('/notificaciones/:id/leer', AuthMiddleware.proteger, notificacionesCo
  */
 router.put('/notificaciones/leer-todas', AuthMiddleware.proteger, notificacionesController.marcarTodasComoLeidas);
 
+/**
+ * @swagger
+ * /api/comentarios:
+ *   post:
+ *     summary: Crear un nuevo comentario
+ *     tags: [Comentarios]
+ *     description: Crea un comentario en una solicitud. Genera notificación automática al destinatario.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ComentarioInput'
+ *           examples:
+ *             operador_a_solicitante:
+ *               summary: Comentario de operador a solicitante
+ *               value:
+ *                 solicitud_id: "123e4567-e89b-12d3-a456-426614174000"
+ *                 comentario: "Hemos revisado su documentación y necesitamos información adicional sobre el comprobante de domicilio reciente."
+ *                 tipo: "operador_a_solicitante"
+ *             solicitante_a_operador:
+ *               summary: Comentario de solicitante a operador
+ *               value:
+ *                 solicitud_id: "123e4567-e89b-12d3-a456-426614174000"
+ *                 comentario: "He subido el documento solicitado. ¿Podrían revisarlo cuando tengan oportunidad?"
+ *                 tipo: "solicitante_a_operador"
+ *     responses:
+ *       201:
+ *         description: Comentario creado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Comentario'
+ *       400:
+ *         description: Datos inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: No tiene permisos para comentar en esta solicitud
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Solicitud no encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/comentarios', AuthMiddleware.proteger, ComentariosController.crearComentario);
+
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/comentarios:
+ *   get:
+ *     summary: Obtener comentarios de una solicitud
+ *     tags: [Comentarios]
+ *     description: Obtiene todos los comentarios de una solicitud específica. Los comentarios se marcan automáticamente como leídos para el usuario actual.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *         example: "123e4567-e89b-12d3-a456-426614174000"
+ *       - in: query
+ *         name: tipo
+ *         schema:
+ *           type: string
+ *           enum: [operador_a_solicitante, solicitante_a_operador, interno]
+ *         description: Filtrar por tipo de comentario
+ *         example: "operador_a_solicitante"
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 50
+ *         description: Límite de comentarios a retornar
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           default: 0
+ *         description: Offset para paginación
+ *     responses:
+ *       200:
+ *         description: Lista de comentarios obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ComentariosResponse'
+ *       403:
+ *         description: No tiene permisos para ver los comentarios de esta solicitud
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Solicitud no encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/solicitudes/:solicitud_id/comentarios', AuthMiddleware.proteger, ComentariosController.obtenerComentariosSolicitud);
+
+/**
+ * @swagger
+ * /api/comentarios/contador-no-leidos:
+ *   get:
+ *     summary: Obtener contador de comentarios no leídos
+ *     tags: [Comentarios]
+ *     description: Obtiene el número de comentarios no leídos para el usuario autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Contador obtenido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/ContadorComentarios'
+ *       401:
+ *         description: No autorizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/comentarios/contador-no-leidos', AuthMiddleware.proteger, ComentariosController.obtenerContadorNoLeidos);
+
+/**
+ * @swagger
+ * /api/comentarios/{id}:
+ *   delete:
+ *     summary: Eliminar comentario
+ *     tags: [Comentarios]
+ *     description: Elimina un comentario. Solo el autor del comentario o un operador pueden eliminarlo.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del comentario a eliminar
+ *         example: "123e4567-e89b-12d3-a456-426614174000"
+ *     responses:
+ *       200:
+ *         description: Comentario eliminado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessResponse'
+ *       403:
+ *         description: No tiene permisos para eliminar este comentario
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Comentario no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.delete('/comentarios/:id', AuthMiddleware.proteger, ComentariosController.eliminarComentario);
+router.get('/plantillas', PlantillasDocumentoController.listarPlantillas);
+router.get('/:id/descargar', PlantillasDocumentoController.descargarPlantilla);
+router.post('/plantillas', upload.single('archivo'), PlantillasDocumentoController.subirPlantilla);
+router.put('/:id', upload.single('archivo'), PlantillasDocumentoController.actualizarPlantilla);
 
 module.exports = router;

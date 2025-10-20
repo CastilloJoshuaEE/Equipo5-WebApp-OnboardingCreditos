@@ -51,4 +51,18 @@ export const DocumentosService = {
     });
     return response.data;
   },
+    // Evaluar documento con criterios específicos
+  evaluarDocumento: async (documentoId: string, criterios: any, comentarios: string) => {
+    const response = await api.post(`/documentos/${documentoId}/evaluar`, {
+      criterios,
+      comentarios
+    });
+    return response.data;
+  },
+
+  // Obtener criterios de evaluación por tipo de documento
+  obtenerCriteriosEvaluacion: async (tipoDocumento: string) => {
+    const response = await api.get(`/documentos/criterios-evaluacion/${tipoDocumento}`);
+    return response.data;
+  },
 };

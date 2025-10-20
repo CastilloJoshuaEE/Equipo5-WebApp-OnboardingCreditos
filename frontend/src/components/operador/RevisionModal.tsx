@@ -22,17 +22,20 @@ import DocumentacionStep from './steps/DocumentacionStep';
 import BCRAStep from './steps/BCRAStep';
 import ScoringStep from './steps/ScoringStep';
 import DecisionStep from './steps/DecisionStep';
+import { getSession } from 'next-auth/react';
 
 interface RevisionModalProps {
     open: boolean;
     onClose: () => void;
     data: RevisionData;
+    onDocumentoActualizado?: () => void; // Nueva prop para refrescar datos
 }
 
-export default function RevisionModal({ open, onClose, data }: RevisionModalProps) {
+export default function RevisionModal({ open, onClose, data, onDocumentoActualizado }: RevisionModalProps) {
     const [pasoActivo, setPasoActivo] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
     const pasos = [
         'Resumen',
@@ -50,23 +53,120 @@ export default function RevisionModal({ open, onClose, data }: RevisionModalProp
         setPasoActivo((prev) => Math.max(prev - 1, 0));
     };
 
+    // FUNCIÓN CORREGIDA: Ahora hace la llamada real a la API
     const handleValidarDocumento = async (documentoId: string, estado: string, comentarios?: string) => {
         try {
             setLoading(true);
             setError('');
+            setSuccess('');
             
-            // Aquí iría la llamada a la API para validar documento
-            console.log('Validando documento:', documentoId, estado, comentarios);
+            const session = await getSession();
+            if (!session?.accessToken) {
+                throw new Error('No hay sesión activa');
+            }
+
+            console.log('. Validando documento en backend:', documentoId, estado);
+
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
             
-            // Simulación de llamada API
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Llamada REAL a la API usando el endpoint existente
+            const response = await fetch(`${API_URL}/documentos/${documentoId}/validar`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.accessToken}`
+                },
+                body: JSON.stringify({
+                    estado: estado,
+                    comentarios: comentarios
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `Error ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('. Documento validado exitosamente:', result);
+
+            setSuccess(`Documento ${estado} exitosamente`);
             
+            // Refrescar datos si se proporcionó la función callback
+            if (onDocumentoActualizado) {
+                onDocumentoActualizado();
+            }
+
         } catch (error: any) {
+            console.error('. Error validando documento:', error);
             setError(error.message || 'Error al validar documento');
         } finally {
             setLoading(false);
         }
     };
+
+    // FUNCIÓN NUEVA: Para evaluación con criterios
+ const handleEvaluarDocumento = async (documentoId: string, criterios: any, comentarios: string) => {
+    try {
+        setLoading(true);
+        setError('');
+        setSuccess('');
+
+        const session = await getSession();
+        if (!session?.accessToken) {
+            throw new Error('No hay sesión activa');
+        }
+
+        console.log('. Evaluando documento con criterios:', documentoId, criterios, comentarios);
+
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+        const endpoint = `${API_URL}/documentos/${documentoId}/evaluar`;
+        const body = {
+            criterios: criterios,
+            comentarios: comentarios
+        };
+
+        console.log('📤 Enviando evaluación:', endpoint, body);
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.accessToken}`
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Error ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('. Documento evaluado exitosamente:', result);
+
+        // Mostrar mensaje de éxito con detalles
+        const criteriosAprobados = Object.values(criterios).filter(Boolean).length;
+        const totalCriterios = Object.keys(criterios).length;
+        const porcentajeAprobado = (criteriosAprobados / totalCriterios) * 100;
+        
+        setSuccess(`. Documento evaluado: ${result.data.evaluacion.estado} (${porcentajeAprobado.toFixed(0)}% criterios aprobados)`);
+        
+        // . CORRECCIÓN: Refrescar datos después de evaluación
+        if (onDocumentoActualizado) {
+            setTimeout(() => {
+                onDocumentoActualizado();
+            }, 1000);
+        }
+
+    } catch (error: any) {
+        console.error('. Error evaluando documento:', error);
+        setError(error.message || 'Error al evaluar documento');
+    } finally {
+        setLoading(false);
+    }
+};
 
     const handleDescargarDocumento = async (documento: any) => {
         try {
@@ -75,6 +175,7 @@ export default function RevisionModal({ open, onClose, data }: RevisionModalProp
             // Usar URL directa de Supabase Storage
             const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
             const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;            
+            
             // Crear enlace temporal para descarga
             const link = document.createElement('a');
             link.href = supabaseUrl;
@@ -96,6 +197,13 @@ export default function RevisionModal({ open, onClose, data }: RevisionModalProp
         const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
         window.open(supabaseUrl, '_blank');
+    };
+
+    // Función para refrescar datos
+    const handleRefrescarDatos = () => {
+        if (onDocumentoActualizado) {
+            onDocumentoActualizado();
+        }
     };
 
     return (
@@ -132,6 +240,12 @@ export default function RevisionModal({ open, onClose, data }: RevisionModalProp
                         {error}
                     </Alert>
                 )}
+                
+                {success && (
+                    <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+                        {success}
+                    </Alert>
+                )}
 
                 <Box sx={{ mt: 1 }}>
                     <Stepper activeStep={pasoActivo} sx={{ mb: 4 }}>
@@ -153,9 +267,11 @@ export default function RevisionModal({ open, onClose, data }: RevisionModalProp
                             documentos={data.documentos} 
                             scoring={data.scoring}
                             onValidarDocumento={handleValidarDocumento}
+                            onEvaluarDocumento={handleEvaluarDocumento} // Nueva prop
                             onDescargarDocumento={handleDescargarDocumento}
                             onVerDocumento={handleVerDocumento}
                             loading={loading}
+                            solicitudId={data.solicitud.id}
                         />
                     )}
                     

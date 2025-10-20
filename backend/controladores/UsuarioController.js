@@ -354,7 +354,7 @@ static async validarTelefono(telefono) {
     try {
         const usuarioId = req.usuario.id;
         
-        console.log('📋 Obteniendo perfil completo para usuario ID:', usuarioId);
+        console.log('. Obteniendo perfil completo para usuario ID:', usuarioId);
 
         // Obtener datos base del usuario
         const usuario = await UsuarioModel.findById(usuarioId);
