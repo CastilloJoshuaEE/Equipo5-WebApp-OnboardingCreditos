@@ -152,9 +152,12 @@ export default function DecisionStep({ solicitud, onClose, onComentarioEnviado }
                     </Typography>
                     
                     <Box sx={{ mt: 2, spaceY: 1 }}>
-                        <Typography variant="body2">
-                            <strong>Solicitud:</strong> <Chip label={solicitud.numero_solicitud} size="small" />
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body2" component="span">
+                                <strong>Solicitud:</strong>
+                            </Typography>
+                            <Chip label={solicitud.numero_solicitud} size="small" />
+                        </Box>
                         <Typography variant="body2">
                             <strong>Empresa:</strong> {solicitud.solicitantes?.nombre_empresa}
                         </Typography>
@@ -164,7 +167,7 @@ export default function DecisionStep({ solicitud, onClose, onComentarioEnviado }
                         <Typography variant="body2">
                             <strong>Contacto:</strong> {solicitud.solicitantes?.usuarios?.nombre_completo}
                         </Typography>
-                    </Box>
+                    </Box> {/* <- Este era el Box que faltaba cerrar */}
                 </CardContent>
             </Card>
 
