@@ -453,7 +453,7 @@ static async calcularNivelRiesgo(solicitudId) {
         });
       }
 
-      console.log(`📋 Solicitando información adicional para: ${solicitud_id}`);
+      console.log(`. Solicitando información adicional para: ${solicitud_id}`);
 
       // Actualizar estado de la solicitud
       const solicitud = await SolicitudModel.cambiarEstado(solicitud_id, 'pendiente_info', {

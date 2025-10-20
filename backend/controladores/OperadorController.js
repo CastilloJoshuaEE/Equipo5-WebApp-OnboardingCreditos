@@ -18,8 +18,14 @@ static async obtenerDashboard(req, res) {
         solicitantes: solicitantes!solicitante_id(
           nombre_empresa,
           cuit,
-          representante_legal
-          usuarios:usuarios!inner(nombre_completo, email, telefono, dni)
+          representante_legal,
+          domicilio,
+          usuarios:usuarios!inner(
+            nombre_completo, 
+            email, 
+            telefono, 
+            dni
+          )
         )
       `)
       .eq('operador_id', operadorId)
@@ -30,10 +36,13 @@ static async obtenerDashboard(req, res) {
     if (nivel_riesgo) query = query.eq('nivel_riesgo', nivel_riesgo);
     if (fecha_desde) query = query.gte('created_at', fecha_desde);
     if (fecha_hasta) query = query.lte('created_at', fecha_hasta);
-if (numero_solicitud) query = query.ilike('numero_solicitud', `%${numero_solicitud}%`);
-if (dni) {
-  query = query.eq('solicitantes.usuarios.dni', dni);
-}
+    if (numero_solicitud) query = query.ilike('numero_solicitud', `%${numero_solicitud}%`);
+    
+    // . CORRECCIÓN: Filtrar por DNI del usuario relacionado
+    if (dni) {
+      query = query.filter('solicitantes.usuarios.dni', 'eq', dni);
+    }
+
     const { data: solicitudes, error } = await query;
 
     if (error) {
@@ -42,6 +51,23 @@ if (dni) {
     }
 
     console.log(`. Solicitudes encontradas: ${solicitudes?.length || 0}`);
+
+       // CORRECCIÓN: Procesar datos para estructura consistente
+        const solicitudesProcesadas = solicitudes?.map(solicitud => {
+            // Asegurar que usuarios sea siempre un objeto
+            let usuariosData = solicitud.solicitantes?.usuarios;
+            if (Array.isArray(usuariosData)) {
+                usuariosData = usuariosData[0] || {};
+            }
+            
+            return {
+                ...solicitud,
+                solicitantes: {
+                    ...solicitud.solicitantes,
+                    usuarios: usuariosData
+                }
+            };
+        }) || [];
 
     // Obtener estadísticas del operador
     const { data: stats, error: statsError } = await supabase
@@ -54,7 +80,7 @@ if (dni) {
     }
 
     const estadisticas = {
-      total: solicitudes?.length || 0,
+      total: solicitudesProcesadas.length,
       en_revision: stats?.filter(s => s.estado === 'en_revision').length || 0,
       pendiente_info: stats?.filter(s => s.estado === 'pendiente_info').length || 0,
       aprobado: stats?.filter(s => s.estado === 'aprobado').length || 0,
@@ -64,9 +90,9 @@ if (dni) {
     res.json({
       success: true,
       data: {
-        solicitudes: solicitudes || [],
+        solicitudes: solicitudesProcesadas,
         estadisticas,
-        total: solicitudes?.length || 0
+        total: solicitudesProcesadas.length
       }
     });
 
@@ -110,6 +136,19 @@ static async iniciarRevision(req, res) {
                 success: false,
                 message: 'Solicitud no encontrada o no asignada a este operador'
             });
+        }
+        let datosSolicitante = null;
+        if (solicitud.solicitantes) {
+            // Asegurar que usuarios sea un objeto, no un array
+            let usuariosData = solicitud.solicitantes.usuarios;
+            if (Array.isArray(usuariosData)) {
+                usuariosData = usuariosData[0] || {};
+            }
+            
+            datosSolicitante = {
+                ...solicitud.solicitantes,
+                usuarios: usuariosData
+            };
         }
 
         // Obtener documentos de la solicitud
@@ -157,19 +196,20 @@ static async iniciarRevision(req, res) {
                 .eq('id', solicitud_id);
         }
 
-        return res.json({
+       return res.json({
             success: true,
             data: {
                 solicitud: {
                     ...solicitud,
-                    estado: 'en_revision' // Actualizar estado en respuesta
+                    estado: 'en_revision'
                 },
                 documentos: documentos || [],
                 infoBCRA,
                 scoring,
-                solicitante: solicitud.solicitantes || null
+                solicitante: datosSolicitante // USAR DATOS PROCESADOS
             }
         });
+
 
     } catch (error) {
         console.error('. Error en iniciarRevisionSolicitud:', error);

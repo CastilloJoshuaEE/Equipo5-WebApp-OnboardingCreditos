@@ -34,13 +34,46 @@ export default function OperadorDashboard() {
     });
     const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<RevisionData | null>(null);
     const [modalRevision, setModalRevision] = useState(false);
+const [revisionData, setRevisionData] = useState<RevisionData | null>(null);
+// Función para refrescar datos después de validar
+const handleDocumentoActualizado = async () => {
+    console.log('.Refrescando datos después de validación...');
+    // Recargar el dashboard o los datos específicos
+    await cargarDashboard();
+    
+    // Si hay una solicitud seleccionada, recargar sus datos
+    if (solicitudSeleccionada) {
+        await handleIniciarRevision(solicitudSeleccionada.solicitud.id);
+    }
+};
+const getNombreContacto = (solicitud: SolicitudOperador) => {
+    if (!solicitud?.solicitantes?.usuarios) {
+        return 'Sin contacto';
+    }
 
-    const getNombreContacto = (solicitud: SolicitudOperador) => {
-        const usuario = Array.isArray(solicitud.solicitantes.usuarios) 
-            ? solicitud.solicitantes.usuarios[0] 
-            : solicitud.solicitantes.usuarios;
-        return usuario?.nombre_completo || 'Sin contacto';
+    const usuario = Array.isArray(solicitud.solicitantes.usuarios) 
+        ? solicitud.solicitantes.usuarios[0] 
+        : solicitud.solicitantes.usuarios;
+    
+    return usuario?.nombre_completo || 'Sin contacto';
+};
+// También obtener email y teléfono para mostrar
+const getContactoInfo = (solicitud: SolicitudOperador) => {
+    if (!solicitud.solicitantes?.usuarios) {
+        return {
+            nombre: 'No disponible',
+            email: 'No disponible', 
+            telefono: 'No disponible'
+        };
+    }
+    
+    const usuario = solicitud.solicitantes.usuarios;
+    return {
+        nombre: usuario?.nombre_completo || 'No disponible',
+        email: usuario?.email || 'No disponible',
+        telefono: usuario?.telefono || 'No disponible'
     };
+};
 
     useEffect(() => {
         cargarDashboard();
@@ -103,7 +136,7 @@ export default function OperadorDashboard() {
                 }
             });
 
-            console.log(`📨 Respuesta del servidor: ${response.status}`);
+            console.log(`.Respuesta del servidor: ${response.status}`);
 
             if (response.ok) {
                 const data = await response.json();
@@ -282,7 +315,8 @@ export default function OperadorDashboard() {
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
                                                 CUIT: {solicitud.solicitantes?.cuit || '-'} | 
-                                                Contacto: {getNombreContacto(solicitud)}                                            
+                                                Contacto: {getNombreContacto(solicitud)} |
+                                                Tel: {solicitud.solicitantes?.usuarios?.telefono || 'No disponible'}                                            
                                             </Typography>
                                         </Box>
                                         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -335,6 +369,7 @@ export default function OperadorDashboard() {
                     open={modalRevision}
                     onClose={() => setModalRevision(false)}
                     data={solicitudSeleccionada}
+                    onDocumentoActualizado={handleDocumentoActualizado} // Nueva prop
                 />
             )}
         </Box>

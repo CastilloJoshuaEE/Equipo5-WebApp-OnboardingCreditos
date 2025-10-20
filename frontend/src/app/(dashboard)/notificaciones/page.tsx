@@ -99,7 +99,7 @@ export default function NotificacionesPage() {
   const obtenerIconoTipo = (tipo: string) => {
     const iconos: { [key: string]: JSX.Element } = {
       cambio_estado: <Box component="span">🔄</Box>,
-      nueva_solicitud: <Box component="span">📋</Box>,
+      nueva_solicitud: <Box component="span">.</Box>,
       documento_validado: <Box component="span">.</Box>,
       informacion_solicitada: <Box component="span">❓</Box>,
       sistema: <Box component="span">ℹ️</Box>,
@@ -114,13 +114,6 @@ export default function NotificacionesPage() {
           <Typography variant="h4" component="h1" fontWeight="bold">
             Notificaciones
           </Typography>
-          <Button 
-            variant="outlined" 
-            onClick={() => router.back()} 
-            sx={{ mt: 2 }}
-          >
-            Volver
-          </Button>
 
           <Button 
             variant="outlined" 

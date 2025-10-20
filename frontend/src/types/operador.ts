@@ -4,13 +4,17 @@ export interface SolicitudOperador {
     numero_solicitud: string;
     monto: number;
     plazo_meses: number;
+    proposito?: string; // AÑADIR propiedad faltante
+    moneda?: string; // AÑADIR propiedad faltante
     estado: string;
     nivel_riesgo: string;
     created_at: string;
+    fecha_envio?: string; // AÑADIR propiedad opcional
     solicitantes: {
         nombre_empresa: string;
         cuit: string;
         representante_legal: string;
+        domicilio?: string; // AÑADIR propiedad opcional
         usuarios: {
             nombre_completo: string;
             email: string;
@@ -23,10 +27,10 @@ export interface Documento {
     id: string;
     tipo: string;
     nombre_archivo: string;
-    ruta_storage: string; // AÑADIR ESTA PROPIEDAD
-    tamanio_bytes: number; // AÑADIR ESTA PROPIEDAD
+    ruta_storage: string;
+    tamanio_bytes: number;
     estado: string;
-    created_at: string; // CAMBIAR de fecha_subida a created_at
+    created_at: string;
     validado_en?: string;
     comentarios?: string;
     informacion_extraida?: any;

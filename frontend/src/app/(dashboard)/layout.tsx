@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { Box, CircularProgress, Button, AppBar, Toolbar, Typography } from '@mui/material';
 import { NotificacionesBell } from '@/components/notificaciones/NotificacionesBell';
 import { Person } from '@mui/icons-material';
+import Image from "next/image";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -62,15 +63,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     <Box>
       <AppBar position="static" elevation={0} sx={{ backgroundColor: 'white', color: 'text.primary', borderBottom: 1, borderColor: 'divider' }}>
         <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <Typography
-            variant="h6"
-            component="div"
-            sx={{ flexGrow: 1, cursor: 'pointer' }}
-            onClick={handleIrDashboard}
-          >
-            Nexia
-          </Typography>
+<Image
+  src="/logos/logoVariant3.svg"
+  alt="LogoNexia"
+  width={120}
+  height={40}
+  priority
+  onClick={handleIrDashboard}
+  style={{ cursor: 'pointer', transition: 'transform 0.2s', transformOrigin: 'center' }}
+  onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
+  onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+/>
 
+        
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button
               color="inherit"
