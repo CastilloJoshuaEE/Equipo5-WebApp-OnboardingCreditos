@@ -94,8 +94,8 @@ export default function ChatbotWidget() {
                 ? `${API_BASE}/chatbot/mensaje-autenticado`
                 : `${API_BASE}/chatbot/mensaje`;
 
-            console.log('🤖 Enviando mensaje a:', endpoint);
-            console.log('🤖 Token presente:', !!session?.accessToken);
+            console.log('. Enviando mensaje a:', endpoint);
+            console.log('. Token presente:', !!session?.accessToken);
 
             const response = await fetch(endpoint, {
                 method: 'POST',
@@ -103,12 +103,12 @@ export default function ChatbotWidget() {
                 body: JSON.stringify({ mensaje: mensajeInput }),
             });
 
-            console.log('🤖 Respuesta del servidor:', response.status);
+            console.log('. Respuesta del servidor:', response.status);
 
             if (!response.ok) {
                 // Si es 401, intentar con endpoint público
                 if (response.status === 401 && session?.accessToken) {
-                    console.log('🤖 Token inválido, intentando con endpoint público...');
+                    console.log('. Token inválido, intentando con endpoint público...');
                     const publicResponse = await fetch(`${API_BASE}/chatbot/mensaje`, {
                         method: 'POST',
                         headers: {
@@ -148,7 +148,7 @@ export default function ChatbotWidget() {
                 throw new Error(data.message || 'Error en la respuesta del servidor');
             }
         } catch (error: any) {
-            console.error('❌ Error enviando mensaje:', error);
+            console.error('. Error enviando mensaje:', error);
             const mensajeError: Mensaje = {
                 id: (Date.now() + 1).toString(),
                 texto: 'Lo siento, ha ocurrido un error. Por favor intenta nuevamente.',

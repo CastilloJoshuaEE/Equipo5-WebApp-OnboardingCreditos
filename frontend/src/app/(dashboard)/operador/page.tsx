@@ -80,36 +80,12 @@ const getContactoInfo = (solicitud: SolicitudOperador) => {
     }, []);
 
     const handleLogout = async () => {
-        try {
-            const currentSession = await getSession();
-            
-            if (currentSession?.user?.id) {
-                const userId = currentSession.user.id;
-                localStorage.removeItem(`solicitud_borrador_${userId}`);
-                
-                // Limpiar todos los borradores
-                const keysToRemove = [];
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && key.includes(`solicitud_borrador_`)) {
-                        keysToRemove.push(key);
-                    }
-                }
-                
-                keysToRemove.forEach(key => {
-                    localStorage.removeItem(key);
-                });
-            }
+       
 
             await signOut({ 
                 callbackUrl: '/login',
                 redirect: true 
             });
-
-        } catch (error) {
-            console.error('Error durante el logout:', error);
-            await signOut({ callbackUrl: '/login' });
-        }
     };
 
     const cargarDashboard = async () => {

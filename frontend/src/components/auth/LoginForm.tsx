@@ -76,11 +76,22 @@ export default function LoginForm() {
 
       console.log('Resultado del signIn:', result);
 
-      if (result?.error) {
-        console.error('Error en signIn:', result.error);
-        setError('Credenciales inválidas. Por favor verifica tu email y contraseña.');
-        return;
-      }
+if (result?.error) {
+  console.error('Error en signIn:', result.error);
+
+  // Mostrar alerta si el backend devolvió mensajes específicos
+  if (result.error.includes('bloqueada')) {
+    alert(`. ${result.error}`);
+  } else if (result.error.includes('intentos')) {
+    alert(`. ${result.error}`);
+  } else {
+    alert('. Credenciales inválidas. Por favor verifica tu email y contraseña.');
+  }
+
+  setError(result.error);
+  return;
+}
+
 
       // Login exitoso - obtener información del usuario para determinar el rol
       console.log('Login exitoso, obteniendo información del usuario...');

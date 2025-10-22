@@ -485,7 +485,7 @@ static async calcularNivelRiesgo(solicitudId) {
     try {
       const { solicitud_id } = req.params;
 
-      console.log(`🔐 Iniciando verificación KYC para solicitud: ${solicitud_id}`);
+      console.log(`. Iniciando verificación KYC para solicitud: ${solicitud_id}`);
 
       // Obtener datos del solicitante
       const solicitud = await SolicitudModel.findById(solicitud_id);
