@@ -11,7 +11,7 @@ class ChatbotController {
             const { mensaje } = req.body;
             const usuario = req.usuario || null; // Puede ser null para usuarios no autenticados
 
-            console.log(`🤖 Chatbot - Mensaje recibido:`, {
+            console.log(`. Chatbot - Mensaje recibido:`, {
                 usuario: usuario ? usuario.email : 'No autenticado',
                 mensaje: mensaje.substring(0, 100)
             });
@@ -39,7 +39,7 @@ class ChatbotController {
                 await ChatbotController.registrarInteraccion(usuario.id, mensaje, respuesta);
             }
 
-            console.log(`🤖 Chatbot - Respuesta generada: ${respuesta.substring(0, 100)}...`);
+            console.log(`. Chatbot - Respuesta generada: ${respuesta.substring(0, 100)}...`);
 
             res.json({
                 success: true,
@@ -55,7 +55,7 @@ class ChatbotController {
             });
 
         } catch (error) {
-            console.error('❌ Error en ChatbotController:', error);
+            console.error('. Error en ChatbotController:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error interno del servidor al procesar el mensaje'
@@ -81,11 +81,11 @@ class ChatbotController {
                 .insert([interaccionData]);
 
             if (error) {
-                console.warn('⚠️ Error registrando interacción del chatbot:', error);
+                console.warn('. Error registrando interacción del chatbot:', error);
             }
 
         } catch (error) {
-            console.warn('⚠️ Error en registrarInteraccion:', error);
+            console.warn('. Error en registrarInteraccion:', error);
         }
     }
 
@@ -112,7 +112,7 @@ class ChatbotController {
             });
 
         } catch (error) {
-            console.error('❌ Error obteniendo historial del chatbot:', error);
+            console.error('. Error obteniendo historial del chatbot:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al obtener el historial de conversaciones'
@@ -139,7 +139,7 @@ class ChatbotController {
             });
 
         } catch (error) {
-            console.error('❌ Health check del chatbot falló:', error);
+            console.error('. Health check del chatbot falló:', error);
             res.status(503).json({
                 success: false,
                 message: 'Chatbot temporalmente no disponible',

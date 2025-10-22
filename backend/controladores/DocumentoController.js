@@ -272,7 +272,7 @@ static async extraerInformacionDocumento(pdfUrl, tipo, buffer) {
  // Modificar el método de verificación Didit para usar simulación en desarrollo
   static async iniciarVerificacionDidit(solicitudId, documentoId, archivoBuffer) {
     try {
-      console.log(`🔐 Iniciando verificación Didit para documento: ${documentoId}`);
+      console.log(`. Iniciando verificación Didit para documento: ${documentoId}`);
       
       const resultado = await diditService.verifyIdentity(archivoBuffer);
       
@@ -840,7 +840,7 @@ static async evaluarDocumento(req, res) {
                 }
             }
         } catch (notifError) {
-            console.warn('⚠️ Error creando notificación:', notifError.message);
+            console.warn('. Error creando notificación:', notifError.message);
             // No fallar la evaluación por error en notificación
         }
 

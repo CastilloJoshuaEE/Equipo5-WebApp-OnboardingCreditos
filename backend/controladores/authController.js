@@ -12,9 +12,13 @@ class AuthController {
   static async login(req, res) {
     try {
       const { email, password } = req.body;
+      const ipAddress = req.ip || req.connection.remoteAddress;
+      let intentoExitoso = false;
 
+      const userAgent = req.get('User-Agent');
       console.log('. Backend: Procesando login para:', email);
-
+        // Verificar si la cuenta está bloqueada temporalmente
+ 
       // Validar campos obligatorios
       if (!email || !password) {
         return res.status(400).json({
@@ -35,6 +39,76 @@ class AuthController {
         console.error('. Error verificando usuario:', usuarioError);
         throw usuarioError;
       }
+        const { data: bloqueosRecientes, error: bloqueoError } = await supabase
+            .from('intentos_login')
+            .select('created_at')
+            .eq('email', email)
+            .eq('intento_exitoso', false)
+            .gte('created_at', new Date(Date.now() - 15 * 60 * 1000).toISOString()) // Últimos 15 minutos
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+        if (bloqueoError) throw bloqueoError;
+       // Bloquear si hay 5 o más intentos fallidos en 15 minutos
+if (bloqueosRecientes && bloqueosRecientes.length >= 5 && usuarioExistente?.cuenta_activa === false) {
+            console.log('. Cuenta temporalmente bloqueada por intentos fallidos:', email);
+            
+            // Registrar el intento bloqueado
+            await supabase
+                .from('intentos_login')
+                .insert([{
+                    email,
+                    intento_exitoso: false,
+                    ip_address: ipAddress,
+                    user_agent: userAgent,
+                    bloqueado: true
+                }]);
+
+            return res.status(429).json({
+                success: false,
+                message: 'Cuenta temporalmente bloqueada por múltiples intentos fallidos. Intente nuevamente en 15 minutos. O use la opción de "Recuperar cuenta inactiva"'
+            });
+        }            
+        if (usuarioExistente && usuarioExistente.cuenta_activa) {
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+            
+            intentoExitoso = !authError;
+        }
+
+        // Registrar el intento
+        await supabase
+            .from('intentos_login')
+            .insert([{
+                usuario_id: usuarioExistente?.id,
+                email,
+                intento_exitoso: intentoExitoso,
+                ip_address: ipAddress,
+                user_agent: userAgent
+            }]);
+
+        // Si el login falla después de registrar el intento
+        if (!intentoExitoso && usuarioExistente) {
+            // Verificar si este intento fallido alcanza el límite
+            const nuevosBloqueos = [...(bloqueosRecientes || []), { created_at: new Date().toISOString() }];
+            
+            if (nuevosBloqueos.length >= 5) {
+                console.log('. Bloqueando cuenta después del 5to intento fallido:', email);
+                
+                // Opcional: Desactivar la cuenta
+                await supabase
+                    .from('usuarios')
+                    .update({ cuenta_activa: false })
+                    .eq('email', email);
+                    
+                return res.status(429).json({
+                    success: false,
+                    message: 'Cuenta bloqueada por seguridad después de múltiples intentos fallidos. Contacte al administrador.'
+                });
+            }
+        }
 
       // Si no existe en nuestra tabla, rechazar login inmediatamente
       if (!usuarioExistente) {

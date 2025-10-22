@@ -4,7 +4,7 @@ const OperadorModel= require('../modelos/OperadorModel');
 const{supabaseAdmin, getUserByEmail}= require('../config/supabaseAdmin');
 const{enviarEmailBienvenida, enviarEmailConfirmacionCuenta}= require('../servicios/emailServicio');
 const { supabase } = require('../config/conexion');
-
+const bcrypt = require('bcryptjs');
 class UsuarioController{
 static async validarTelefono(telefono) {
   if (!telefono) return true;
@@ -14,27 +14,46 @@ static async validarTelefono(telefono) {
   const soloNumeros = telefonoLimpio.replace(/\D/g, '');
   return soloNumeros.length >= 8 && soloNumeros.length <= 15;
 }
-  static async validarCamposRegistro(data, rol){
-    const errors=[];
-    if(!data.email) errors.push('Email es requerido');
-    if(!data.password) errors.push('Contraseña es requerida');
-    if(!data.nombre_completo) errors.push('Nombre completo es requerido');
-    if(!data.dni) errors.push('DNI es requerido');
-    const emailRegex= /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if(data.email && !emailRegex.test(data.email)){
-      errors.push('Formato de email inválido');
-    }
-    if(data.telefono && !validarTelefono(data.telefono)){
-      errors.push('Formato de teléfono inválido');
-      
-    }
-    if(rol==='solicitante'){
-      const empresaErrors= SolicitanteModel.validarEmpresaData(data);
-      errors.push(...empresaErrors);
-    }
-    return errors;
+static validarCamposRegistro(data, rol) {
+    const errors = [];
+    
+    if (!data.email) errors.push('Email es requerido');
+    if (!data.password) errors.push('Contraseña es requerida');
+    if (!data.nombre_completo) errors.push('Nombre completo es requerido');
+    if (!data.dni) errors.push('DNI es requerido');
 
-  }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (data.email && !emailRegex.test(data.email)) {
+        errors.push('Formato de email inválido');
+    }
+
+    if (data.telefono && !this.validarTelefono(data.telefono)) {
+        errors.push('Formato de teléfono inválido');
+    }
+
+    // Validación robusta de contraseña
+    if (data.password) {
+        if (data.password.length < 8) {
+            errors.push('La contraseña debe tener al menos 8 caracteres');
+        }
+        if (!/(?=.*[a-z])/.test(data.password)) {
+            errors.push('La contraseña debe contener al menos una letra minúscula');
+        }
+        if (!/(?=.*[A-Z])/.test(data.password)) {
+            errors.push('La contraseña debe contener al menos una letra mayúscula');
+        }
+        if (!/(?=.*\d)/.test(data.password)) {
+            errors.push('La contraseña debe contener al menos un número');
+        }
+    }
+
+    if (rol === 'solicitante') {
+        const empresaErrors = SolicitanteModel.validarEmpresaData(data);
+        errors.push(...empresaErrors);
+    }
+
+    return errors;
+}
   static filtrarCamposValidos(data, rol){
     const camposPermitidos= [
       'email', 'password', 'nombre_completo', 'telefono', 'dni', 'rol'
@@ -59,7 +78,7 @@ static async validarTelefono(telefono) {
       if(validacionErrores.length>0){
         return res.status(400).json({
           success:false,
-          message: 'Errores de validación',
+          message: 'Errores de validación en el registro',
           errors: validacionErrores
         });
       }
@@ -659,6 +678,7 @@ static async validarTelefono(telefono) {
           }
         });
       }
+
       //Validar que las contraseñas coincidan
       if(nueva_contrasena!== confirmar_contrasena){
         return res.status(400).json({
@@ -680,6 +700,27 @@ static async validarTelefono(telefono) {
           message: 'La nueva contraseña debe ser diferente a la actual'
         });
       }
+              // Verificar que no sea una de las últimas 3 contraseñas
+        const { data: historial, error: historialError } = await supabase
+            .from('historial_contrasenas')
+            .select('password_hash')
+            .eq('usuario_id', req.usuario.id)
+            .order('created_at', { ascending: false })
+            .limit(3);
+
+        if (!historialError && historial) {
+            for (const item of historial) {
+                // Verificar si la nueva contraseña coincide con alguna anterior
+                // Nota: Esto requiere una función de comparación de hashes
+                const esIgual = await UsuarioController.compararHashContrasena(nueva_contrasena, item.password_hash);
+                if (esIgual) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'No puede reutilizar una contraseña anterior. Por favor elija una contraseña diferente.'
+                    });
+                }
+            }
+        }
       console.log('Verificando contraseña actual para:', req.usuario.email);
       //Verificar contraseña actual con supabase auth
       const{data:verifyData, error: verifyError}= await supabase.auth.signInWithPassword({
@@ -725,7 +766,13 @@ static async validarTelefono(telefono) {
         message: 'Contraseña actualizada exitosamente'
       });
 
-
+      const nuevoHash = await UsuarioController.generarHashContrasena(nueva_contrasena);
+        await supabase
+            .from('historial_contrasenas')
+            .insert([{
+                usuario_id: req.usuario.id,
+                password_hash: nuevoHash
+            }]);
 
     }catch(error){
       console.error('Error en cambiarContrasena:', error);
@@ -736,87 +783,118 @@ static async validarTelefono(telefono) {
     }
   }
   //Recuperar contraseña (Sin necesidad de estar autenticado)
-  static async recuperarContrasena(req, res) {
-    try {
-      const { email, nueva_contrasena, confirmar_contrasena } = req.body;
-      
-      console.log('Solicitando recuperación de contraseña para:', email);
-      
-      if (!email || !nueva_contrasena || !confirmar_contrasena) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email, nueva contraseña y confirmación son requeridos'
-        });
-      }
-      
-      if (nueva_contrasena !== confirmar_contrasena) {
-        return res.status(400).json({
-          success: false,
-          message: 'Las contraseñas no coinciden'
-        });
-      }
-      
-      if (nueva_contrasena.length < 6) {
-        return res.status(400).json({
-          success: false,
-          message: 'La contraseña debe tener al menos 8 caracteres'
-        });
-      }
+static async recuperarContrasena(req, res) {
+  try {
+    const { email, nueva_contrasena, confirmar_contrasena } = req.body;
+    console.log('Solicitando recuperación de contraseña para:', email);
 
-      // Verificar que el usuario existe en nuestra tabla
-      const usuarioExistente = await UsuarioModel.findByEmail(email);
-      
-      if (!usuarioExistente) {
-        console.log('Usuario no encontrado en tabla usuarios:', email);
-        return res.status(404).json({
-          success: false,
-          message: 'No hay una cuenta registrada con este email'
-        });
-      }
-
-      if (!usuarioExistente.cuenta_activa) {
-        return res.status(400).json({
-          success: false,
-          message: 'La cuenta no está activa. Por favor contacta al administrador'
-        });
-      }
-
-      const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        usuarioExistente.id,
-        { password: nueva_contrasena }
-      );
-
-      if (updateError) {
-        console.error('Error actualizando contraseña en auth:', updateError);
-        console.log('Intentando método alternativo de recuperación...');
-        
-        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/actualizar-contrasena`
-        });
-        
-        if (resetError) {
-          throw new Error('No se pudo procesar la recuperación de contraseña');
-        }
-        
-        return res.json({
-          success: true,
-          message: 'Se ha enviado un enlace de recuperación a tu email. Por favor revisa tu bandeja de entrada'
-        });
-      }
-
-      console.log('Contraseña recuperada exitosamente para:', email);
-      res.json({
-        success: true,
-        message: 'Contraseña actualizada exitosamente. Ahora puedes iniciar sesión con tu nueva contraseña'
-      });
-    } catch (error) {
-      console.error('Error en recuperarContrasena:', error);
-      res.status(400).json({
+    if (!email || !nueva_contrasena || !confirmar_contrasena) {
+      return res.status(400).json({
         success: false,
-        message: error.message || 'Error al recuperar la contraseña'
+        message: 'Email, nueva contraseña y confirmación son requeridos'
       });
     }
+
+    if (nueva_contrasena !== confirmar_contrasena) {
+      return res.status(400).json({
+        success: false,
+        message: 'Las contraseñas no coinciden'
+      });
+    }
+
+    if (nueva_contrasena.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña debe tener al menos 8 caracteres'
+      });
+    }
+
+    // Verificar que el usuario existe en la base de datos
+    const usuarioExistente = await UsuarioModel.findByEmail(email);
+
+    if (!usuarioExistente) {
+      console.log('Usuario no encontrado en tabla usuarios:', email);
+      return res.status(404).json({
+        success: false,
+        message: 'No hay una cuenta registrada con este email'
+      });
+    }
+
+    if (!usuarioExistente.cuenta_activa) {
+      return res.status(400).json({
+        success: false,
+        message: 'La cuenta no está activa. Por favor contacta al administrador'
+      });
+    }
+
+    // 🚫 Verificar que no sea una de las últimas 3 contraseñas usadas
+    const { data: historial, error: historialError } = await supabase
+      .from('historial_contrasenas')
+      .select('password_hash')
+      .eq('usuario_id', usuarioExistente.id)
+      .order('created_at', { ascending: false })
+      .limit(3);
+
+    if (!historialError && historial && historial.length > 0) {
+      for (const item of historial) {
+        const esIgual = await UsuarioController.compararHashContrasena(nueva_contrasena, item.password_hash);
+        if (esIgual) {
+          return res.status(400).json({
+            success: false,
+            message: 'No puede reutilizar una contraseña anterior. Por favor elija una contraseña diferente.'
+          });
+        }
+      }
+    }
+
+    // . Actualizar la contraseña en Supabase Auth
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      usuarioExistente.id,
+      { password: nueva_contrasena }
+    );
+
+    if (updateError) {
+      console.error('Error actualizando contraseña en auth:', updateError);
+      console.log('Intentando método alternativo de recuperación...');
+      
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/actualizar-contrasena`
+      });
+      
+      if (resetError) {
+        throw new Error('No se pudo procesar la recuperación de contraseña');
+      }
+      
+      return res.json({
+        success: true,
+        message: 'Se ha enviado un enlace de recuperación a tu email. Por favor revisa tu bandeja de entrada'
+      });
+    }
+
+    // . Guardar nueva contraseña en el historial
+    const nuevoHash = await UsuarioController.generarHashContrasena(nueva_contrasena);
+    await supabase
+      .from('historial_contrasenas')
+      .insert([{
+        usuario_id: usuarioExistente.id,
+        password_hash: nuevoHash
+      }]);
+
+    console.log('Contraseña recuperada exitosamente para:', email);
+
+    res.json({
+      success: true,
+      message: 'Contraseña actualizada exitosamente. Ahora puedes iniciar sesión con tu nueva contraseña'
+    });
+
+  } catch (error) {
+    console.error('Error en recuperarContrasena:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Error al recuperar la contraseña'
+    });
   }
+}
 
   // Solicitar recuperación de cuenta
   static async solicitarRecuperacionCuenta(req, res) {
@@ -930,13 +1008,23 @@ static async desactivarCuenta(req, res) {
       password: password
     });
 
-    if (verifyError) {
-      console.error('Error verificando contraseña:', verifyError);
-      return res.status(400).json({
-        success: false,
-        message: 'Contraseña incorrecta. No se pudo desactivar la cuenta'
-      });
+
+if (verifyError) {
+    console.error('Error verificando contraseña actual:', verifyError);
+    
+    let errorMessage = 'La contraseña actual es incorrecta';
+    if (verifyError.message.includes('Invalid login credentials')) {
+        errorMessage = 'La contraseña actual es incorrecta. Verifique e intente nuevamente.';
+    } else if (verifyError.message.includes('Email not confirmed')) {
+        errorMessage = 'Su email no está confirmado. Por favor verifique su cuenta antes de cambiar la contraseña.';
     }
+    
+    return res.status(400).json({
+        success: false,
+        message: errorMessage, // Mensaje específico y claro
+        code: 'CONTRASENA_ACTUAL_INCORRECTA'
+    });
+}
 
     // Desactivar cuenta en la base de datos
     const usuarioDesactivado = await UsuarioModel.deactivateAccount(req.usuario.id, motivo);
@@ -1264,6 +1352,16 @@ static async obtenerPerfilUsuario(req, res) {
         });
     }
 }
+  // Generar hash de contraseña
+  static async generarHashContrasena(contrasena) {
+    const salt = await bcrypt.genSalt(10);
+    return await bcrypt.hash(contrasena, salt);
+  }
+
+  // Comparar contraseña con hash guardado
+  static async compararHashContrasena(contrasena, hash) {
+    return await bcrypt.compare(contrasena, hash);
+  }
 }
   
 module.exports= UsuarioController;

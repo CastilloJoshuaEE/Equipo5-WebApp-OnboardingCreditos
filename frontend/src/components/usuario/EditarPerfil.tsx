@@ -396,12 +396,8 @@ const EditarPerfil = () => {
                 </Card>
               )}
 
-              {perfil.rol === 'operador' && (
                 <Card>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Información de Operador
-                    </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Puedes cambiar tu contraseña desde aquí.
                     </Typography>
@@ -414,7 +410,7 @@ const EditarPerfil = () => {
                     </Button>
                   </CardContent>
                 </Card>
-              )}
+
             </Grid>
 
             {/* Botones */}
