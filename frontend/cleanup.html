@@ -1,0 +1,37 @@
+<!-- cleanup.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Limpieza de Tokens</title>
+</head>
+<body>
+    <h1>Limpieza de Tokens de Autenticación</h1>
+    <button onclick="cleanTokens()">Limpiar Todos los Tokens</button>
+    <div id="result"></div>
+
+    <script>
+        function cleanTokens() {
+            const tokensToRemove = [
+                'token',
+                'refresh_token', 
+                'next-auth.session-token',
+                'next-auth.callback-url',
+                'next-auth.csrf-token'
+            ];
+
+            tokensToRemove.forEach(token => {
+                localStorage.removeItem(token);
+                console.log(`Removido: ${token}`);
+            });
+
+            document.getElementById('result').innerHTML = `
+                <p style="color: green;">✅ Todos los tokens han sido eliminados</p>
+                <p>Ahora recarga la página y vuelve a iniciar sesión.</p>
+            `;
+        }
+
+        // Ejecutar automáticamente al cargar
+        cleanTokens();
+    </script>
+</body>
+</html>

@@ -28,51 +28,132 @@ export default function DecisionStep({ solicitud, onClose, onComentarioEnviado }
     const [comentario, setComentario] = useState('');
     const [enviando, setEnviando] = useState(false);
     const [mensaje, setMensaje] = useState('');
-
-    const handleAprobar = async () => {
-        try {
-            setEnviando(true);
-            // Lógica para aprobar solicitud
-            console.log('Aprobando solicitud:', solicitud.id);
-            
-            // Aquí iría la llamada a la API para aprobar
-            const response = await fetch(`/api/solicitudes/${solicitud.id}/aprobar`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    comentarios: 'Solicitud aprobada por el operador'
-                })
-            });
-
-            if (response.ok) {
-                setMensaje('. Solicitud aprobada exitosamente');
-                setTimeout(() => {
-                    onClose();
-                }, 2000);
-            } else {
-                throw new Error('Error al aprobar solicitud');
-            }
-        } catch (error) {
-            console.error('Error aprobando solicitud:', error);
-            setMensaje('. Error al aprobar la solicitud');
-        } finally {
-            setEnviando(false);
+const handleAprobar = async () => {
+    try {
+        setEnviando(true);
+        
+        // Verificar y obtener el token de forma segura
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('No hay token de autenticación disponible');
         }
-    };
+
+        // Validar formato básico del token
+        if (!isValidToken(token)) {
+            throw new Error('Token de autenticación inválido');
+        }
+
+        const baseUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://tu-dominio.com' 
+            : 'http://localhost:3001';
+            
+        const response = await fetch(`${baseUrl}/api/solicitudes/${solicitud.id}/aprobar`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                comentarios: 'Solicitud aprobada por el operador'
+            })
+        });
+
+        if (response.status === 401) {
+            // Token expirado o inválido
+            await handleTokenExpired();
+            return;
+        }
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+        }
+
+        setMensaje('✅ Solicitud aprobada exitosamente');
+        setTimeout(() => {
+            onClose();
+        }, 2000);
+    } catch (error) {
+        console.error('Error aprobando solicitud:', error);
+        setMensaje(error instanceof Error ? error.message : 'Error al aprobar la solicitud');
+    } finally {
+        setEnviando(false);
+    }
+};
+
+// Función auxiliar para validar token
+const isValidToken = (token: string): boolean => {
+    try {
+        // Un token JWT válido debe tener 3 partes separadas por puntos
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+            return false;
+        }
+        
+        // Verificar que cada parte sea base64 válido
+        parts.forEach(part => {
+            // Reemplazar caracteres base64url por base64 estándar
+            const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
+            // Verificar que sea base64 válido
+            atob(base64);
+        });
+        
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+// Función para manejar token expirado
+const handleTokenExpired = async () => {
+    try {
+        // Intentar refrescar el token
+        const refreshResponse = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                refresh_token: localStorage.getItem('refresh_token')
+            })
+        });
+
+        if (refreshResponse.ok) {
+            const { data } = await refreshResponse.json();
+            localStorage.setItem('token', data.access_token);
+            // Reintentar la operación original
+            await handleAprobar();
+        } else {
+            // Forzar logout
+            localStorage.removeItem('token');
+            localStorage.removeItem('refresh_token');
+            window.location.href = '/login';
+        }
+    } catch (refreshError) {
+        console.error('Error refrescando token:', refreshError);
+        localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
+        window.location.href = '/login';
+    }
+};
 
     const handleRechazar = async () => {
         try {
             setEnviando(true);
             // Lógica para rechazar solicitud
             console.log('Rechazando solicitud:', solicitud.id);
+        const baseUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://tu-dominio.com' 
+            : 'http://localhost:3001';
             
-            const response = await fetch(`/api/solicitudes/${solicitud.id}/rechazar`, {
+        const response = await fetch(`${baseUrl}/api/solicitudes/${solicitud.id}/rechazar`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}` 
                 },
+                credentials: 'include', 
                 body: JSON.stringify({
                     motivo_rechazo: 'Solicitud rechazada por el operador'
                 })
@@ -100,11 +181,17 @@ export default function DecisionStep({ solicitud, onClose, onComentarioEnviado }
         try {
             setEnviando(true);
             
-            const response = await fetch('/api/comentarios', {
-                method: 'POST',
+        const baseUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://tu-dominio.com' 
+            : 'http://localhost:3001';
+            
+const response = await fetch(`${baseUrl}/api/comentarios`, {                
+    method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}` 
                 },
+                credentials: 'include', 
                 body: JSON.stringify({
                     solicitud_id: solicitud.id,
                     comentario: comentario.trim(),

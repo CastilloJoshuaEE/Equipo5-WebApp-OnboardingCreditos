@@ -127,7 +127,7 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
             comentarios: comentarios
         };
 
-        console.log('📤 Enviando evaluación:', endpoint, body);
+        console.log('. Enviando evaluación:', endpoint, body);
 
         const response = await fetch(endpoint, {
             method: 'POST',

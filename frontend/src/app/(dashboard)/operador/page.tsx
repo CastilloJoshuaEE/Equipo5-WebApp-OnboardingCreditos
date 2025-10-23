@@ -291,8 +291,8 @@ const getContactoInfo = (solicitud: SolicitudOperador) => {
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
                                                 CUIT: {solicitud.solicitantes?.cuit || '-'} | 
-                                                Contacto: {getNombreContacto(solicitud)} |
-                                                Tel: {solicitud.solicitantes?.usuarios?.telefono || 'No disponible'}                                            
+                                                Nombre del solicitante: {getNombreContacto(solicitud)} |
+                                                Número de teléfono del solicitante: {solicitud.solicitantes?.usuarios?.telefono || 'No disponible'}                                            
                                             </Typography>
                                         </Box>
                                         <Box sx={{ display: 'flex', gap: 1 }}>

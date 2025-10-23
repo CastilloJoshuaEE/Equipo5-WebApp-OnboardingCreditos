@@ -1,6 +1,6 @@
 // frontend/src/components/operador/steps/DocumentacionStep.tsx
 'use client';
-
+import { DocumentosService } from '@/services/documentos.service';
 import React, { useState, useEffect } from 'react';
 import { getSession } from 'next-auth/react';
 import {
@@ -53,8 +53,7 @@ interface DocumentacionStepProps {
     documentos: Documento[];
     scoring: any;
     onValidarDocumento: (documentoId: string, estado: string, comentarios?: string) => void;
-    onEvaluarDocumento?: (documentoId: string, criterios: any, comentarios: string) => void; // Nueva prop
-    onDescargarDocumento: (documento: Documento) => void;
+    onEvaluarDocumento?: (documentoId: string, criterios: any, comentarios: string, estado?: string) => void;     onDescargarDocumento: (documento: Documento) => void;
     onVerDocumento: (documento: Documento) => void;
     loading?: boolean;
     solicitudId?: string;
@@ -182,13 +181,55 @@ export default function DocumentacionStep({
     };
 
     // Abrir modal de evaluación
-    const handleAbrirEvaluacion = (documento: Documento) => {
-        setDocumentoEvaluando(documento);
-        setChecklist({});
-        setComentarios('');
-        setModalEvaluacion(true);
-    };
+// En DocumentacionStep.tsx - mejorar handleAbrirEvaluacion
+const handleAbrirEvaluacion = async (documento: Documento) => {
+    setDocumentoEvaluando(documento);
+    setChecklist({});
+    setComentarios('');
+    setModalEvaluacion(true);
 
+    try {
+        // Obtener historial de evaluaciones anteriores
+        const historial = await DocumentosService.obtenerHistorialEvaluaciones(documento.id);
+        
+        if (historial && historial.length > 0) {
+            // Tomar la última evaluación registrada
+            const ultimaEvaluacion = historial[0];
+            
+            console.log('📋 Última evaluación encontrada:', ultimaEvaluacion);
+                        console.log('📋 Criterios recibidos:', ultimaEvaluacion.criterios);
+            console.log('📋 Tipo de criterios:', typeof ultimaEvaluacion.criterios);
+            // Mapear criterios al checklist - manejar diferentes estructuras
+            if (ultimaEvaluacion.criterios && typeof ultimaEvaluacion.criterios === 'object') {
+                const criteriosMapeados: {[key: string]: boolean} = {};
+                
+                // Iterar sobre todos los criterios disponibles para este tipo de documento
+                const criteriosDisponibles = CRITERIOS_DOCUMENTOS[documento.tipo as keyof typeof CRITERIOS_DOCUMENTOS]?.criterios || [];
+                
+                criteriosDisponibles.forEach(criterio => {
+                    // Verificar si este criterio existe en la evaluación guardada
+                    const valor = ultimaEvaluacion.criterios[criterio.id];
+                    criteriosMapeados[criterio.id] = valor === true;
+                });
+                
+                console.log('✅ Criterios mapeados al checklist:', criteriosMapeados);
+                setChecklist(criteriosMapeados);
+            } else {
+                console.warn('⚠️ No se encontraron criterios válidos en la evaluación');
+            }
+
+            // Establecer comentarios si existen
+            if (ultimaEvaluacion.comentarios) {
+                setComentarios(ultimaEvaluacion.comentarios);
+            }
+        } else {
+            console.log('📝 No hay evaluaciones previas para este documento');
+        }
+    } catch (error) {
+        console.error('⚠️ Error cargando historial de evaluaciones:', error);
+        // No bloquear la UI si falla la carga del historial
+    }
+};
     // Cerrar modal
     const handleCerrarEvaluacion = () => {
         setModalEvaluacion(false);
@@ -214,22 +255,39 @@ const handleEnviarEvaluacion = async () => {
         const criterios = CRITERIOS_DOCUMENTOS[documentoEvaluando.tipo as keyof typeof CRITERIOS_DOCUMENTOS]?.criterios || [];
         const criteriosAprobados = criterios.filter(c => checklist[c.id]).length;
         const totalCriterios = criterios.length;
+        const porcentajeAprobado = totalCriterios > 0 ? (criteriosAprobados / totalCriterios) * 100 : 0;
 
-        const comentarioFinal = `Evaluación: ${criteriosAprobados}/${totalCriterios} criterios aprobados. ${comentarios ? `Comentarios: ${comentarios}` : ''}`;
+        // Determinar estado automáticamente basado en porcentaje
+        let estadoFinal = 'pendiente';
+        if (porcentajeAprobado >= 80) {
+            estadoFinal = 'validado';
+        } else if (porcentajeAprobado >= 60) {
+            estadoFinal = 'pendiente';
+        } else {
+            estadoFinal = 'rechazado';
+        }
 
-        console.log('. Enviando evaluación al backend:', {
+        const comentarioFinal = `Evaluación: ${criteriosAprobados}/${totalCriterios} criterios aprobados (${porcentajeAprobado.toFixed(0)}%). ${comentarios ? `Comentarios: ${comentarios}` : ''}`;
+
+        console.log('📤 Enviando evaluación al backend:', {
             documentoId: documentoEvaluando.id,
             criterios: checklist,
-            comentarios: comentarioFinal
+            comentarios: comentarioFinal,
+            estado: estadoFinal,
+            porcentajeAprobado
         });
 
-        // USAR LA FUNCIÓN de evaluación
+        // Usar la función de evaluación
         if (onEvaluarDocumento) {
-            await onEvaluarDocumento(documentoEvaluando.id, checklist, comentarioFinal);
+            await onEvaluarDocumento(documentoEvaluando.id, checklist, comentarioFinal, estadoFinal);
             
             // Cerrar modal después de éxito
             setTimeout(() => {
                 handleCerrarEvaluacion();
+                // Recargar datos si es necesario
+                if (solicitudId) {
+                    // Aquí puedes disparar un evento para recargar los documentos
+                }
             }, 1500);
         } else {
             throw new Error('No hay función de evaluación disponible');
@@ -268,8 +326,6 @@ const handleEnviarEvaluacion = async () => {
             if (!session?.accessToken) {
                 throw new Error('No estás autenticado');
             }
-
-            console.log('📥 Descargando documento:', documento.nombre_archivo);
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
             const response = await fetch(`${API_URL}/documentos/${documento.id}/descargar`, {
@@ -422,7 +478,7 @@ const handleEnviarEvaluacion = async () => {
                                     
                                     {documento.comentarios && (
                                         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                            <strong>Comentarios:</strong> {documento.comentarios}
+                                            <strong>Análisis:</strong> {documento.comentarios}
                                         </Typography>
                                     )}
 

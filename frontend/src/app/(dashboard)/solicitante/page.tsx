@@ -197,7 +197,6 @@ export default function DashboardSolicitante() {
         Recuerde subir los archivos en formato PDF
       </Typography>
 
-      {/* 👉 Aquí se carga tu componente con la lista y descargas */}
       <PlantillasDocumento />
     </CardContent>
   </Card>
