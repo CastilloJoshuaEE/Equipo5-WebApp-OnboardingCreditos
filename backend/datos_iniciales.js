@@ -99,7 +99,6 @@ const insertarUsuariosEnTablas = async (usuariosAuthIds) => {
     console.log('. Usuarios insertados en tabla principal:', usuariosInsertados.length);
 
     // 2. Insertar operadores en tabla operadores
-    console.log('👨‍💼 Insertando operadores...');
     const operadores = usuariosInsertados.filter(u => u.rol === 'operador');
     
     if (operadores.length > 0) {

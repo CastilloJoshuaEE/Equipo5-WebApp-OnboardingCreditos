@@ -197,9 +197,6 @@ CREATE POLICY "contratos_acceso" ON contratos
         )
     );
 
-CREATE POLICY "notificaciones_propias" ON notificaciones
-    FOR ALL USING (auth.uid()::text = usuario_id::text);
-
 -- TRIGGER: Cambiar estado cuando operador comienza revisión
 CREATE OR REPLACE FUNCTION trigger_iniciar_revision()
 RETURNS TRIGGER AS $$
@@ -253,8 +250,6 @@ CREATE TRIGGER trigger_iniciar_revision_operador
 BEFORE UPDATE ON solicitudes_credito
 FOR EACH ROW
 EXECUTE FUNCTION trigger_iniciar_revision_operador();
-
--- Actualizar la función en la base de datos
 CREATE OR REPLACE FUNCTION asignar_operador_automatico(p_solicitud_id UUID)
 RETURNS UUID AS $$
 DECLARE
@@ -296,7 +291,7 @@ BEGIN
         updated_at = NOW()
     WHERE id = p_solicitud_id;
 
-    -- Crear notificación para el operador con mensaje específico
+    -- Crear notificación para el operador
     INSERT INTO notificaciones(usuario_id, solicitud_id, tipo, titulo, mensaje, leida, created_at)
     VALUES (
         operador_asignado,
@@ -322,8 +317,7 @@ BEGIN
 
     RETURN operador_asignado;
 END;
-$$ LANGUAGE plpgsql;
-
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Agregar columna para datos adicionales en notificaciones
 ALTER TABLE notificaciones 
 ADD COLUMN IF NOT EXISTS datos_adicionales JSONB;

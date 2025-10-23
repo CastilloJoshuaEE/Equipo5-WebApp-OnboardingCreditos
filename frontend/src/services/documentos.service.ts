@@ -65,4 +65,8 @@ export const DocumentosService = {
     const response = await api.get(`/documentos/criterios-evaluacion/${tipoDocumento}`);
     return response.data;
   },
+  obtenerHistorialEvaluaciones: async (documentoId: string) => {
+  const response = await api.get(`/documentos/${documentoId}/historial-evaluaciones`);
+  return response.data.data;
+},
 };

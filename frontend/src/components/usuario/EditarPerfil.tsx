@@ -398,9 +398,6 @@ const EditarPerfil = () => {
 
                 <Card>
                   <CardContent>
-                    <Typography variant="body2" color="text.secondary">
-                      Puedes cambiar tu contraseña desde aquí.
-                    </Typography>
                     <Button
                       variant="outlined"
                       sx={{ mt: 2 }}

@@ -405,7 +405,7 @@ if (result?.error) {
               size="small"
               sx={{ fontSize: '0.75rem', color: '#ff9800' }}
             >
-              Recuperar Cuenta Inactiva
+              Recuperar cuenta
             </Button>
           </Box>
         </Stack>

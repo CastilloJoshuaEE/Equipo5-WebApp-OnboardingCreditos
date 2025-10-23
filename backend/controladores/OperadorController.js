@@ -54,17 +54,20 @@ static async obtenerDashboard(req, res) {
 
        // CORRECCIÓN: Procesar datos para estructura consistente
         const solicitudesProcesadas = solicitudes?.map(solicitud => {
-            // Asegurar que usuarios sea siempre un objeto
-            let usuariosData = solicitud.solicitantes?.usuarios;
-            if (Array.isArray(usuariosData)) {
-                usuariosData = usuariosData[0] || {};
-            }
+            // Asegurar que la información de contacto esté disponible
+            const infoContacto = solicitud.solicitantes?.usuarios || {};
             
             return {
                 ...solicitud,
-                solicitantes: {
-                    ...solicitud.solicitantes,
-                    usuarios: usuariosData
+                solicitante_info: {
+                    nombre_empresa: solicitud.solicitantes?.nombre_empresa || 'No disponible',
+                    cuit: solicitud.solicitantes?.cuit || 'No disponible',
+                    representante_legal: solicitud.solicitantes?.representante_legal || 'No disponible',
+                    domicilio: solicitud.solicitantes?.domicilio || 'No disponible',
+                    contacto: infoContacto.nombre_completo || 'No disponible',
+                    email: infoContacto.email || 'No disponible',
+                    telefono: infoContacto.telefono || 'No disponible',
+                    dni: infoContacto.dni || 'No disponible'
                 }
             };
         }) || [];
@@ -107,118 +110,138 @@ static async obtenerDashboard(req, res) {
 }
 
 // Iniciar revision de solicitud (abrir modal de acciones) - MEJORADO
+// Iniciar revisión de solicitud (abrir modal de acciones) - MEJORADO
 static async iniciarRevision(req, res) {
   try {
     const { solicitud_id } = req.params;
     const operadorId = req.usuario.id;
-    
+
     console.log(`Operador ${operadorId} iniciando revisión de solicitud ${solicitud_id}`);
- // Verificar que la solicitud está asignada al operador
-        const { data: solicitud, error } = await supabase
-            .from('solicitudes_credito')
-            .select(`
-                *,
-                solicitantes: solicitantes!solicitante_id(
-                    nombre_empresa,
-                    cuit,
-                    representante_legal,
-                    domicilio,
-                    dni
-                    usuarios:usuarios!inner(nombre_completo, email, telefono, dni)
-                )
-            `)
-            .eq('id', solicitud_id)
-            .eq('operador_id', operadorId)
-            .single();
 
-        if (error || !solicitud) {
-            return res.status(404).json({
-                success: false,
-                message: 'Solicitud no encontrada o no asignada a este operador'
-            });
-        }
-        let datosSolicitante = null;
-        if (solicitud.solicitantes) {
-            // Asegurar que usuarios sea un objeto, no un array
-            let usuariosData = solicitud.solicitantes.usuarios;
-            if (Array.isArray(usuariosData)) {
-                usuariosData = usuariosData[0] || {};
-            }
-            
-            datosSolicitante = {
-                ...solicitud.solicitantes,
-                usuarios: usuariosData
-            };
-        }
+    // Verificar que la solicitud está asignada al operador
+    const { data: solicitud, error } = await supabase
+      .from('solicitudes_credito')
+      .select(`
+        *,
+        solicitantes: solicitantes!solicitante_id(
+          nombre_empresa,
+          cuit,
+          representante_legal,
+          domicilio,
+          usuarios:usuarios!inner(nombre_completo, email, telefono, dni)
+        )
+      `)
+      .eq('id', solicitud_id)
+      .eq('operador_id', operadorId)
+      .single();
 
-        // Obtener documentos de la solicitud
-        const { data: documentos } = await supabase
-            .from('documentos')
-            .select('*')
-            .eq('solicitud_id', solicitud_id)
-            .order('tipo', { ascending: true });
-
-        // Consultar BCRA si existe CUIT
-        let infoBCRA = null;
-        if (solicitud.solicitantes?.cuit) {
-            try {
-                const cuitLimpio = solicitud.solicitantes.cuit.replace(/\D/g, '');
-                infoBCRA = await BCRAService.consultarDeudas(cuitLimpio);
-                
-                if (infoBCRA.success) {
-                    await supabase
-                        .from('auditoria')
-                        .insert({
-                            usuario_id: operadorId,
-                            solicitud_id: solicitud_id,
-                            accion: 'consulta_bcra',
-                            detalle: `Consulta BCRA realizada para CUIT: ${solicitud.solicitantes.cuit}`,
-                            created_at: new Date().toISOString()
-                        });
-                }
-            } catch (bcraError) {
-                console.warn('. Error consultando BCRA:', bcraError.message);
-                infoBCRA = { success: false, error: bcraError.message };
-            }
-        }
-
-        // Calcular scoring de documentos (20% cada uno)
-        const scoring = await OperadorController.calcularScoringDocumentos(documentos || []);
-
-        // Actualizar estado si aún no está en revisión
-        if (solicitud.estado === 'enviado') {
-            await supabase
-                .from('solicitudes_credito')
-                .update({
-                    estado: 'en_revision',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', solicitud_id);
-        }
-
-       return res.json({
-            success: true,
-            data: {
-                solicitud: {
-                    ...solicitud,
-                    estado: 'en_revision'
-                },
-                documentos: documentos || [],
-                infoBCRA,
-                scoring,
-                solicitante: datosSolicitante // USAR DATOS PROCESADOS
-            }
-        });
-
-
-    } catch (error) {
-        console.error('. Error en iniciarRevisionSolicitud:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error al iniciar la revisión'
-        });
+    if (error || !solicitud) {
+      return res.status(404).json({
+        success: false,
+        message: 'Solicitud no encontrada o no asignada a este operador'
+      });
     }
+
+    // --- Normalizar datos del solicitante ---
+    let datosSolicitante = null;
+
+    if (solicitud.solicitantes) {
+      let usuariosData = solicitud?.solicitantes?.usuarios;
+
+      // Si viene como array, tomar el primero
+      if (Array.isArray(usuariosData)) {
+        usuariosData = usuariosData.length > 0 ? usuariosData[0] : null;
+      }
+
+      // Validar existencia del objeto antes de acceder a propiedades
+      const usuarioInfo = usuariosData && typeof usuariosData === 'object'
+        ? {
+            nombre: usuariosData?.nombre_completo || 'Desconocido',
+            email: usuariosData?.email || 'No disponible',
+            telefono: usuariosData?.telefono || 'No disponible',
+            dni: usuariosData?.dni || 'No disponible',
+          }
+        : {
+            nombre: 'Desconocido',
+            email: 'No disponible',
+            telefono: 'No disponible',
+            dni: 'No disponible',
+          };
+
+      datosSolicitante = {
+        ...solicitud?.solicitantes,
+        usuarios: usuariosData || {},
+        contacto_info: usuarioInfo,
+      };
+    }
+
+    // --- Obtener documentos de la solicitud ---
+    const { data: documentos } = await supabase
+      .from('documentos')
+      .select('*')
+      .eq('solicitud_id', solicitud_id)
+      .order('tipo', { ascending: true });
+
+    // --- Consultar BCRA ---
+    let infoBCRA = null;
+    if (solicitud.solicitantes?.cuit) {
+      try {
+        const cuitLimpio = solicitud.solicitantes.cuit.replace(/\D/g, '');
+        infoBCRA = await BCRAService.consultarDeudas(cuitLimpio);
+
+        if (infoBCRA.success) {
+          await supabase.from('auditoria').insert({
+            usuario_id: operadorId,
+            solicitud_id,
+            accion: 'consulta_bcra',
+            detalle: `Consulta BCRA realizada para CUIT: ${solicitud.solicitantes.cuit}`,
+            created_at: new Date().toISOString(),
+          });
+        }
+      } catch (bcraError) {
+        console.warn('. Error consultando BCRA:', bcraError.message);
+        infoBCRA = { success: false, error: bcraError.message };
+      }
+    }
+
+    // --- Calcular scoring ---
+    const scoring = await OperadorController.calcularScoringDocumentos(documentos || []);
+
+    // --- Actualizar estado ---
+    if (solicitud.estado === 'enviado') {
+      await supabase
+        .from('solicitudes_credito')
+        .update({
+          estado: 'en_revision',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', solicitud_id);
+    }
+
+    // --- Respuesta final ---
+    return res.json({
+      success: true,
+      data: {
+        solicitud: {
+          ...solicitud,
+          estado: 'en_revision',
+          solicitante_info: datosSolicitante?.contacto_info || null,
+        },
+        documentos: documentos || [],
+        infoBCRA,
+        scoring,
+        solicitante: datosSolicitante,
+      },
+    });
+  } catch (error) {
+    console.error('. Error en iniciarRevisionSolicitud:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al iniciar la revisión',
+    });
+  }
 }
+
     //Calcular scoring de documentos (20% cada uno de 5 documentos)
 static async calcularScoringDocumentos(documentos) {
     const documentosRequeridos = [

@@ -4,25 +4,36 @@ export interface SolicitudOperador {
     numero_solicitud: string;
     monto: number;
     plazo_meses: number;
-    proposito?: string; // AÑADIR propiedad faltante
-    moneda?: string; // AÑADIR propiedad faltante
+    proposito?: string;
+    moneda?: string;
     estado: string;
     nivel_riesgo: string;
     created_at: string;
-    fecha_envio?: string; // AÑADIR propiedad opcional
+    fecha_envio?: string;
     solicitantes: {
         nombre_empresa: string;
         cuit: string;
         representante_legal: string;
-        domicilio?: string; // AÑADIR propiedad opcional
+        domicilio?: string;
         usuarios: {
             nombre_completo: string;
             email: string;
             telefono: string;
+            dni?: string;
         };
     };
+    // NUEVA PROPIEDAD para información de contacto fácil
+    solicitante_info?: {
+        nombre_empresa: string;
+        cuit: string;
+        representante_legal: string;
+        domicilio: string;
+        contacto: string;
+        email: string;
+        telefono: string;
+        dni: string;
+    };
 }
-
 export interface Documento {
     id: string;
     tipo: string;

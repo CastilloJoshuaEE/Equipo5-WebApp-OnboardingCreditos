@@ -12,7 +12,8 @@ class DocumentoController {
   // Subir documento - .
 static async subirDocumento(req, res) {
   try {
-    const { solicitud_id, tipo } = req.body;
+    const { tipo } = req.body;
+    const { solicitud_id } = req.params;
     const archivo = req.file;
 
     console.log('. Datos recibidos:', { solicitud_id, tipo, archivo: archivo ? archivo.originalname : 'NO ARCHIVO' });
@@ -85,7 +86,7 @@ static async subirDocumento(req, res) {
       data: {
         documento,
         url_publica: urlData.publicUrl,
-        informacion_extraida: informacionExtraida // .: usar la variable definida
+        informacion_extraida: informacionExtraida 
       }
     });
 
@@ -770,28 +771,45 @@ static async evaluarDocumento(req, res) {
             }
         }
 
-        const comentarioEvaluacion = `Evaluación: ${criteriosAprobados}/${totalCriterios} criterios aprobados (${porcentajeAprobado.toFixed(0)}%). ${comentarios || ''}`;
-        const informacionEvaluacion = {
-            ...(documento.informacion_extraida || {}), // Mantener información existente
-            evaluacion: {
-                criterios_aprobados: criteriosAprobados,
-                total_criterios: totalCriterios,
-                porcentaje_aprobado: porcentajeAprobado,
-                fecha_evaluacion: new Date().toISOString(),
-                criterios_detallados: criterios,
-                estado_final: estadoFinal,
-                comentarios: comentarios
-            }
+        // CORRECCIÓN: Guardar evaluación en tabla condiciones_aprobacion
+        const evaluacionData = {
+            criterios_aprobados: criteriosAprobados,
+            total_criterios: totalCriterios,
+            porcentaje_aprobado: porcentajeAprobado,
+            fecha_evaluacion: new Date().toISOString(),
+            criterios_detallados: criterios,
+            estado_final: estadoFinal,
+            comentarios: comentarios,
+            evaluado_por: req.usuario.id
         };
 
-        // Actualizar documento
+        // Guardar en condiciones_aprobacion
+        const { data: condicionAprobacion, error: condError } = await supabase
+            .from('condiciones_aprobacion')
+            .insert([{
+                solicitud_id: documento.solicitud_id,
+                documento_id: documento_id, // CORRECCIÓN: Relacionar con documento
+                condiciones: evaluacionData,
+                creado_por: req.usuario.id,
+                created_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+
+        if (condError) {
+            console.error('. Error guardando condiciones de aprobación:', condError);
+        }
+
+        // Actualizar documento con información básica de evaluación
+const comentarioEvaluacion = comentarios && comentarios.trim() !== '' 
+    ? comentarios 
+    : `Evaluación: ${criteriosAprobados}/${totalCriterios} criterios aprobados (${porcentajeAprobado.toFixed(0)}%)`;        
         const { data: documentoActualizado, error: updateError } = await supabase
             .from('documentos')
             .update({
                 estado: estadoFinal,
-                comentarios: comentarioEvaluacion,
-                validado_en: new Date().toISOString(),
-                informacion_extraida: informacionEvaluacion // GUARDAR EVALUACIÓN
+                comentarios: comentarioEvaluacion, // Solo comentario resumido
+                validado_en: new Date().toISOString()
             })
             .eq('id', documento_id)
             .select()
@@ -815,7 +833,7 @@ static async evaluarDocumento(req, res) {
                     solicitud_id: documento.solicitud_id,
                     tipo: 'documento_evaluado',
                     titulo: `Documento ${estadoFinal}`,
-                    mensaje: `Tu documento ${documento.tipo} ha sido ${estadoFinal}. ${comentarios ? `Comentarios: ${comentarios}` : ''}`,
+                    mensaje: `Tu documento ${documento.tipo} ha sido ${estadoFinal}. ${comentarios ? `Análisis: ${comentarios}` : ''}`,
                     leida: false,
                     datos_adicionales: {
                         documento_tipo: documento.tipo,
@@ -880,6 +898,73 @@ static async evaluarDocumento(req, res) {
         res.status(500).json({
             success: false,
             message: 'Error al evaluar documento'
+        });
+    }
+}
+static async obtenerHistorialEvaluaciones(req, res) {
+    try {
+        const { documento_id } = req.params;
+
+        const { data: evaluaciones, error } = await supabase
+            .from('condiciones_aprobacion')
+            .select(`
+                *,
+                usuario:usuarios!creado_por(nombre_completo, email)
+            `)
+            .eq('documento_id', documento_id)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Procesar las evaluaciones para extraer los criterios
+      const evaluacionesProcesadas = evaluaciones?.map(evaluacion => {
+            // Extraer criterios de la estructura JSONB
+            const condiciones = evaluacion.condiciones;
+            
+            console.log('📋 Condiciones crudas:', condiciones);
+            console.log('📋 Tipo de condiciones:', typeof condiciones);
+            
+            // Manejar diferentes formatos de condiciones
+            let criteriosDetallados = {};
+            
+            if (condiciones && typeof condiciones === 'object') {
+                // Si condiciones es un objeto con criterios_detallados
+                if (condiciones.criterios_detallados && typeof condiciones.criterios_detallados === 'object') {
+                    criteriosDetallados = condiciones.criterios_detallados;
+                } 
+                // Si los criterios están directamente en el objeto principal
+                else {
+                    // Buscar propiedades booleanas que sean criterios
+                    Object.entries(condiciones).forEach(([key, value]) => {
+                        if (typeof value === 'boolean') {
+                            criteriosDetallados[key] = value;
+                        }
+                    });
+                }
+            }
+            
+            console.log('✅ Criterios extraídos:', criteriosDetallados);
+
+            return {
+                id: evaluacion.id,
+                criterios: criteriosDetallados,
+                comentarios: condiciones?.comentarios || evaluacion.condiciones?.comentarios,
+                estado_final: condiciones?.estado_final,
+                porcentaje_aprobado: condiciones?.porcentaje_aprobado,
+                fecha_evaluacion: condiciones?.fecha_evaluacion || evaluacion.created_at,
+                evaluado_por: evaluacion.usuario
+            };
+        }) || [];
+
+        res.json({
+            success: true,
+            data: evaluacionesProcesadas
+        });
+    } catch (error) {
+        console.error('. Error obteniendo historial de evaluaciones:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener historial de evaluaciones'
         });
     }
 }

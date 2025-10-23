@@ -10,8 +10,22 @@ interface ResumenStepProps {
 
 export default function ResumenStep({ solicitud }: ResumenStepProps) {
     // Función mejorada para acceder a los datos anidados
+// Mejorar la función getContactoInfo
 const getContactoInfo = (solicitud: SolicitudOperador) => {
+    console.log('. Datos completos del solicitante:', solicitud.solicitantes);
+    
+    // Si viene de la nueva estructura del backend
+    if (solicitud.solicitante_info) {
+        return {
+            nombre: solicitud.solicitante_info.contacto || 'No disponible',
+            email: solicitud.solicitante_info.email || 'No disponible',
+            telefono: solicitud.solicitante_info.telefono || 'No disponible'
+        };
+    }
+    
+    // Si viene de la estructura antigua
     if (!solicitud?.solicitantes?.usuarios) {
+        console.warn('. No hay información de usuarios en solicitantes');
         return {
             nombre: 'No disponible',
             email: 'No disponible', 
@@ -20,12 +34,16 @@ const getContactoInfo = (solicitud: SolicitudOperador) => {
     }
     
     const usuario = solicitud.solicitantes.usuarios;
+    console.log('👤 Datos de usuario:', usuario);
+    
     return {
         nombre: usuario?.nombre_completo || 'No disponible',
         email: usuario?.email || 'No disponible',
         telefono: usuario?.telefono || 'No disponible'
     };
 };
+
+
     // Función para obtener datos de la empresa
     const getEmpresaInfo = () => {
         if (!solicitud?.solicitantes) {
@@ -78,22 +96,21 @@ const contacto = getContactoInfo(solicitud);
                 </Grid>
                 
                 <Grid size={{ xs: 12, md: 6 }}>
-                    <Card variant="outlined">
-                        <CardContent>
-                            <Typography variant="subtitle1" gutterBottom color="primary">
-                                Información de Contacto
-                            </Typography>
-                            <Typography variant="body2">
-                                <strong>Contacto:</strong> {contacto.nombre}
-                            </Typography>
-                            <Typography variant="body2">
-                                <strong>Email:</strong> {contacto.email}
-                            </Typography>
-                            <Typography variant="body2">
-                                <strong>Teléfono:</strong> {contacto.telefono}
-                            </Typography>
-                        </CardContent>
-                    </Card>
+
+<Card variant="outlined">
+    <CardContent>
+        <Typography variant="subtitle1" gutterBottom color="primary">
+            Información de Contacto
+        </Typography>
+        <Typography variant="body2">
+            <strong>Email:</strong> {contacto.email}
+        </Typography>
+        <Typography variant="body2">
+            <strong>Teléfono:</strong> {contacto.telefono}
+        </Typography>
+    </CardContent>
+</Card>
+
 
                 </Grid>
 

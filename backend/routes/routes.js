@@ -2640,6 +2640,7 @@ router.get('/plantillas', PlantillasDocumentoController.listarPlantillas);
 router.get('/:id/descargar', PlantillasDocumentoController.descargarPlantilla);
 router.post('/plantillas', upload.single('archivo'), PlantillasDocumentoController.subirPlantilla);
 router.put('/:id', upload.single('archivo'), PlantillasDocumentoController.actualizarPlantilla);
+router.get('/documentos/:documento_id/historial-evaluaciones', DocumentoController.obtenerHistorialEvaluaciones);
 
 /**
  * @swagger

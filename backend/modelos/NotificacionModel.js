@@ -1,5 +1,6 @@
 // models/NotificacionModel.js
 const { supabase } = require('../config/conexion');
+const { supabaseAdmin } = require('../config/supabaseAdmin');
 
 class NotificacionModel {
   // Obtener notificaciones por usuario
@@ -72,7 +73,7 @@ class NotificacionModel {
 
   // Crear notificación
   static async crear(notificacionData) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('notificaciones')
       .insert([notificacionData])
       .select();

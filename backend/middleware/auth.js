@@ -10,28 +10,53 @@ class AuthMiddleware {
    * @param {import('express').Response} res 
    * @param {import('express').NextFunction} next 
    */
-  static async proteger(req, res, next) {
+static async proteger(req, res, next) {
     try {
-      const token = req.headers.authorization?.replace('Bearer ', '');
+        const authHeader = req.headers.authorization;
+        
+        if (!authHeader) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token de autorización no proporcionado'
+            });
+        }
 
-      if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'No autorizado, token no proporcionado'
-        });
-      }
+        const token = authHeader.replace('Bearer ', '');
+        
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                message: 'Formato de token inválido'
+            });
+        }
 
-      console.log('Verificando token en middleware...');
+        // Validar formato básico del token JWT
+        const tokenParts = token.split('.');
+        if (tokenParts.length !== 3) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token JWT malformado: número incorrecto de segmentos'
+            });
+        }
 
+        console.log('Verificando token en middleware...');
       const { data: { user }, error } = await supabase.auth.getUser(token);
 
-      if (error || !user) {
-        console.warn('Token inválido o usuario no autenticado:', error?.message);
-        return res.status(401).json({
-          success: false,
-          message: 'No autorizado, token inválido o expirado'
-        });
-      }
+        if (error) {
+            console.warn('Error verificando token:', error.message);
+            
+            if (error.message.includes('JWT')) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Token inválido o expirado. Por favor inicie sesión nuevamente.'
+                });
+            }
+            
+            return res.status(401).json({
+                success: false,
+                message: 'Error de autenticación'
+            });
+        }
 
       // . Obtener perfil con manejo de inconsistencia
       let userProfile;
