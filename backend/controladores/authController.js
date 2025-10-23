@@ -105,7 +105,7 @@ if (bloqueosRecientes && bloqueosRecientes.length >= 5 && usuarioExistente?.cuen
                     
                 return res.status(429).json({
                     success: false,
-                    message: 'Cuenta bloqueada por seguridad después de múltiples intentos fallidos. Contacte al administrador.'
+                    message: 'Cuenta bloqueada por seguridad después de múltiples intentos fallidos. Contacte al administrador. Esperar 15 minutos'
                 });
             }
         }
