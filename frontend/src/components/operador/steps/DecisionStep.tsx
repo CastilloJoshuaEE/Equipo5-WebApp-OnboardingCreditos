@@ -1,5 +1,7 @@
 // frontend/src/components/operador/steps/DecisionStep.tsx
+'use client';
 import React, { useState } from 'react';
+import { getSession } from 'next-auth/react';
 import {
     Box,
     Typography,
@@ -13,185 +15,191 @@ import {
     TextField,
     Alert,
     Chip,
-    Divider
+    Divider,
+    LinearProgress,
+    Grid,
+    Stack
 } from '@mui/material';
-import { CheckCircle, Cancel, Comment, Send } from '@mui/icons-material';
+import { 
+    CheckCircle, 
+    Cancel, 
+    Comment, 
+    Send,
+    Warning,
+    ThumbUp,
+    ThumbDown
+} from '@mui/icons-material';
 
 interface DecisionStepProps {
     solicitud: any;
     onClose: () => void;
     onComentarioEnviado?: (comentario: string) => void;
+    onDecisionTomada?: (decision: string, motivo?: string) => void;
+    loading?: boolean;
 }
 
-export default function DecisionStep({ solicitud, onClose, onComentarioEnviado }: DecisionStepProps) {
+// Criterios para la decisión final
+const CRITERIOS_DECISION = {
+    aprobacion: {
+        titulo: 'CRITERIOS PARA APROBACIÓN',
+        criterios: [
+            { id: 'documentacion_completa', label: 'Documentación completa y válida', desc: 'Todos los documentos requeridos están presentes y validados' },
+            { id: 'scoring_adecuado', label: 'Scoring dentro de parámetros', desc: 'Puntaje de riesgo dentro de los límites aceptables' },
+            { id: 'capacidad_pago', label: 'Capacidad de pago demostrada', desc: 'Análisis financiero indica capacidad para cumplir con obligaciones' },
+            { id: 'historial_limpio', label: 'Historial crediticio favorable', desc: 'Sin antecedentes negativos en verificaciones' },
+            { id: 'coherencia_datos', label: 'Coherencia en información', desc: 'Datos consistentes en toda la documentación' }
+        ]
+    },
+    rechazo: {
+        titulo: 'MOTIVOS COMUNES DE RECHAZO',
+        criterios: [
+            { id: 'documentacion_incompleta', label: 'Documentación incompleta', desc: 'Faltan documentos esenciales o están vencidos' },
+            { id: 'scoring_bajo', label: 'Scoring muy bajo', desc: 'Puntaje de riesgo fuera de parámetros aceptables' },
+            { id: 'capacidad_pago_insuficiente', label: 'Capacidad de pago insuficiente', desc: 'Análisis financiero no respalda la solicitud' },
+            { id: 'historial_negativo', label: 'Historial crediticio negativo', desc: 'Antecedentes de incumplimiento o morosidad' },
+            { id: 'inconsistencias', label: 'Inconsistencias graves', desc: 'Contradicciones en la información proporcionada' }
+        ]
+    }
+};
+
+export default function DecisionStep({ 
+    solicitud, 
+    onClose, 
+    onComentarioEnviado, 
+    onDecisionTomada,
+    loading = false 
+}: DecisionStepProps) {
     const [dialogoComentario, setDialogoComentario] = useState(false);
+    const [dialogoDecision, setDialogoDecision] = useState(false);
+    const [tipoDecision, setTipoDecision] = useState<'aprobacion' | 'rechazo' | null>(null);
     const [comentario, setComentario] = useState('');
+    const [motivoDecision, setMotivoDecision] = useState('');
+    const [checklistDecision, setChecklistDecision] = useState<{[key: string]: boolean}>({});
     const [enviando, setEnviando] = useState(false);
     const [mensaje, setMensaje] = useState('');
-const handleAprobar = async () => {
-    try {
-        setEnviando(true);
+
+    // Calcular progreso de documentación
+    const calcularProgresoDocumentacion = () => {
+        if (!solicitud.documentos || solicitud.documentos.length === 0) return 0;
         
-        // Verificar y obtener el token de forma segura
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No hay token de autenticación disponible');
-        }
-
-        // Validar formato básico del token
-        if (!isValidToken(token)) {
-            throw new Error('Token de autenticación inválido');
-        }
-
-        const baseUrl = process.env.NODE_ENV === 'production' 
-            ? 'https://tu-dominio.com' 
-            : 'http://localhost:3001';
-            
-        const response = await fetch(`${baseUrl}/api/solicitudes/${solicitud.id}/aprobar`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-                comentarios: 'Solicitud aprobada por el operador'
-            })
-        });
-
-        if (response.status === 401) {
-            // Token expirado o inválido
-            await handleTokenExpired();
-            return;
-        }
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
-        }
-
-        setMensaje('✅ Solicitud aprobada exitosamente');
-        setTimeout(() => {
-            onClose();
-        }, 2000);
-    } catch (error) {
-        console.error('Error aprobando solicitud:', error);
-        setMensaje(error instanceof Error ? error.message : 'Error al aprobar la solicitud');
-    } finally {
-        setEnviando(false);
-    }
-};
-
-// Función auxiliar para validar token
-const isValidToken = (token: string): boolean => {
-    try {
-        // Un token JWT válido debe tener 3 partes separadas por puntos
-        const parts = token.split('.');
-        if (parts.length !== 3) {
-            return false;
-        }
+        const documentosValidados = solicitud.documentos.filter((doc: any) => 
+            doc.estado === 'validado'
+        ).length;
         
-        // Verificar que cada parte sea base64 válido
-        parts.forEach(part => {
-            // Reemplazar caracteres base64url por base64 estándar
-            const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
-            // Verificar que sea base64 válido
-            atob(base64);
-        });
-        
-        return true;
-    } catch {
-        return false;
-    }
-};
+        return (documentosValidados / solicitud.documentos.length) * 100;
+    };
 
-// Función para manejar token expirado
-const handleTokenExpired = async () => {
-    try {
-        // Intentar refrescar el token
-        const refreshResponse = await fetch('/api/auth/refresh', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                refresh_token: localStorage.getItem('refresh_token')
-            })
-        });
+    const progresoDocumentacion = calcularProgresoDocumentacion();
 
-        if (refreshResponse.ok) {
-            const { data } = await refreshResponse.json();
-            localStorage.setItem('token', data.access_token);
-            // Reintentar la operación original
-            await handleAprobar();
-        } else {
-            // Forzar logout
-            localStorage.removeItem('token');
-            localStorage.removeItem('refresh_token');
-            window.location.href = '/login';
-        }
-    } catch (refreshError) {
-        console.error('Error refrescando token:', refreshError);
-        localStorage.removeItem('token');
-        localStorage.removeItem('refresh_token');
-        window.location.href = '/login';
-    }
-};
-
-    const handleRechazar = async () => {
+    // Manejar aprobación con token seguro
+    const handleAprobar = async () => {
         try {
             setEnviando(true);
-            // Lógica para rechazar solicitud
-            console.log('Rechazando solicitud:', solicitud.id);
-        const baseUrl = process.env.NODE_ENV === 'production' 
-            ? 'https://tu-dominio.com' 
-            : 'http://localhost:3001';
             
-        const response = await fetch(`${baseUrl}/api/solicitudes/${solicitud.id}/rechazar`, {
+            const session = await getSession();
+            if (!session?.accessToken) {
+                throw new Error('No estás autenticado');
+            }
+
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${API_URL}/solicitudes/${solicitud.id}/aprobar`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}` 
+                    'Authorization': `Bearer ${session.accessToken}`
                 },
-                credentials: 'include', 
                 body: JSON.stringify({
-                    motivo_rechazo: 'Solicitud rechazada por el operador'
+                    comentarios: motivoDecision || 'Solicitud aprobada por el operador luego de revisión completa',
+                    criterios_aprobados: checklistDecision
                 })
             });
 
-            if (response.ok) {
-                setMensaje('. Solicitud rechazada exitosamente');
-                setTimeout(() => {
-                    onClose();
-                }, 2000);
-            } else {
-                throw new Error('Error al rechazar solicitud');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
             }
+
+            setMensaje('✅ Solicitud aprobada exitosamente');
+            
+            if (onDecisionTomada) {
+                onDecisionTomada('aprobada', motivoDecision);
+            }
+            
+            setTimeout(() => {
+                onClose();
+            }, 2000);
         } catch (error) {
-            console.error('Error rechazando solicitud:', error);
-            setMensaje('. Error al rechazar la solicitud');
+            console.error('Error aprobando solicitud:', error);
+            setMensaje(error instanceof Error ? error.message : 'Error al aprobar la solicitud');
         } finally {
             setEnviando(false);
         }
     };
 
+    // Manejar rechazo con token seguro
+    const handleRechazar = async () => {
+        try {
+            setEnviando(true);
+            
+            const session = await getSession();
+            if (!session?.accessToken) {
+                throw new Error('No estás autenticado');
+            }
+
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${API_URL}/solicitudes/${solicitud.id}/rechazar`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.accessToken}`
+                },
+                body: JSON.stringify({
+                    motivo_rechazo: motivoDecision || 'Solicitud rechazada por el operador luego de revisión completa',
+                    criterios_rechazo: checklistDecision
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+            }
+
+            setMensaje('❌ Solicitud rechazada exitosamente');
+            
+            if (onDecisionTomada) {
+                onDecisionTomada('rechazada', motivoDecision);
+            }
+            
+            setTimeout(() => {
+                onClose();
+            }, 2000);
+        } catch (error) {
+            console.error('Error rechazando solicitud:', error);
+            setMensaje(error instanceof Error ? error.message : 'Error al rechazar la solicitud');
+        } finally {
+            setEnviando(false);
+        }
+    };
+
+    // Manejar envío de comentario con token seguro
     const handleEnviarComentario = async () => {
         if (!comentario.trim()) return;
 
         try {
             setEnviando(true);
             
-        const baseUrl = process.env.NODE_ENV === 'production' 
-            ? 'https://tu-dominio.com' 
-            : 'http://localhost:3001';
-            
-const response = await fetch(`${baseUrl}/api/comentarios`, {                
-    method: 'POST',
+            const session = await getSession();
+            if (!session?.accessToken) {
+                throw new Error('No estás autenticado');
+            }
+
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${API_URL}/comentarios`, {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}` 
+                    'Authorization': `Bearer ${session.accessToken}`
                 },
-                credentials: 'include', 
                 body: JSON.stringify({
                     solicitud_id: solicitud.id,
                     comentario: comentario.trim(),
@@ -199,26 +207,68 @@ const response = await fetch(`${baseUrl}/api/comentarios`, {
                 })
             });
 
-            if (response.ok) {
-                setMensaje('💬 Comentario enviado exitosamente');
-                setComentario('');
-                setDialogoComentario(false);
-                
-                if (onComentarioEnviado) {
-                    onComentarioEnviado(comentario);
-                }
-                
-                setTimeout(() => setMensaje(''), 3000);
-            } else {
+            if (!response.ok) {
                 throw new Error('Error al enviar comentario');
             }
+
+            setMensaje('💬 Comentario enviado exitosamente');
+            setComentario('');
+            setDialogoComentario(false);
+            
+            if (onComentarioEnviado) {
+                onComentarioEnviado(comentario);
+            }
+            
+            setTimeout(() => setMensaje(''), 3000);
         } catch (error) {
             console.error('Error enviando comentario:', error);
-            setMensaje('. Error al enviar comentario');
+            setMensaje('❌ Error al enviar comentario');
         } finally {
             setEnviando(false);
         }
     };
+
+    // Abrir diálogo de decisión
+    const handleAbrirDecision = (tipo: 'aprobacion' | 'rechazo') => {
+        setTipoDecision(tipo);
+        setChecklistDecision({});
+        setMotivoDecision('');
+        setDialogoDecision(true);
+    };
+
+    // Cerrar diálogo de decisión
+    const handleCerrarDecision = () => {
+        setDialogoDecision(false);
+        setTipoDecision(null);
+        setChecklistDecision({});
+        setMotivoDecision('');
+    };
+
+    // Manejar cambio en checklist de decisión
+    const handleChecklistDecisionChange = (criterioId: string) => {
+        setChecklistDecision(prev => ({
+            ...prev,
+            [criterioId]: !prev[criterioId]
+        }));
+    };
+
+    // Confirmar decisión
+    const handleConfirmarDecision = () => {
+        if (tipoDecision === 'aprobacion') {
+            handleAprobar();
+        } else if (tipoDecision === 'rechazo') {
+            handleRechazar();
+        }
+        handleCerrarDecision();
+    };
+
+    // Obtener criterios según tipo de decisión
+    const obtenerCriteriosDecision = () => {
+        if (!tipoDecision) return { titulo: '', criterios: [] };
+        return CRITERIOS_DECISION[tipoDecision] || { titulo: 'Criterios de Decisión', criterios: [] };
+    };
+
+    const criteriosActuales = obtenerCriteriosDecision();
 
     return (
         <Box>
@@ -227,8 +277,18 @@ const response = await fetch(`${baseUrl}/api/comentarios`, {
             </Typography>
 
             {mensaje && (
-                <Alert severity={mensaje.includes('.') ? 'error' : 'success'} sx={{ mb: 2 }}>
+                <Alert 
+                    severity={mensaje.includes('❌') ? 'error' : 'success'} 
+                    sx={{ mb: 2 }}
+                >
                     {mensaje}
+                </Alert>
+            )}
+
+
+            {solicitud.scoring?.puntaje_total < 60 && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    🔴 Scoring bajo detectado. Se recomienda revisión exhaustiva antes de aprobar.
                 </Alert>
             )}
 
@@ -237,35 +297,18 @@ const response = await fetch(`${baseUrl}/api/comentarios`, {
                     <Typography variant="body1" gutterBottom>
                         Después de revisar toda la documentación e información, tome una decisión final sobre esta solicitud.
                     </Typography>
-                    
-                    <Box sx={{ mt: 2, spaceY: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body2" component="span">
-                                <strong>Solicitud:</strong>
-                            </Typography>
-                            <Chip label={solicitud.numero_solicitud} size="small" />
-                        </Box>
-                        <Typography variant="body2">
-                            <strong>Empresa:</strong> {solicitud.solicitantes?.nombre_empresa}
-                        </Typography>
-                        <Typography variant="body2">
-                            <strong>Monto:</strong> ${solicitud.monto?.toLocaleString()}
-                        </Typography>
-                        <Typography variant="body2">
-                            <strong>Contacto:</strong> {solicitud.solicitantes?.usuarios?.nombre_completo}
-                        </Typography>
-                    </Box> {/* <- Este era el Box que faltaba cerrar */}
                 </CardContent>
             </Card>
 
+            {/* Botones de decisión principal */}
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', mb: 3 }}>
                 <Button 
                     variant="contained" 
                     color="success"
                     size="large"
-                    startIcon={<CheckCircle />}
-                    onClick={handleAprobar}
-                    disabled={enviando}
+                    startIcon={<ThumbUp />}
+                    onClick={() => handleAbrirDecision('aprobacion')}
+                    disabled={enviando || loading}
                     sx={{ minWidth: 200 }}
                 >
                     {enviando ? 'Procesando...' : 'Aprobar Solicitud'}
@@ -275,9 +318,9 @@ const response = await fetch(`${baseUrl}/api/comentarios`, {
                     variant="contained" 
                     color="error"
                     size="large"
-                    startIcon={<Cancel />}
-                    onClick={handleRechazar}
-                    disabled={enviando}
+                    startIcon={<ThumbDown />}
+                    onClick={() => handleAbrirDecision('rechazo')}
+                    disabled={enviando || loading}
                     sx={{ minWidth: 200 }}
                 >
                     {enviando ? 'Procesando...' : 'Rechazar Solicitud'}
@@ -286,13 +329,14 @@ const response = await fetch(`${baseUrl}/api/comentarios`, {
 
             <Divider sx={{ my: 2 }} />
 
+            {/* Acción secundaria - Comentarios */}
             <Box sx={{ textAlign: 'center' }}>
                 <Button 
                     variant="outlined"
                     size="large"
                     startIcon={<Comment />}
                     onClick={() => setDialogoComentario(true)}
-                    disabled={enviando}
+                    disabled={enviando || loading}
                 >
                     Enviar Comentarios al Solicitante
                 </Button>
@@ -347,6 +391,108 @@ const response = await fetch(`${baseUrl}/api/comentarios`, {
                         startIcon={<Send />}
                     >
                         {enviando ? 'Enviando...' : 'Enviar Comentario'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Diálogo para decisión con criterios */}
+            <Dialog 
+                open={dialogoDecision} 
+                onClose={handleCerrarDecision}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>
+                    <Box display="flex" alignItems="center" gap={1}>
+                        {tipoDecision === 'aprobacion' ? <ThumbUp color="success" /> : <ThumbDown color="error" />}
+                        Confirmar {tipoDecision === 'aprobacion' ? 'Aprobación' : 'Rechazo'} - {solicitud.numero_solicitud}
+                    </Box>
+                </DialogTitle>
+                
+                <DialogContent dividers>
+                    <Typography variant="h6" gutterBottom>
+                        {criteriosActuales.titulo}
+                    </Typography>
+                    
+                    <Typography variant="body2" color="text.secondary" paragraph>
+                        Marque los criterios que aplican para esta decisión:
+                    </Typography>
+
+                    <Box sx={{ mb: 2 }}>
+                        {criteriosActuales.criterios.map((criterio) => (
+                            <Box 
+                                key={criterio.id}
+                                sx={{ 
+                                    display: 'flex', 
+                                    alignItems: 'flex-start', 
+                                    mb: 1, 
+                                    p: 1,
+                                    borderRadius: 1,
+                                    bgcolor: checklistDecision[criterio.id] ? 'action.selected' : 'transparent'
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={!!checklistDecision[criterio.id]}
+                                    onChange={() => handleChecklistDecisionChange(criterio.id)}
+                                    style={{ marginTop: '4px', marginRight: '8px' }}
+                                />
+                                <Box>
+                                    <Typography variant="body2" fontWeight="medium">
+                                        {criterio.label}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {criterio.desc}
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        ))}
+                    </Box>
+
+                    <Divider sx={{ my: 2 }} />
+
+                    <Typography variant="subtitle2" gutterBottom>
+                        Comentarios adicionales sobre la decisión:
+                    </Typography>
+                    <TextField
+                        multiline
+                        rows={3}
+                        fullWidth
+                        value={motivoDecision}
+                        onChange={(e) => setMotivoDecision(e.target.value)}
+                        placeholder={`Explique los motivos de la ${tipoDecision === 'aprobacion' ? 'aprobación' : 'rechazo'}...`}
+                        variant="outlined"
+                        size="small"
+                    />
+
+                    <Alert 
+                        severity={tipoDecision === 'aprobacion' ? 'success' : 'error'} 
+                        sx={{ mt: 2 }}
+                    >
+                        <strong>
+                            {tipoDecision === 'aprobacion' 
+                                ? '¿Está seguro que desea APROBAR esta solicitud?' 
+                                : '¿Está seguro que desea RECHAZAR esta solicitud?'}
+                        </strong>
+                        <br />
+                        Esta acción {tipoDecision === 'aprobacion' 
+                            ? 'aprobará la solicitud y notificará al solicitante' 
+                            : 'rechazará la solicitud y notificará al solicitante con los motivos indicados'}.
+                    </Alert>
+                </DialogContent>
+                
+                <DialogActions>
+                    <Button onClick={handleCerrarDecision} disabled={enviando}>
+                        Cancelar
+                    </Button>
+                    <Button 
+                        onClick={handleConfirmarDecision}
+                        variant="contained"
+                        color={tipoDecision === 'aprobacion' ? 'success' : 'error'}
+                        disabled={enviando}
+                        startIcon={tipoDecision === 'aprobacion' ? <CheckCircle /> : <Cancel />}
+                    >
+                        {enviando ? 'Procesando...' : `Confirmar ${tipoDecision === 'aprobacion' ? 'Aprobación' : 'Rechazo'}`}
                     </Button>
                 </DialogActions>
             </Dialog>
