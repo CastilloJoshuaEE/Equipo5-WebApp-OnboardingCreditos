@@ -1,7 +1,7 @@
 const { supabase } = require('../config/conexion.js');
 const { supabaseAdmin } = require('../config/supabaseAdmin.js');
 const { enviarEmailRecuperacionCuenta } = require('../servicios/emailRecuperacionServicio');
-
+const AuthController= require('../controladores/authController');
 class ReactivacionController {
   
   /**
@@ -157,7 +157,17 @@ class ReactivacionController {
       }
 
       console.log('. Cuenta reactivada exitosamente para:', email);
+const limpiezaExitosa = await AuthController.limpiarIntentosFallidos(email);
+console.log('. Resultado limpieza intentos:', limpiezaExitosa ? 'ÉXITO' : 'FALLO');
 
+// Verificar que realmente se limpiaron
+const { data: intentosDespuesLimpieza } = await supabase
+    .from('intentos_login')
+    .select('id')
+    .eq('email', email)
+    .eq('intento_exitoso', false);
+
+console.log('. Intentos fallidos después de limpieza:', intentosDespuesLimpieza?.length || 0);
       res.json({
         success: true,
         message: 'Cuenta reactivada exitosamente. ¡Bienvenido de nuevo!',
@@ -319,12 +329,23 @@ class ReactivacionController {
         }
 
         console.log('. Cuenta reactivada exitosamente para:', email);
+const limpiezaExitosa = await AuthController.limpiarIntentosFallidos(email);
+console.log('. Resultado limpieza intentos:', limpiezaExitosa ? 'ÉXITO' : 'FALLO');
 
+// Verificar que realmente se limpiaron
+const { data: intentosDespuesLimpieza } = await supabase
+    .from('intentos_login')
+    .select('id')
+    .eq('email', email)
+    .eq('intento_exitoso', false);
+
+console.log('. Intentos fallidos después de limpieza:', intentosDespuesLimpieza?.length || 0);
         return res.json({
           success: true,
           message: 'Cuenta reactivada exitosamente',
           cuenta_reactivada: true,
-          email: email
+          email: email,
+          intentos_limpiados: limpiezaExitosa
         });
 
       } catch (decodeError) {

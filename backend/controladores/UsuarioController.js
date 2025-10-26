@@ -5,6 +5,8 @@ const{supabaseAdmin, getUserByEmail}= require('../config/supabaseAdmin');
 const{enviarEmailBienvenida, enviarEmailConfirmacionCuenta}= require('../servicios/emailServicio');
 const { supabase } = require('../config/conexion');
 const bcrypt = require('bcryptjs');
+const AuthController= require('../controladores/authController');
+
 class UsuarioController{
 static async validarTelefono(telefono) {
   if (!telefono) return true;
@@ -881,10 +883,12 @@ static async recuperarContrasena(req, res) {
       }]);
 
     console.log('Contraseña recuperada exitosamente para:', email);
-
+const limpiezaExitosa = await AuthController.limpiarIntentosFallidos(email);
+console.log('. Resultado limpieza intentos:', limpiezaExitosa ? 'ÉXITO' : 'FALLO');
     res.json({
       success: true,
-      message: 'Contraseña actualizada exitosamente. Ahora puedes iniciar sesión con tu nueva contraseña'
+      message: 'Contraseña actualizada exitosamente. Ahora puedes iniciar sesión con tu nueva contraseña',
+      intentos_limpiados: limpiezaExitosa
     });
 
   } catch (error) {
