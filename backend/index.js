@@ -155,6 +155,7 @@ function enviarNotificacionTiempoReal(userId, notificacion) {
         });
     }
 }
+app.use("/api/webhooks", routes);
 
 // . EJEMPLO DE USO CUANDO SE ASIGNA UNA SOLICITUD
 app.put('/solicitudes/:id/asignar', proteger, autorizar('operador'), async (req, res) => {

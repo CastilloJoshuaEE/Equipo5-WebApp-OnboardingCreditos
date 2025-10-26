@@ -18,6 +18,16 @@ const ChatbotController = require('../controladores/ChatbotController');
 const router = express.Router();
 const multer = require('multer');
 const storage = multer.memoryStorage();
+router.post("/airSlate", (req, res) => {
+    console.log("Webhook recibido:", req.body);
+
+    // Aquí puedes validar el token si AirSlate lo envía
+    // const token = req.headers['x-airSlate-signature'];
+
+    // Respondemos con 200 OK para que la validación pase
+    res.status(200).json({ success: true });
+});
+
 const upload = multer({
   storage: storage,
   limits: {
