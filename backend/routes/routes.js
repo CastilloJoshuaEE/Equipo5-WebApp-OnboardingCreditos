@@ -13,7 +13,7 @@ const EmailValidationMiddleware = require("../middleware/emailValidation");
 const ComentariosController = require('../controladores/ComentariosController');
 const PlantillasDocumentoController = require('../controladores/PlantillasDocumentosController');
 const ChatbotController = require('../controladores/ChatbotController');
-
+const FirmaDigitalController = require('../controladores/FirmaDigitalController');
 // Middleware existentes
 const router = express.Router();
 const multer = require('multer');
@@ -2643,6 +2643,40 @@ router.get('/comentarios/contador-no-leidos', AuthMiddleware.proteger, Comentari
  *               $ref: '#/components/schemas/Error'
  */
 router.delete('/comentarios/:id', AuthMiddleware.proteger, ComentariosController.eliminarComentario);
+router.post('/solicitudes/:solicitud_id/iniciar-firma', 
+AuthMiddleware.proteger,
+    AuthMiddleware.autorizar(['operador']), 
+    FirmaDigitalController.iniciarProcesoFirma
+);
+router.get('/firmas/:firma_id/estado', 
+AuthMiddleware.proteger,
+    FirmaDigitalController.verificarEstadoFirma
+);
+router.get('/firmas/:firma_id/auditoria', 
+    AuthMiddleware.proteger, 
+    FirmaDigitalController.obtenerAuditoriaFirma
+);
+router.get('/firmas/:firma_id/validar-integridad', 
+AuthMiddleware.proteger,
+    FirmaDigitalController.validarIntegridadDocumento
+);
+router.post('/firmas/:firma_id/reenviar', 
+   AuthMiddleware.proteger,
+    AuthMiddleware.autorizar(['operador']), 
+    FirmaDigitalController.reenviarSolicitudFirma
+);
+
+router.get('/firmas/pendientes', 
+    AuthMiddleware.proteger,
+    FirmaDigitalController.obtenerFirmasPendientes
+);
+
+router.post('/webhooks/pdffiller', 
+    FirmaDigitalController.procesarWebhook
+);
+
+
+
 router.get('/plantillas', PlantillasDocumentoController.listarPlantillas);
 router.get('/:id/descargar', PlantillasDocumentoController.descargarPlantilla);
 router.post('/plantillas', upload.single('archivo'), PlantillasDocumentoController.subirPlantilla);

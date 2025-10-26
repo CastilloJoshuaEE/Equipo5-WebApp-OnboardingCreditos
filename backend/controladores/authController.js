@@ -17,8 +17,7 @@ class AuthController {
 
       const userAgent = req.get('User-Agent');
       console.log('. Backend: Procesando login para:', email);
-        // Verificar si la cuenta está bloqueada temporalmente
- 
+
       // Validar campos obligatorios
       if (!email || !password) {
         return res.status(400).json({
@@ -39,110 +38,121 @@ class AuthController {
         console.error('. Error verificando usuario:', usuarioError);
         throw usuarioError;
       }
-        const { data: bloqueosRecientes, error: bloqueoError } = await supabase
-            .from('intentos_login')
-            .select('created_at')
-            .eq('email', email)
-            .eq('intento_exitoso', false)
-            .gte('created_at', new Date(Date.now() - 15 * 60 * 1000).toISOString()) // Últimos 15 minutos
-            .order('created_at', { ascending: false })
-            .limit(5);
 
-        if (bloqueoError) throw bloqueoError;
-       // Bloquear si hay 5 o más intentos fallidos en 15 minutos
-if (bloqueosRecientes && bloqueosRecientes.length >= 5 && usuarioExistente?.cuenta_activa === false) {
-            console.log('. Cuenta temporalmente bloqueada por intentos fallidos:', email);
-            
-            // Registrar el intento bloqueado
-            await supabase
-                .from('intentos_login')
-                .insert([{
-                    email,
-                    intento_exitoso: false,
-                    ip_address: ipAddress,
-                    user_agent: userAgent,
-                    bloqueado: true
-                }]);
+      // 2. LIMPIAR INTENTOS ANTIGUOS AUTOMÁTICAMENTE
+      await AuthController.limpiarIntentosAntiguos(email);
 
-            return res.status(429).json({
-                success: false,
-                message: 'Cuenta temporalmente bloqueada por múltiples intentos fallidos. Intente nuevamente en 15 minutos. O use la opción de "Recuperar cuenta inactiva"'
-            });
-        }            
-        if (usuarioExistente && usuarioExistente.cuenta_activa) {
-            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email,
-                password
-            });
-            
-            intentoExitoso = !authError;
-        }
+      // 3. VERIFICAR BLOQUEO TEMPORAL - CORREGIDO
+      const { data: intentosRecientes, error: intentosError } = await supabase
+        .from('intentos_login')
+        .select('created_at')
+        .eq('email', email)
+        .eq('intento_exitoso', false)
+        .gte('created_at', new Date(Date.now() - 15 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: false });
 
-        // Registrar el intento
+      if (intentosError) {
+        console.error('. Error verificando intentos:', intentosError);
+        // Continuar sin bloquear por error en consulta
+      }
+
+      console.log('. Intentos fallidos en últimos 15 minutos:', intentosRecientes?.length || 0);
+
+      // BLOQUEO TEMPORAL SOLO si hay 5+ intentos en últimos 15 minutos
+      if (intentosRecientes && intentosRecientes.length >= 5) {
+        console.log('. Cuenta temporalmente bloqueada por intentos fallidos:', email);
+        
+        // Registrar el intento bloqueado
         await supabase
-            .from('intentos_login')
-            .insert([{
-                usuario_id: usuarioExistente?.id,
-                email,
-                intento_exitoso: intentoExitoso,
-                ip_address: ipAddress,
-                user_agent: userAgent
-            }]);
+          .from('intentos_login')
+          .insert([{
+            email,
+            intento_exitoso: false,
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            bloqueado: true
+          }]);
 
-        // Si el login falla después de registrar el intento
-        if (!intentoExitoso && usuarioExistente) {
-            // Verificar si este intento fallido alcanza el límite
-            const nuevosBloqueos = [...(bloqueosRecientes || []), { created_at: new Date().toISOString() }];
-            
-            if (nuevosBloqueos.length >= 5) {
-                console.log('. Bloqueando cuenta después del 5to intento fallido:', email);
-                
-                // Opcional: Desactivar la cuenta
-                await supabase
-                    .from('usuarios')
-                    .update({ cuenta_activa: false })
-                    .eq('email', email);
-                    
-                return res.status(429).json({
-                    success: false,
-                    message: 'Cuenta bloqueada por seguridad después de múltiples intentos fallidos. Contacte al administrador. Esperar 15 minutos'
-                });
-            }
-        }
+        return res.status(429).json({
+          success: false,
+          message: 'Cuenta temporalmente bloqueada por múltiples intentos fallidos. Intente nuevamente en 15 minutos o use la opción de "Recuperar cuenta".'
+        });
+      }
 
-      // Si no existe en nuestra tabla, rechazar login inmediatamente
+      // 4. Si no existe usuario, rechazar inmediatamente
       if (!usuarioExistente) {
         console.log('. Usuario no encontrado en tabla usuarios');
+        
+        // Registrar intento fallido
+        await supabase
+          .from('intentos_login')
+          .insert([{
+            email,
+            intento_exitoso: false,
+            ip_address: ipAddress,
+            user_agent: userAgent
+          }]);
+
         return res.status(401).json({
           success: false,
           message: 'No hay una cuenta registrada con este email. Por favor regístrese primero.'
         });
       }
 
-      // 2. Verificar si la cuenta está activa (CONFIRMACIÓN LOCAL)
+      // 5. Verificar si la cuenta está activa (CONFIRMACIÓN LOCAL)
       if (!usuarioExistente.cuenta_activa) {
-        console.log('. Cuenta no confirmada encontrada');
+        console.log('. Cuenta inactiva encontrada');
         return res.status(401).json({
           success: false,
-          message: 'Por favor confirma tu email antes de iniciar sesión. Revisa tu bandeja de entrada.'
+          message: 'Cuenta inactiva. Por favor use la opción de "Recuperar cuenta" para reactivarla.'
         });
       }
 
-      console.log('. Usuario válido y confirmado encontrado en tabla usuarios, procediendo con autenticación...');
+      console.log('. Usuario válido y activo encontrado, procediendo con autenticación...');
 
-      // 3. Autenticar con Supabase Auth (ESTO GENERA LOS TOKENS)
+      // 6. Autenticar con Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
-      if (authError) {
-        console.error('. Error en Supabase Auth:', authError);
-        
+      intentoExitoso = !authError;
+
+      // 7. Registrar el intento (éxito o fallo)
+      await supabase
+        .from('intentos_login')
+        .insert([{
+          usuario_id: usuarioExistente?.id,
+          email,
+          intento_exitoso: intentoExitoso,
+          ip_address: ipAddress,
+          user_agent: userAgent
+        }]);
+
+      // 8. Si el login falla, verificar si alcanza el límite
+      if (!intentoExitoso) {
+        // Re-verificar intentos después del fallo actual
+        const { data: nuevosIntentos, error: nuevosIntentosError } = await supabase
+          .from('intentos_login')
+          .select('created_at')
+          .eq('email', email)
+          .eq('intento_exitoso', false)
+          .gte('created_at', new Date(Date.now() - 15 * 60 * 1000).toISOString());
+
+        if (!nuevosIntentosError && nuevosIntentos && nuevosIntentos.length >= 5) {
+          console.log('. Límite de intentos alcanzado después del intento fallido');
+          
+          return res.status(429).json({
+            success: false,
+            message: 'Cuenta temporalmente bloqueada por seguridad después de múltiples intentos fallidos. Espere 15 minutos o use la opción de recuperación.'
+          });
+        }
+
+        // Si no alcanza el límite, solo mostrar error de credenciales
         let errorMessage = 'Credenciales inválidas';
-        if (authError.message.includes('Invalid login credentials')) {
+        if (authError && authError.message.includes('Invalid login credentials')) {
           errorMessage = 'Email o contraseña incorrectos';
-        } else if (authError.message.includes('Email not confirmed')) {
+        } else if (authError && authError.message.includes('Email not confirmed')) {
           // Si el email no está confirmado en Auth pero SÍ en nuestra tabla, permitir login
           console.log('. Email no confirmado en Auth, pero usuario confirmado localmente. Continuando...');
           
@@ -178,9 +188,10 @@ if (bloqueosRecientes && bloqueosRecientes.length >= 5 && usuarioExistente?.cuen
         });
       }
 
+      // 9. LOGIN EXITOSO - Continuar con el flujo normal
       console.log('. Login exitoso en Supabase Auth, ID:', authData.user.id);
 
-      // 4. VERIFICAR INCONSISTENCIA DE IDs Y CORREGIRLA
+      // VERIFICAR INCONSISTENCIA DE IDs Y CORREGIRLA
       const authUserId = authData.user.id;
       const nuestraUserId = usuarioExistente.id;
 
@@ -203,7 +214,7 @@ if (bloqueosRecientes && bloqueosRecientes.length >= 5 && usuarioExistente?.cuen
           console.error('. Error corrigiendo ID en tabla usuarios:', updateError);
           // Continuar pero usar el ID de Auth para la búsqueda
         } else {
-          console.log('. ID . exitosamente en tabla usuarios');
+          console.log('. ID actualizado exitosamente en tabla usuarios');
           
           // ACTUALIZAR TABLAS RELACIONADAS
           try {
@@ -220,7 +231,7 @@ if (bloqueosRecientes && bloqueosRecientes.length >= 5 && usuarioExistente?.cuen
         }
       }
 
-      // 5. Obtener perfil completo del usuario (usar ID de Auth después de la .)
+      // Obtener perfil completo del usuario (usar ID de Auth después de la corrección)
       const { data: userProfile, error: profileError } = await supabase
         .from('usuarios')
         .select('*')
@@ -268,7 +279,7 @@ if (bloqueosRecientes && bloqueosRecientes.length >= 5 && usuarioExistente?.cuen
 
       console.log('. Login completado exitosamente');
 
-      // . ESTRUCTURA OPTIMIZADA PARA NEXT AUTH
+      // ESTRUCTURA OPTIMIZADA PARA NEXT AUTH
       const responseData = {
         success: true,
         message: 'Login exitoso',
@@ -276,7 +287,7 @@ if (bloqueosRecientes && bloqueosRecientes.length >= 5 && usuarioExistente?.cuen
           user: authData.user,
           profile: userProfile,
           session: {
-            // . TOKENS DE SUPABASE QUE NEXT AUTH NECESITA
+            // TOKENS DE SUPABASE QUE NEXT AUTH NECESITA
             access_token: authData.session.access_token,
             refresh_token: authData.session.refresh_token,
             expires_at: authData.session.expires_at,
@@ -297,6 +308,58 @@ if (bloqueosRecientes && bloqueosRecientes.length >= 5 && usuarioExistente?.cuen
         success: false,
         message: 'Error interno del servidor durante el login'
       });
+    }
+  }
+
+  /**
+   * Limpia TODOS los intentos fallidos para un email
+   * @param {string} email 
+   */
+  static async limpiarIntentosFallidos(email) {
+    try {
+      console.log('. [LIMPIEZA] Limpiando TODOS los intentos fallidos para:', email);
+      
+      const { data, error } = await supabase
+        .from('intentos_login')
+        .delete()
+        .eq('email', email)
+        .eq('intento_exitoso', false);
+        
+      if (error) {
+        console.error('. Error limpiando intentos fallidos:', error);
+        return false;
+      }
+      
+      console.log('. [LIMPIEZA] Intentos fallidos eliminados exitosamente');
+      return true;
+    } catch (error) {
+      console.error('. Error en limpiarIntentosFallidos:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Limpia intentos fallidos antiguos automáticamente (solo los de más de 15 minutos)
+   * @param {string} email 
+   */
+  static async limpiarIntentosAntiguos(email) {
+    try {
+      const quinceMinutosAtras = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      
+      const { error } = await supabase
+        .from('intentos_login')
+        .delete()
+        .eq('email', email)
+        .eq('intento_exitoso', false)
+        .lt('created_at', quinceMinutosAtras);
+        
+      if (error) {
+        console.error('. Error limpiando intentos antiguos:', error);
+      } else {
+        console.log('. Intentos antiguos limpiados automáticamente para:', email);
+      }
+    } catch (error) {
+      console.error('. Error en limpiarIntentosAntiguos:', error);
     }
   }
 

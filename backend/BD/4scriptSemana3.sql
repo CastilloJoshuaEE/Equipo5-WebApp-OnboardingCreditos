@@ -64,3 +64,249 @@ ADD COLUMN documento_id UUID REFERENCES documentos(id) ON DELETE CASCADE;
 
 -- Crear índice para búsquedas eficientes
 CREATE INDEX idx_condiciones_documento ON condiciones_aprobacion(documento_id);
+-- ============================
+-- TABLA FIRMAS_DIGITALES (Actualizada)
+-- ============================
+CREATE TABLE IF NOT EXISTS firmas_digitales (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    contrato_id UUID UNIQUE NOT NULL REFERENCES contratos(id) ON DELETE CASCADE,
+    solicitud_id UUID NOT NULL REFERENCES solicitudes_credito(id) ON DELETE CASCADE,
+    
+    -- Información de PDFfiller
+    signature_request_id VARCHAR(100),
+    document_id VARCHAR(100),
+    envelope_id VARCHAR(100),
+    
+    -- Hash y validación
+    hash_documento_original VARCHAR(255) NOT NULL,
+    hash_documento_firmado VARCHAR(255),
+    integridad_valida BOOLEAN DEFAULT NULL,
+    
+    -- Trazabilidad legal
+    ip_firmante VARCHAR(45),
+    user_agent_firmante TEXT,
+    ubicacion_firmante VARCHAR(255),
+    dispositivo_firmante VARCHAR(255),
+    
+    -- Estados del proceso
+    estado VARCHAR(50) NOT NULL DEFAULT 'pendiente' CHECK (
+        estado IN ('pendiente', 'enviado', 'firmado_solicitante', 'firmado_operador', 'firmado_completo', 'rechazado', 'expirado', 'error')
+    ),
+    
+    -- Fechas importantes
+    fecha_envio TIMESTAMPTZ,
+    fecha_firma_solicitante TIMESTAMPTZ,
+    fecha_firma_operador TIMESTAMPTZ,
+    fecha_firma_completa TIMESTAMPTZ,
+    fecha_expiracion TIMESTAMPTZ,
+    fecha_verificacion TIMESTAMPTZ,
+    
+    -- URLs y metadatos
+    url_firma_solicitante TEXT,
+    url_firma_operador TEXT,
+    url_documento_firmado TEXT,
+    certificado_firma JSONB,
+    
+    -- Intentos y reintentos
+    intentos_envio INTEGER DEFAULT 0,
+    ultimo_error TEXT,
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================
+-- TABLA AUDITORIA_FIRMAS (Actualizada)
+-- ============================
+CREATE TABLE IF NOT EXISTS auditoria_firmas (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    firma_id UUID NOT NULL REFERENCES firmas_digitales(id) ON DELETE CASCADE,
+    usuario_id UUID REFERENCES usuarios(id),
+    
+    -- Información de auditoría
+    accion VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    ubicacion VARCHAR(255),
+    
+    -- Cambios de estado
+    estado_anterior VARCHAR(50),
+    estado_nuevo VARCHAR(50),
+    
+    -- Metadatos PDFfiller
+    signature_request_id VARCHAR(100),
+    event_type VARCHAR(100),
+    event_data JSONB,
+    
+    -- Hash para trazabilidad
+    hash_transaccion VARCHAR(255),
+    
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================
+-- ACTUALIZAR TABLA CONTRATOS para firma digital
+-- ============================
+ALTER TABLE contratos 
+ADD COLUMN IF NOT EXISTS firma_digital_id UUID REFERENCES firmas_digitales(id),
+ADD COLUMN IF NOT EXISTS hash_contrato VARCHAR(255),
+ADD COLUMN IF NOT CONSTRAINT contratos_firma_digital_id_key UNIQUE (firma_digital_id);
+
+-- ============================
+-- ÍNDICES MEJORADOS
+-- ============================
+CREATE INDEX IF NOT EXISTS idx_firmas_contrato ON firmas_digitales(contrato_id);
+CREATE INDEX IF NOT EXISTS idx_firmas_solicitud ON firmas_digitales(solicitud_id);
+CREATE INDEX IF NOT EXISTS idx_firmas_estado ON firmas_digitales(estado);
+CREATE INDEX IF NOT EXISTS idx_firmas_signature_request ON firmas_digitales(signature_request_id);
+CREATE INDEX IF NOT EXISTS idx_firmas_hash_original ON firmas_digitales(hash_documento_original);
+CREATE INDEX IF NOT EXISTS idx_firmas_hash_firmado ON firmas_digitales(hash_documento_firmado);
+CREATE INDEX IF NOT EXISTS idx_firmas_fecha_envio ON firmas_digitales(fecha_envio);
+CREATE INDEX IF NOT EXISTS idx_firmas_fecha_expiracion ON firmas_digitales(fecha_expiracion);
+
+CREATE INDEX IF NOT EXISTS idx_auditoria_firma ON auditoria_firmas(firma_id);
+CREATE INDEX IF NOT EXISTS idx_auditoria_event ON auditoria_firmas(event_type);
+CREATE INDEX IF NOT EXISTS idx_auditoria_hash ON auditoria_firmas(hash_transaccion);
+
+-- ============================
+-- TRIGGERS MEJORADOS
+-- ============================
+CREATE OR REPLACE FUNCTION update_firmas_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_firmas_timestamp 
+    BEFORE UPDATE ON firmas_digitales 
+    FOR EACH ROW EXECUTE FUNCTION update_firmas_timestamp();
+
+-- Trigger para auditoría automática mejorado
+CREATE OR REPLACE FUNCTION log_auditoria_firma()
+RETURNS TRIGGER AS $$
+DECLARE
+    hash_transaccion_val VARCHAR(255);
+BEGIN
+    -- Generar hash único para la transacción
+    hash_transaccion_val := encode(sha256((NEW.id || NOW() || random()::text)::bytea), 'hex');
+    
+    -- Registrar cambios de estado
+    IF OLD.estado IS DISTINCT FROM NEW.estado THEN
+        INSERT INTO auditoria_firmas (
+            firma_id, usuario_id, accion, descripcion,
+            estado_anterior, estado_nuevo, signature_request_id,
+            hash_transaccion, created_at
+        ) VALUES (
+            NEW.id,
+            NULL, -- Se puede obtener del contexto si está disponible
+            'cambio_estado',
+            'Estado de firma cambiado de ' || COALESCE(OLD.estado, 'NULL') || ' a ' || NEW.estado,
+            OLD.estado,
+            NEW.estado,
+            NEW.signature_request_id,
+            hash_transaccion_val,
+            NOW()
+        );
+    END IF;
+    
+    -- Registrar cambios en hash (integridad)
+    IF OLD.hash_documento_firmado IS DISTINCT FROM NEW.hash_documento_firmado THEN
+        INSERT INTO auditoria_firmas (
+            firma_id, accion, descripcion,
+            hash_transaccion, created_at
+        ) VALUES (
+            NEW.id,
+            'actualizacion_hash',
+            'Hash del documento firmado actualizado. Integridad: ' || COALESCE(NEW.integridad_valida::text, 'NULL'),
+            hash_transaccion_val,
+            NOW()
+        );
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_auditoria_firma 
+    AFTER UPDATE ON firmas_digitales 
+    FOR EACH ROW EXECUTE FUNCTION log_auditoria_firma();
+
+-- ============================
+-- FUNCIONES UTILES
+-- ============================
+CREATE OR REPLACE FUNCTION obtener_firmas_pendientes()
+RETURNS TABLE (
+    firma_id UUID,
+    solicitud_numero VARCHAR(50),
+    solicitante_nombre VARCHAR(255),
+    solicitante_email VARCHAR(255),
+    fecha_envio TIMESTAMPTZ,
+    dias_restantes INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        fd.id,
+        sc.numero_solicitud,
+        u.nombre_completo,
+        u.email,
+        fd.fecha_envio,
+        EXTRACT(DAYS FROM (fd.fecha_expiracion - NOW()))::INTEGER
+    FROM firmas_digitales fd
+    JOIN solicitudes_credito sc ON fd.solicitud_id = sc.id
+    JOIN solicitantes s ON sc.solicitante_id = s.id
+    JOIN usuarios u ON s.id = u.id
+    WHERE fd.estado IN ('enviado', 'firmado_solicitante')
+    AND fd.fecha_expiracion > NOW()
+    ORDER BY fd.fecha_envio ASC;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION verificar_expiracion_firmas()
+RETURNS INTEGER AS $$
+DECLARE
+    firmas_expiradas INTEGER;
+BEGIN
+    UPDATE firmas_digitales 
+    SET estado = 'expirado',
+        updated_at = NOW()
+    WHERE estado IN ('enviado', 'firmado_solicitante')
+    AND fecha_expiracion <= NOW();
+    
+    GET DIAGNOSTICS firmas_expiradas = ROW_COUNT;
+    
+    -- Registrar en auditoría
+    IF firmas_expiradas > 0 THEN
+        INSERT INTO auditoria_firmas (firma_id, accion, descripcion, created_at)
+        SELECT 
+            id,
+            'expiracion_automatica',
+            'Firma marcada como expirada automáticamente por el sistema',
+            NOW()
+        FROM firmas_digitales 
+        WHERE estado = 'expirado'
+        AND updated_at > (NOW() - INTERVAL '1 minute');
+    END IF;
+    
+    RETURN firmas_expiradas;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE TABLE IF NOT EXISTS configuraciones (
+    clave VARCHAR(100) PRIMARY KEY,
+    valor VARCHAR(255) NOT NULL,
+    descripcion TEXT
+);
+
+INSERT INTO configuraciones (clave, valor, descripcion) VALUES
+('firma_digital_habilitada', 'true', 'Habilita el módulo de firma digital'),
+('firma_digital_expiracion_dias', '7', 'Días para expirar una solicitud de firma'),
+('firma_digital_max_reintentos', '3', 'Máximo número de reintentos de envío'),
+('firma_digital_timezone', 'America/Mexico_City', 'Zona horaria para fechas de firma')
+ON CONFLICT (clave) DO UPDATE SET 
+valor = EXCLUDED.valor,
+descripcion = EXCLUDED.descripcion;

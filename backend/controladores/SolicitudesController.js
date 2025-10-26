@@ -281,6 +281,7 @@ static async enviarSolicitud(req, res) {
     try {
       const { solicitud_id } = req.params;
       const { comentarios, condiciones } = req.body;
+        const operador_id = req.usuario.id;
 
       if (req.usuario.rol !== 'operador') {
         return res.status(403).json({
@@ -300,7 +301,39 @@ static async enviarSolicitud(req, res) {
       if (condiciones) {
         await this.registrarCondicionesAprobacion(solicitud_id, condiciones, req.usuario.id);
       }
-
+        if (solicitud.estado === 'aprobado') {
+            // Iniciar automáticamente el proceso de firma digital
+            setTimeout(async () => {
+                try {
+                    console.log('🚀 Iniciando proceso de firma digital automático para solicitud:', solicitud_id);
+                    
+                    await FirmaDigitalController.iniciarProcesoFirma({
+                        params: { solicitud_id: solicitud_id },
+                        usuario: req.usuario,
+                        ip: req.ip,
+                        get: (header) => req.get(header)
+                    }, {
+                        json: (result) => {
+                            if (result.success) {
+                                console.log('✅ Proceso de firma digital iniciado automáticamente');
+                            } else {
+                                console.error('❌ Error en firma digital automática:', result.message);
+                                
+                                // Notificar error al operador
+                                require('../servicios/notificacionService').crearNotificacion(
+                                    operador_id,
+                                    'error_firma_digital_automatica',
+                                    'Error en Firma Digital Automática',
+                                    `No se pudo iniciar automáticamente el proceso de firma digital para la solicitud ${solicitud_id}: ${result.message}`
+                                );
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('❌ Error en firma digital automática:', error);
+                }
+            }, 2000);
+        }
       res.json({
         success: true,
         message: 'Solicitud aprobada exitosamente',
