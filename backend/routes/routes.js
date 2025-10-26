@@ -20,6 +20,10 @@ const multer = require('multer');
 const storage = multer.memoryStorage();
 router.get("/airSlate", (req, res) => res.status(200).send("OK"));
 
+router.post("/airSlate", (req, res) => {
+    console.log("Webhook recibido:", req.body);
+    res.status(200).json({ success: true });
+});
 
 const upload = multer({
   storage: storage,
