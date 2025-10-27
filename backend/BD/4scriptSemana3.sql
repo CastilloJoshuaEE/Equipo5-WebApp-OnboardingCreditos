@@ -67,83 +67,57 @@ CREATE INDEX idx_condiciones_documento ON condiciones_aprobacion(documento_id);
 -- ============================
 -- TABLA FIRMAS_DIGITALES (Actualizada)
 -- ============================
-CREATE TABLE IF NOT EXISTS firmas_digitales (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    contrato_id UUID UNIQUE NOT NULL REFERENCES contratos(id) ON DELETE CASCADE,
-    solicitud_id UUID NOT NULL REFERENCES solicitudes_credito(id) ON DELETE CASCADE,
-    
-    -- Información de PDFfiller
-    signature_request_id VARCHAR(100),
-    document_id VARCHAR(100),
-    envelope_id VARCHAR(100),
-    
-    -- Hash y validación
-    hash_documento_original VARCHAR(255) NOT NULL,
-    hash_documento_firmado VARCHAR(255),
-    integridad_valida BOOLEAN DEFAULT NULL,
-    
-    -- Trazabilidad legal
-    ip_firmante VARCHAR(45),
-    user_agent_firmante TEXT,
-    ubicacion_firmante VARCHAR(255),
-    dispositivo_firmante VARCHAR(255),
-    
-    -- Estados del proceso
-    estado VARCHAR(50) NOT NULL DEFAULT 'pendiente' CHECK (
-        estado IN ('pendiente', 'enviado', 'firmado_solicitante', 'firmado_operador', 'firmado_completo', 'rechazado', 'expirado', 'error')
-    ),
-    
-    -- Fechas importantes
-    fecha_envio TIMESTAMPTZ,
-    fecha_firma_solicitante TIMESTAMPTZ,
-    fecha_firma_operador TIMESTAMPTZ,
-    fecha_firma_completa TIMESTAMPTZ,
-    fecha_expiracion TIMESTAMPTZ,
-    fecha_verificacion TIMESTAMPTZ,
-    
-    -- URLs y metadatos
-    url_firma_solicitante TEXT,
-    url_firma_operador TEXT,
-    url_documento_firmado TEXT,
-    certificado_firma JSONB,
-    
-    -- Intentos y reintentos
-    intentos_envio INTEGER DEFAULT 0,
-    ultimo_error TEXT,
-    
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE firmas_digitales (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  contrato_id UUID NOT NULL REFERENCES contratos(id),
+  solicitud_id UUID NOT NULL REFERENCES solicitudes_credito(id),
+  
+  -- Hashes para validación de integridad
+  hash_documento_original TEXT NOT NULL,
+  hash_documento_firmado TEXT,
+  integridad_valida BOOLEAN DEFAULT FALSE,
+  
+  -- Estados del proceso
+  estado VARCHAR(50) NOT NULL DEFAULT 'pendiente',
+  fecha_envio TIMESTAMP WITH TIME ZONE,
+  fecha_firma_solicitante TIMESTAMP WITH TIME ZONE,
+  fecha_firma_operador TIMESTAMP WITH TIME ZONE,
+  fecha_firma_completa TIMESTAMP WITH TIME ZONE,
+  fecha_expiracion TIMESTAMP WITH TIME ZONE,
+  
+  -- Información del firmante
+  ip_firmante INET,
+  user_agent_firmante TEXT,
+  ubicacion_firmante TEXT,
+  
+  -- URLs de documentos
+  url_documento_firmado TEXT,
+  
+  -- Auditoría
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================
--- TABLA AUDITORIA_FIRMAS (Actualizada)
--- ============================
-CREATE TABLE IF NOT EXISTS auditoria_firmas (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    firma_id UUID NOT NULL REFERENCES firmas_digitales(id) ON DELETE CASCADE,
-    usuario_id UUID REFERENCES usuarios(id),
-    
-    -- Información de auditoría
-    accion VARCHAR(100) NOT NULL,
-    descripcion TEXT,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    ubicacion VARCHAR(255),
-    
-    -- Cambios de estado
-    estado_anterior VARCHAR(50),
-    estado_nuevo VARCHAR(50),
-    
-    -- Metadatos PDFfiller
-    signature_request_id VARCHAR(100),
-    event_type VARCHAR(100),
-    event_data JSONB,
-    
-    -- Hash para trazabilidad
-    hash_transaccion VARCHAR(255),
-    
-    created_at TIMESTAMPTZ DEFAULT NOW()
+-- Tabla de auditoría para trazabilidad legal
+CREATE TABLE auditoria_firmas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  firma_id UUID NOT NULL REFERENCES firmas_digitales(id),
+  usuario_id UUID NOT NULL REFERENCES usuarios(id),
+  
+  -- Información de la acción
+  accion VARCHAR(100) NOT NULL,
+  descripcion TEXT,
+  estado_anterior VARCHAR(50),
+  estado_nuevo VARCHAR(50),
+  
+  -- Información técnica
+  ip_address INET,
+  user_agent TEXT,
+  
+  -- Timestamps
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
 
 -- ============================
 -- ACTUALIZAR TABLA CONTRATOS para firma digital
@@ -310,3 +284,140 @@ INSERT INTO configuraciones (clave, valor, descripcion) VALUES
 ON CONFLICT (clave) DO UPDATE SET 
 valor = EXCLUDED.valor,
 descripcion = EXCLUDED.descripcion;
+
+
+-- Agregar columna tipo a la tabla contratos
+ALTER TABLE contratos 
+ADD COLUMN tipo VARCHAR(50) DEFAULT 'credito_standard' 
+CHECK (tipo IN ('credito_standard', 'credito_empresa', 'credito_pyme'));
+
+-- Actualizar los contratos existentes
+UPDATE contratos SET tipo = 'credito_standard' WHERE tipo IS NULL;
+
+ALTER TABLE contratos 
+ADD COLUMN IF NOT EXISTS firma_digital_id UUID REFERENCES firmas_digitales(id),
+ADD COLUMN IF NOT EXISTS hash_contrato VARCHAR(255);
+
+
+ALTER TABLE contratos 
+ADD CONSTRAINT contratos_firma_digital_id_key UNIQUE (firma_digital_id);
+
+
+CREATE POLICY "contratos_acceso_solicitante" ON contratos
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM solicitudes_credito sc
+            WHERE sc.id = contratos.solicitud_id
+            AND sc.solicitante_id::text = auth.uid()::text
+        )
+    );
+
+CREATE POLICY "contratos_acceso_operador" ON contratos
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM solicitudes_credito sc
+            WHERE sc.id = contratos.solicitud_id
+            AND sc.operador_id::text = auth.uid()::text
+        )
+    );
+
+CREATE POLICY "contratos_acceso_admin" ON contratos
+    FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "contratos_insert"
+ON contratos
+FOR INSERT
+WITH CHECK (
+  -- Permitir si el usuario es el operador o solicitante de la solicitud
+  EXISTS (
+    SELECT 1 FROM solicitudes_credito sc
+    WHERE sc.id = contratos.solicitud_id
+    AND (
+      sc.operador_id::text = auth.uid()::text
+      OR sc.solicitante_id::text = auth.uid()::text
+    )
+  )
+  OR
+  -- Permitir al rol de servicio
+  auth.role() = 'service_role'
+  OR
+  -- Permitir al usuario postgres interno (funciones del backend)
+  current_user = 'postgres'
+);
+
+CREATE POLICY "contratos_select"
+ON contratos
+FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM solicitudes_credito sc
+    WHERE sc.id = contratos.solicitud_id
+    AND (
+      sc.operador_id::text = auth.uid()::text
+      OR sc.solicitante_id::text = auth.uid()::text
+    )
+  )
+  OR auth.role() = 'service_role'
+);
+
+CREATE POLICY "contratos_update"
+ON contratos
+FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM solicitudes_credito sc
+    WHERE sc.id = contratos.solicitud_id
+    AND (
+      sc.operador_id::text = auth.uid()::text
+      OR sc.solicitante_id::text = auth.uid()::text
+    )
+  )
+  OR auth.role() = 'service_role'
+);
+
+
+
+
+-- Función para limpiar y resetear el proceso
+CREATE OR REPLACE FUNCTION resetear_proceso_firma(p_solicitud_id UUID)
+RETURNS void AS $$
+BEGIN
+    -- Eliminar firmas existentes
+    DELETE FROM firmas_digitales 
+    WHERE solicitud_id = p_solicitud_id;
+    
+    -- Resetear estado del contrato
+    UPDATE contratos 
+    SET estado = 'generado',
+        firma_digital_id = NULL,
+        hash_contrato = NULL
+    WHERE solicitud_id = p_solicitud_id;
+    
+    -- Resetear notificaciones de error
+    DELETE FROM notificaciones 
+    WHERE solicitud_id = p_solicitud_id 
+    AND tipo LIKE '%error_firma_digital%';
+END;
+$$ LANGUAGE plpgsql;
+
+
+ALTER TABLE contratos 
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE contratos RENAME COLUMN ruta_pdf TO ruta_documento;
+
+
+ALTER TABLE firmas_digitales 
+DROP COLUMN IF EXISTS document_id;
+
+
+ALTER TABLE firmas_digitales
+ADD COLUMN intentos_envio INTEGER DEFAULT 0;
+ALTER TABLE firmas_digitales
+ADD COLUMN IF NOT EXISTS signature_request_id UUID;
+ALTER TABLE firmas_digitales
+ADD COLUMN IF NOT EXISTS url_firma_operador TEXT;
+ALTER TABLE firmas_digitales
+ADD COLUMN IF NOT EXISTS url_firma_solicitante TEXT;
+
+ALTER TABLE firmas_digitales
+ADD COLUMN IF NOT EXISTS ruta_documento TEXT;

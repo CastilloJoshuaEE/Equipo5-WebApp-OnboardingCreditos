@@ -1,8 +1,15 @@
 // frontend/src/app/(dashboard)/operador/page.tsx
 'use client';
+import { useRouter, useParams } from 'next/navigation';
+
 import { signOut } from 'next-auth/react';
 import React, { useState, useEffect } from 'react';
 import { getSession } from 'next-auth/react';
+import BotonIniciarFirma from '@/components/BotonIniciarFirma';
+interface BotonIniciarFirmaProps {
+  solicitudId: string;
+  onFirmaIniciada: (data: any) => void;
+}
 import {
     Box,
     Typography,
@@ -22,6 +29,10 @@ import { Documento, RevisionData, SolicitudOperador } from '@/types/operador';
 import RevisionModal from '@/components/operador/RevisionModal';
 
 export default function OperadorDashboard() {
+      const router = useRouter();
+      
+    const params = useParams();
+    
     const [solicitudes, setSolicitudes] = useState<SolicitudOperador[]>([]);
     const [loading, setLoading] = useState(true);
     const [filtros, setFiltros] = useState({
@@ -32,6 +43,8 @@ export default function OperadorDashboard() {
         numero_solicitud: '',
         dni: ''
     });
+      const solicitudId = params?.id as string;
+
     const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<RevisionData | null>(null);
     const [modalRevision, setModalRevision] = useState(false);
 const [revisionData, setRevisionData] = useState<RevisionData | null>(null);
@@ -330,6 +343,12 @@ const getContactoInfo = (solicitud: SolicitudOperador) => {
                                             >
                                                 Revisar
                                             </Button>
+                                             <BotonIniciarFirma 
+                                                solicitudId={solicitud.id} 
+                                                onFirmaIniciada={(data) => {
+                                                    console.log('Firma digital iniciada:', data);
+                                                }} 
+                                                />
                                         </Grid>
                                     </Grid>
                                 </CardContent>

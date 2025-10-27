@@ -2,11 +2,12 @@ const SolicitudModel=require('../modelos/SolicitudModel');
 const DocumentoModel=require('../modelos/DocumentoModel');
 const VerificacionKycModel = require('../modelos/VerificacionKycModel');
 const OperadorController=require('../controladores/OperadorController')
-const Notificaciones = require('../controladores/NotificacionesController')
+const NotificacionService = require('../servicios/NotificacionService');
+const ContratoController =require('../controladores/ContratoController');
 const { supabase } = require('../config/conexion');
 const { supabaseAdmin } = require('../config/supabaseAdmin');
 const diditService = require('../servicios/diditService');
-
+const FirmaDigitalController= require('../controladores/FirmaDigitalController')
 class SolicitudesController {
   // Crear solicitud de crédito
   static async crearSolicitud(req, res) {
@@ -63,8 +64,6 @@ class SolicitudesController {
     }
   }
 
-  // Enviar solicitud para revisión
-// En SolicitudesController.js - método enviarSolicitud
 static async enviarSolicitud(req, res) {
   try {
     const { solicitud_id } = req.params;
@@ -301,39 +300,54 @@ static async enviarSolicitud(req, res) {
       if (condiciones) {
         await this.registrarCondicionesAprobacion(solicitud_id, condiciones, req.usuario.id);
       }
-        if (solicitud.estado === 'aprobado') {
-            // Iniciar automáticamente el proceso de firma digital
-            setTimeout(async () => {
-                try {
-                    console.log('🚀 Iniciando proceso de firma digital automático para solicitud:', solicitud_id);
-                    
-                    await FirmaDigitalController.iniciarProcesoFirma({
-                        params: { solicitud_id: solicitud_id },
-                        usuario: req.usuario,
-                        ip: req.ip,
-                        get: (header) => req.get(header)
-                    }, {
-                        json: (result) => {
-                            if (result.success) {
-                                console.log('✅ Proceso de firma digital iniciado automáticamente');
-                            } else {
-                                console.error('❌ Error en firma digital automática:', result.message);
-                                
-                                // Notificar error al operador
-                                require('../servicios/notificacionService').crearNotificacion(
-                                    operador_id,
-                                    'error_firma_digital_automatica',
-                                    'Error en Firma Digital Automática',
-                                    `No se pudo iniciar automáticamente el proceso de firma digital para la solicitud ${solicitud_id}: ${result.message}`
-                                );
-                            }
-                        }
-                    });
-                } catch (error) {
-                    console.error('❌ Error en firma digital automática:', error);
-                }
-            }, 2000);
-        }
+if (solicitud.estado === 'aprobado') {
+    try {
+        const contrato= await ContratoController.generarContratoParaSolicitud(solicitud_id);
+        
+        // Iniciar proceso de firma automático CORREGIDO
+        setTimeout(async () => {
+            try {
+                console.log('. Iniciando proceso de firma digital automático para solicitud:', solicitud_id);
+                    // Verificar que el contrato tiene ruta_documento
+                const { data: contratoVerificado } = await supabase
+                    .from('contratos')
+                    .select('ruta_documento')
+                    .eq('id', contrato.id)
+                    .single();
+                
+                if (!contratoVerificado?.ruta_documento) {
+                    throw new Error('El contrato no tiene Word generado');
+                }  
+                // Usar el método automático que no requiere response HTTP
+                await FirmaDigitalController.iniciarProcesoFirmaAutomatico(
+                    solicitud_id, 
+                    req.usuario, 
+                    req.ip
+                );
+                
+                console.log('. Proceso de firma digital iniciado automáticamente');
+                
+            } catch (error) {
+                console.error('. Error en firma digital automática:', error);
+                
+                // Notificar error al operador
+               return NotificacionService.notificarErrorFirmaDigital(
+                    operador_id,
+                    solicitud_id,
+                    error.message
+                );
+            }
+        }, 2000);
+        
+    } catch (error) {
+        console.error('. Error generando contrato:', error);
+        return NotificacionService.notificarErrorFirmaDigital(
+            operador_id,
+            solicitud_id,
+            `Error generando contrato: ${error.message}`
+        );
+    }
+}
       res.json({
         success: true,
         message: 'Solicitud aprobada exitosamente',
@@ -494,7 +508,7 @@ static async calcularNivelRiesgo(solicitudId) {
       });
 
       // Registrar la solicitud de información
-      await this.registrarSolicitudInformacion(solicitud_id, informacion_solicitada, plazo_dias, req.usuario.id);
+      await SolicitudesController.registrarSolicitudInformacion(solicitud_id, informacion_solicitada, plazo_dias, req.usuario.id);
 
       console.log(`. Información adicional solicitada para solicitud ${solicitud_id}`);
 
@@ -614,5 +628,9 @@ static async calcularNivelRiesgo(solicitudId) {
       console.error('. Error registrando solicitud de información:', error);
     }
   }
+
+
+
+
 }
 module.exports = SolicitudesController;

@@ -200,12 +200,12 @@ static async extraerInformacionDocumento(pdfUrl, tipo, buffer) {
     const informacion = {};
     
     if (!texto || texto.includes('no se pudo extraer') || texto.includes('Error') || texto.includes('sin texto')) {
-      console.log('📝 Texto no válido para extracción');
+      console.log('. Texto no válido para extracción');
       return null;
     }
 
     console.log(`. Extrayendo información para tipo: ${tipo}`);
-    console.log(`📝 Texto disponible (primeros 300 chars): ${texto.substring(0, 300)}...`);
+    console.log(`. Texto disponible (primeros 300 chars): ${texto.substring(0, 300)}...`);
 
     try {
       switch (tipo) {
@@ -943,7 +943,7 @@ static async obtenerHistorialEvaluaciones(req, res) {
                 }
             }
             
-            console.log('✅ Criterios extraídos:', criteriosDetallados);
+            console.log('. Criterios extraídos:', criteriosDetallados);
 
             return {
                 id: evaluacion.id,

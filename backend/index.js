@@ -6,6 +6,8 @@ const bodyParser = require("body-parser");
 const swaggerUI = require("swagger-ui-express");
 const swaggerJsDoc = require("swagger-jsdoc");
 const routes = require("./routes/routes");
+const routesFirmas = require('./routes/routes');
+
 const datosIniciales = require("./datos_iniciales");
 const { verificarConexion } = require("./config/conexion");
 const { configurarStorage } = require("./config/configStorage");
@@ -101,6 +103,7 @@ app.use(
     customSiteTitle: "API Sistema de Créditos",
   })
 );
+app.use('/api/firmas', routesFirmas);
 
 // Servir archivos estáticos
 app.use("/img", express.static(path.join(__dirname, "../frontend/public/img")));
@@ -294,7 +297,7 @@ const iniciarServidor = async () => {
         message: 'Error interno del servidor'
       });
     });
-
+// Agregar las nuevas rutas
     const PORT = process.env.PORT || 3001;
 
     // Iniciar servidor

@@ -1,4 +1,5 @@
 const express = require("express");
+const { supabase } = require('../config/conexion');
 const AuthMiddleware = require("../middleware/auth");
 const authController = require("../controladores/authController");
 const usuariosController = require("../controladores/UsuarioController");
@@ -14,6 +15,8 @@ const ComentariosController = require('../controladores/ComentariosController');
 const PlantillasDocumentoController = require('../controladores/PlantillasDocumentosController');
 const ChatbotController = require('../controladores/ChatbotController');
 const FirmaDigitalController = require('../controladores/FirmaDigitalController');
+const ContratoController = require("../controladores/ContratoController");
+
 // Middleware existentes
 const router = express.Router();
 const multer = require('multer');
@@ -42,7 +45,7 @@ const allowedTypes = [
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Tipo de archivo no permitido. Solo DOCX, PDF, JPG, JPEG, PNG.'), false);
+      cb(new Error('Tipo de archivo no permitido. Solo DOCX, PDF'), false);
     }
   }
 });
@@ -1704,7 +1707,7 @@ router.get('/solicitudes/:solicitud_id', AuthMiddleware.proteger, SolicitudesCon
  *               archivo:
  *                 type: string
  *                 format: binary
- *                 description: Archivo a subir (PDF, JPG, JPEG, PNG, máximo 5MB)
+ *                 description: Archivo a subir (PDF máximo 5MB)
  *               tipo:
  *                 type: string
  *                 enum: [dni, cuit, comprobante_domicilio, balance_contable, estado_financiero, declaracion_impuestos]
@@ -2643,40 +2646,155 @@ router.get('/comentarios/contador-no-leidos', AuthMiddleware.proteger, Comentari
  *               $ref: '#/components/schemas/Error'
  */
 router.delete('/comentarios/:id', AuthMiddleware.proteger, ComentariosController.eliminarComentario);
-router.post('/solicitudes/:solicitud_id/iniciar-firma', 
-AuthMiddleware.proteger,
-    AuthMiddleware.autorizar(['operador']), 
+router.post('/firmas/iniciar-proceso/:solicitud_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
     FirmaDigitalController.iniciarProcesoFirma
 );
-router.get('/firmas/:firma_id/estado', 
-AuthMiddleware.proteger,
-    FirmaDigitalController.verificarEstadoFirma
-);
-router.get('/firmas/:firma_id/auditoria', 
-    AuthMiddleware.proteger, 
-    FirmaDigitalController.obtenerAuditoriaFirma
-);
-router.get('/firmas/:firma_id/validar-integridad', 
-AuthMiddleware.proteger,
-    FirmaDigitalController.validarIntegridadDocumento
-);
-router.post('/firmas/:firma_id/reenviar', 
-   AuthMiddleware.proteger,
-    AuthMiddleware.autorizar(['operador']), 
-    FirmaDigitalController.reenviarSolicitudFirma
+
+// Obtener información para firma Word
+router.get('/firmas/info-firma-word/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+    FirmaDigitalController.obtenerInfoFirma
 );
 
+// Procesar firma Word
+router.post('/firmas/procesar-firma-word/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+    FirmaDigitalController.procesarFirma
+);
+router.get('/firmas/verificar-contrato/:firma_id', AuthMiddleware.proteger, ContratoController.verificarEstadoContrato);
+// Obtener documento para firma
+router.get('/firmas/documento-para-firma/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+
+    FirmaDigitalController.obtenerDocumentoParaFirma
+);
+
+// Descargar documento firmado
+router.get('/firmas/descargar/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+
+    FirmaDigitalController.descargarDocumentoFirmado
+);
+
+// Verificar estado de firma
+router.get('/firmas/estado/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+
+    FirmaDigitalController.verificarEstadoFirma
+);
+router.get('/firmas/contenido-contrato/:firma_id', 
+    AuthMiddleware.proteger,
+    ContratoController.obtenerContenidoContrato
+);
+// Obtener firmas pendientes
 router.get('/firmas/pendientes', 
     AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+
     FirmaDigitalController.obtenerFirmasPendientes
 );
 
-router.post('/webhooks/pdffiller', 
-    FirmaDigitalController.procesarWebhook
+// Reenviar solicitud de firma
+router.post('/firmas/:firma_id/reenviar', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+    FirmaDigitalController.reenviarSolicitudFirma
 );
 
+// Obtener auditoría de firma
+router.get('/firmas/:firma_id/auditoria', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
 
+    FirmaDigitalController.obtenerAuditoriaFirma
+);
+router.get('/firmas/verificar-existente/:solicitud_id', 
+    AuthMiddleware.proteger,
+    FirmaDigitalController.verificarFirmaExistente
+);
 
+router.post('/firmas/reiniciar-proceso/:solicitud_id', 
+    AuthMiddleware.proteger,
+    FirmaDigitalController.reiniciarProcesoFirma
+);
+
+router.post('/firmas/renovar-expirada/:solicitud_id', 
+    AuthMiddleware.proteger,
+    FirmaDigitalController.renovarFirmaExpirada
+);
+router.post('/firmas/:firma_id/reparar-relacion', 
+    AuthMiddleware.proteger,
+    FirmaDigitalController.repararRelacionFirmaContrato
+);
+// Agregar esta ruta temporal para diagnóstico
+router.get('/firmas/diagnostico/:firma_id', 
+    AuthMiddleware.proteger,
+    async (req, res) => {
+        try {
+            const { firma_id } = req.params;
+            
+            console.log('. . DIAGNÓSTICO para firma_id:', firma_id);
+            
+            // 1. Verificar si existe en firmas_digitales
+            const { data: firma, error: firmaError } = await supabase
+                .from('firmas_digitales')
+                .select('*')
+                .eq('id', firma_id)
+                .single();
+
+            console.log('. Resultado firma_digitales:', { firma, error: firmaError });
+
+            if (firmaError || !firma) {
+                return res.json({
+                    existe_firma: false,
+                    error: firmaError?.message || 'No encontrado'
+                });
+            }
+
+            // 2. Verificar contrato asociado
+            const { data: contrato, error: contratoError } = await supabase
+                .from('contratos')
+                .select('*')
+                .eq('id', firma.contrato_id)
+                .single();
+
+            console.log('. Resultado contratos:', { contrato, error: contratoError });
+
+            // 3. Verificar solicitud
+            const { data: solicitud, error: solicitudError } = await supabase
+                .from('solicitudes_credito')
+                .select('*')
+                .eq('id', firma.solicitud_id)
+                .single();
+
+            console.log('. Resultado solicitudes_credito:', { solicitud, error: solicitudError });
+
+            res.json({
+                existe_firma: true,
+                firma: {
+                    id: firma.id,
+                    estado: firma.estado,
+                    contrato_id: firma.contrato_id,
+                    solicitud_id: firma.solicitud_id
+                },
+                contrato: contrato || { error: contratoError?.message },
+                solicitud: solicitud || { error: solicitudError?.message },
+                tiene_documento: !!contrato?.ruta_documento
+            });
+
+        } catch (error) {
+            console.error('. Error en diagnóstico:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
 router.get('/plantillas', PlantillasDocumentoController.listarPlantillas);
 router.get('/:id/descargar', PlantillasDocumentoController.descargarPlantilla);
 router.post('/plantillas', upload.single('archivo'), PlantillasDocumentoController.subirPlantilla);

@@ -212,10 +212,10 @@ const handleAbrirEvaluacion = async (documento: Documento) => {
                     criteriosMapeados[criterio.id] = valor === true;
                 });
                 
-                console.log('✅ Criterios mapeados al checklist:', criteriosMapeados);
+                console.log('. Criterios mapeados al checklist:', criteriosMapeados);
                 setChecklist(criteriosMapeados);
             } else {
-                console.warn('⚠️ No se encontraron criterios válidos en la evaluación');
+                console.warn('. No se encontraron criterios válidos en la evaluación');
             }
 
             // Establecer comentarios si existen
@@ -223,10 +223,10 @@ const handleAbrirEvaluacion = async (documento: Documento) => {
                 setComentarios(ultimaEvaluacion.comentarios);
             }
         } else {
-            console.log('📝 No hay evaluaciones previas para este documento');
+            console.log('. No hay evaluaciones previas para este documento');
         }
     } catch (error) {
-        console.error('⚠️ Error cargando historial de evaluaciones:', error);
+        console.error('. Error cargando historial de evaluaciones:', error);
         // No bloquear la UI si falla la carga del historial
     }
 };

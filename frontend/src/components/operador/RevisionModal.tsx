@@ -291,6 +291,8 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
                         <DecisionStep 
                             solicitud={data.solicitud}
                             onClose={onClose}
+                             onDashboardActualizado={onDocumentoActualizado}
+                            
                         />
                     )}
                 </Box>

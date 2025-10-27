@@ -1,1170 +1,903 @@
 // controladores/FirmaDigitalController.js
-const PDFFillerService = require('../servicios/pdfFillerService');
+const axios = require('axios');
+const crypto = require('crypto');
 const { supabase } = require('../config/conexion');
 const { supabaseAdmin } = require('../config/supabaseAdmin');
-const crypto = require('crypto');
-
+const NotificacionesController = require('./NotificacionesController');
+const NotificacionService = require('../servicios/NotificacionService');
+const WordService = require('../servicios/WordService');
+const ContratoController = require('../controladores/ContratoController');
 class FirmaDigitalController {
 
-    /**
-     * Iniciar proceso de firma digital para contrato aprobado (Bifurcación 1)
-     */
-    static async iniciarProcesoFirma(req, res) {
-        try {
-            const { solicitud_id } = req.params;
-            const operador_id = req.usuario.id;
+  /**
+   * Generar hash único para documento
+   */
+  static generarHashDocumento(buffer, metadatos = {}) {
+    const contenido = buffer.toString('base64') + JSON.stringify(metadatos);
+    return crypto.createHash('sha256').update(contenido).digest('hex');
+  }
 
-            console.log('🚀 Iniciando proceso de firma digital para solicitud:', solicitud_id);
+  /**
+   * Validar integridad del documento
+   */
+  static validarIntegridadDocumento(hashOriginal, hashFirmado) {
+    return hashOriginal === hashFirmado;
+  }
+    /** 
+ * Iniciar proceso de firma digital automático (sin response HTTP) 
+ */ 
 
-            // Verificar que la solicitud está aprobada y tiene contrato
-            const { data: solicitud, error: solError } = await supabase
-                .from('solicitudes_credito')
-                .select(`
-                    *,
-                    contratos(*),
-                    solicitantes: solicitantes!solicitante_id(
-                        usuarios(*)
-                    ),
-                    operadores: operadores!operador_id(
-                        usuarios(*)
-                    )
-                `)
-                .eq('id', solicitud_id)
-                .eq('estado', 'aprobado')
-                .single();
+  static async iniciarProcesoFirmaAutomatico(solicitud_id, usuario, ip = null) {
+    try {
+      console.log('. Iniciando proceso de firma digital automático para solicitud:', solicitud_id);
 
-            if (solError || !solicitud) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Solicitud no encontrada o no aprobada'
-                });
-            }
+      // Verificar que existe contrato con ruta_documento
+      const { data: contrato, error: contratoError } = await supabase
+        .from('contratos')
+        .select('*')
+        .eq('solicitud_id', solicitud_id)
+        .not('ruta_documento', 'is', null)
+        .single();
 
-            if (!solicitud.contratos || solicitud.contratos.length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'No existe contrato generado para esta solicitud'
-                });
-            }
+      if (contratoError || !contrato) {
+        throw new Error('Contrato no encontrado o sin Word generado');
+      }
 
-            const contrato = solicitud.contratos[0];
-            const solicitante = solicitud.solicitantes.usuarios;
-            const operador = solicitud.operadores?.usuarios || req.usuario;
+      // Verificar que el Word existe en storage
+      const { data: fileExists, error: fileError } = await supabase.storage
+        .from('kyc-documents')
+        .download(contrato.ruta_documento);
 
-            // Verificar si ya existe un proceso de firma
-            const { data: firmaExistente } = await supabase
-                .from('firmas_digitales')
-                .select('id, estado')
-                .eq('solicitud_id', solicitud_id)
-                .in('estado', ['enviado', 'firmado_solicitante', 'firmado_operador'])
-                .single();
+      if (fileError) {
+        throw new Error('Word del contrato no encontrado en storage: ' + fileError.message);
+      }
 
-            if (firmaExistente) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Ya existe un proceso de firma en curso para esta solicitud'
-                });
-            }
+      // Obtener información completa de la solicitud
+      const { data: solicitud, error: solError } = await supabase
+        .from('solicitudes_credito')
+        .select(`
+          *,
+          solicitantes: solicitantes!solicitante_id(
+            usuarios(*)
+          ),
+          operadores: operadores!operador_id(
+            usuarios(*)
+          )
+        `)
+        .eq('id', solicitud_id)
+        .single();
 
-            // Obtener el PDF del contrato
-            const { data: fileData, error: fileError } = await supabase.storage
-                .from('kyc-documents')
-                .download(contrato.ruta_pdf);
+      if (solError || !solicitud) {
+        throw new Error('Solicitud no encontrada');
+      }
 
-            if (fileError) {
-                throw new Error('No se pudo acceder al documento del contrato: ' + fileError.message);
-            }
+      const solicitante = solicitud.solicitantes.usuarios;
+      const operador = solicitud.operadores?.usuarios || usuario;
 
-            const buffer = Buffer.from(await fileData.arrayBuffer());
+// Verificar si ya existe un proceso de firma activo
+const { data: firmaExistente } = await supabase
+    .from('firmas_digitales')
+    .select('id, estado, fecha_expiracion')
+    .eq('solicitud_id', solicitud_id)
+    .in('estado', ['pendiente', 'enviado', 'firmado_solicitante', 'firmado_operador'])
+    .single();
 
-            // Generar hash del documento original con metadatos
-            const metadatosDocumento = {
-                solicitud_id: solicitud_id,
-                contrato_id: contrato.id,
-                numero_solicitud: solicitud.numero_solicitud,
-                fecha_generacion: contrato.created_at,
-                tamanio: buffer.length,
-                paginas: await this.obtenerNumeroPaginasPDF(buffer)
-            };
-
-            const hashOriginal = PDFFillerService.generarHashDocumento(buffer, metadatosDocumento);
-
-            // Subir documento a PDFfiller
-            const uploadResult = await PDFFillerService.subirDocumento(
-                `contrato-${solicitud.numero_solicitud}-${Date.now()}.pdf`,
-                buffer,
-                metadatosDocumento
-            );
-
-            if (!uploadResult.success) {
-                throw new Error('Error subiendo documento a PDFfiller: ' + uploadResult.error);
-            }
-
-            // Crear solicitud de firma múltiple
-            const firmaResult = await PDFFillerService.crearSolicitudFirmaMultiple(
-                uploadResult.documentId,
-                solicitante,
-                operador
-            );
-
-            if (!firmaResult.success) {
-                // Fallback: intentar firma individual para solicitante
-                console.log('🔄 Fallback a firma individual para solicitante');
-                const firmaIndividualResult = await PDFFillerService.crearSolicitudFirmaIndividual(
-                    uploadResult.documentId,
-                    solicitante,
-                    'solicitante'
-                );
-
-                if (!firmaIndividualResult.success) {
-                    throw new Error('Error creando solicitud de firma: ' + firmaIndividualResult.error);
-                }
-
-                firmaResult.signatureRequestId = firmaIndividualResult.signatureRequestId;
-                firmaResult.urlsFirma = { solicitante: firmaIndividualResult.urlFirma };
-            }
-
-            // Registrar en base de datos
-            const firmaData = {
-                contrato_id: contrato.id,
-                solicitud_id: solicitud_id,
-                signature_request_id: firmaResult.signatureRequestId,
-                document_id: uploadResult.documentId,
-                envelope_id: firmaResult.envelopeId,
-                hash_documento_original: hashOriginal,
-                estado: 'enviado',
-                url_firma_solicitante: firmaResult.urlsFirma?.solicitante,
-                url_firma_operador: firmaResult.urlsFirma?.operador,
-                fecha_envio: new Date().toISOString(),
-                fecha_expiracion: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 días
-                intentos_envio: 1,
-                created_at: new Date().toISOString()
-            };
-
-            const { data: firma, error: firmaError } = await supabase
-                .from('firmas_digitales')
-                .insert([firmaData])
-                .select()
-                .single();
-
-            if (firmaError) {
-                throw firmaError;
-            }
-
-            // Actualizar contrato con referencia a la firma digital
-            await supabase
-                .from('contratos')
-                .update({ 
-                    estado: 'pendiente_firma',
-                    firma_digital_id: firma.id,
-                    hash_contrato: hashOriginal
-                })
-                .eq('id', contrato.id);
-
-            // Registrar auditoría
-            await supabase
-                .from('auditoria_firmas')
-                .insert({
-                    firma_id: firma.id,
-                    usuario_id: operador_id,
-                    accion: 'iniciar_proceso_firma',
-                    descripcion: 'Proceso de firma digital iniciado por operador - Múltiples firmantes',
-                    estado_anterior: 'pendiente',
-                    estado_nuevo: 'enviado',
-                    signature_request_id: firmaResult.signatureRequestId,
-                    ip_address: req.ip,
-                    user_agent: req.get('User-Agent'),
-                    created_at: new Date().toISOString()
-                });
-
-            // Crear notificaciones para ambos firmantes
-            await this.crearNotificacionesFirma(solicitante.id, operador.id, solicitud_id, firma);
-
-            console.log('✅ Proceso de firma digital iniciado exitosamente:', {
-                firmaId: firma.id,
-                signatureRequestId: firmaResult.signatureRequestId,
-                urlsFirma: Object.keys(firmaResult.urlsFirma || {})
-            });
-
-            res.json({
-                success: true,
-                message: 'Proceso de firma digital iniciado exitosamente',
-                data: {
-                    firma: firma,
-                    urls_firma: firmaResult.urlsFirma,
-                    fecha_expiracion: firmaData.fecha_expiracion
-                }
-            });
-
-        } catch (error) {
-            console.error('❌ Error iniciando proceso de firma:', error);
-            res.status(500).json({
+if (firmaExistente) {
+    console.log('. Ya existe proceso de firma:', firmaExistente);
+    
+    // Si la firma existe pero está expirada, permitir reiniciar
+    if (firmaExistente.fecha_expiracion && new Date(firmaExistente.fecha_expiracion) < new Date()) {
+        console.log('. Proceso de firma expirado, permitiendo reinicio...');
+        
+        // Marcar como expirado
+        await supabase
+            .from('firmas_digitales')
+            .update({ 
+                estado: 'expirado',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', firmaExistente.id);
+    } else {
+        // Si no está expirado, verificar si podemos permitir reinicio
+        const puedeReiniciar = await FirmaDigitalController.verificarPuedeReiniciarFirma(firmaExistente);
+        
+        if (!puedeReiniciar) {
+            return res.status(400).json({
                 success: false,
-                message: 'Error iniciando proceso de firma: ' + error.message
+                message: 'Ya existe un proceso de firma en curso para esta solicitud',
+                data: {
+                    firma_existente: firmaExistente,
+                    puede_reintentar: false
+                }
             });
         }
+        
+        console.log('. Permitiendo reinicio del proceso de firma existente');
     }
+}
 
-    /**
-     * Obtener número de páginas de un PDF (estimación simple)
-     */
-    static async obtenerNumeroPaginasPDF(buffer) {
-        try {
-            // Buscar el patrón de páginas en el PDF
-            const pdfContent = buffer.toString('binary');
-            const pageMatches = pdfContent.match(/\/Type\s*\/Page[^s]/g);
-            return pageMatches ? pageMatches.length : 1;
-        } catch (error) {
-            console.warn('No se pudo determinar el número de páginas del PDF:', error.message);
-            return 1;
+      // Procesar el buffer del PDF
+      const buffer = Buffer.from(await fileExists.arrayBuffer());
+
+      // Generar hash del documento original con metadatos
+      const metadatosDocumento = {
+        solicitud_id: solicitud_id,
+        contrato_id: contrato.id,
+        numero_solicitud: solicitud.numero_solicitud,
+        fecha_generacion: contrato.created_at,
+        tamanio: buffer.length,
+        paginas: await FirmaDigitalController.obtenerNumeroPaginasWord(buffer)
+      };
+
+      const hashOriginal = FirmaDigitalController.generarHashDocumento(buffer, metadatosDocumento);
+
+      // CORRECCIÓN: Usar WordService correctamente
+      const uploadResult = await WordService.subirDocumento(
+        `contrato-${solicitud.numero_solicitud}-${Date.now()}.docx`,
+        buffer,
+        metadatosDocumento
+      );
+      if (!uploadResult.success) {
+        throw new Error('Error subiendo documento: ' + uploadResult.error);
+      }
+const contratoId = contrato.id;
+      // Crear solicitud de firma múltiple
+      const firmaResult = await FirmaDigitalController.crearSolicitudFirmaMultiple(
+        contratoId,
+        solicitante,
+        operador
+      );
+
+      if (!firmaResult.success) {
+        // Fallback: intentar firma individual para solicitante
+        console.log('. Fallback a firma individual para solicitante');
+        const firmaIndividualResult = await FirmaDigitalController.crearSolicitudFirmaIndividual(
+          uploadResult.contratoId,
+          solicitante,
+          'solicitante'
+        );
+
+        if (!firmaIndividualResult.success) {
+          throw new Error('Error creando solicitud de firma: ' + firmaIndividualResult.error);
         }
+
+        firmaResult.signatureRequestId = firmaIndividualResult.signatureRequestId;
+        firmaResult.urlsFirma = { solicitante: firmaIndividualResult.urlFirma };
+      }
+
+      // Registrar en base de datos
+      const firmaData = {
+        contrato_id: contrato.id,
+        solicitud_id: solicitud_id,
+        signature_request_id: firmaResult.signatureRequestId,
+        ruta_documento: uploadResult.ruta,
+        hash_documento_original: hashOriginal,
+        estado: 'enviado',
+        url_firma_solicitante: firmaResult.urlsFirma?.solicitante,
+        url_firma_operador: firmaResult.urlsFirma?.operador,
+        fecha_envio: new Date().toISOString(),
+        fecha_expiracion: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 días
+        intentos_envio: 1,
+        created_at: new Date().toISOString()
+      };
+
+      const { data: firma, error: firmaError } = await supabase
+        .from('firmas_digitales')
+        .insert([firmaData])
+        .select()
+        .single();
+
+      if (firmaError) {
+        throw firmaError;
+      }
+
+      // Actualizar contrato con referencia a la firma digital
+      await supabase
+        .from('contratos')
+        .update({
+          estado: 'pendiente_firma',
+          firma_digital_id: firma.id,
+          hash_contrato: hashOriginal
+        })
+        .eq('id', contrato.id);
+
+      // Registrar auditoría
+      await supabase
+        .from('auditoria_firmas')
+        .insert({
+          firma_id: firma.id,
+          usuario_id: usuario.id,
+          accion: 'iniciar_proceso_firma_automatico',
+          descripcion: 'Proceso de firma digital iniciado automáticamente al aprobar solicitud',
+          estado_anterior: 'pendiente',
+          estado_nuevo: 'enviado',
+          signature_request_id: firmaResult.signatureRequestId,
+          ip_address: ip,
+          user_agent: 'Sistema Automático',
+          created_at: new Date().toISOString()
+        });
+
+      // CORRECCIÓN: Usar NotificacionService en lugar de variable no definida
+      await NotificacionesController.crearNotificacionesFirma(solicitante.id, operador.id, solicitud_id, firma);
+
+      console.log('. Proceso de firma digital automático iniciado exitosamente:', {
+        firmaId: firma.id,
+        signatureRequestId: firmaResult.signatureRequestId
+      });
+
+      return {
+        success: true,
+        firma: firma,
+        urls_firma: firmaResult.urlsFirma
+      };
+
+    } catch (error) {
+      console.error('. Error en proceso de firma digital automático:', error);
+
+      // CORRECCIÓN: Usar NotificacionService correctamente
+      await NotificacionService.notificarErrorFirmaDigital(usuario.id, solicitud_id, error);
+
+      throw error;
     }
+  }
+ static async iniciarProcesoFirma(req, res) {
+    try {
+        const { solicitud_id } = req.params;
+        const usuario = req.usuario;
+        const { forzar_reinicio } = req.body;
 
-    /**
-     * Crear notificaciones para ambos firmantes
-     */
-    static async crearNotificacionesFirma(solicitanteId, operadorId, solicitudId, firma) {
-        try {
-            const notificaciones = [];
+        console.log('. Iniciando proceso de firma para solicitud:', solicitud_id);
+        console.log('. Usuario:', usuario.rol, usuario.email);
 
-            // Notificación para solicitante
-            notificaciones.push({
-                usuario_id: solicitanteId,
-                solicitud_id: solicitudId,
-                tipo: 'firma_digital_solicitante',
-                titulo: 'Solicitud de Firma Digital - Contrato de Crédito',
-                mensaje: 'Se ha enviado una solicitud de firma digital para tu contrato de crédito aprobado. Por favor, revisa y firma el documento.',
-                datos_adicionales: {
-                    url_firma: firma.url_firma_solicitante,
-                    tipo_firma: 'digital',
-                    expira_en: firma.fecha_expiracion,
-                    firma_id: firma.id
-                },
-                leida: false,
-                created_at: new Date().toISOString()
-            });
-
-            // Notificación para operador
-            notificaciones.push({
-                usuario_id: operadorId,
-                solicitud_id: solicitudId,
-                tipo: 'firma_digital_operador',
-                titulo: 'Proceso de Firma Digital Iniciado',
-                mensaje: 'Se ha iniciado el proceso de firma digital para el contrato. El solicitante debe firmar primero.',
-                datos_adicionales: {
-                    url_firma: firma.url_firma_operador,
-                    tipo_firma: 'digital',
-                    expira_en: firma.fecha_expiracion,
-                    firma_id: firma.id
-                },
-                leida: false,
-                created_at: new Date().toISOString()
-            });
-
-            await supabase
-                .from('notificaciones')
-                .insert(notificaciones);
-
-            console.log('📧 Notificaciones de firma creadas para ambos firmantes');
-        } catch (error) {
-            console.error('Error creando notificaciones de firma:', error);
-        }
-    }
-
-    /**
-     * Verificar estado de firma con trazabilidad legal
-     */
-    static async verificarEstadoFirma(req, res) {
-        try {
-            const { firma_id } = req.params;
-            const usuario_id = req.usuario.id;
-
-            console.log('🔍 Verificando estado de firma con trazabilidad:', firma_id);
-
-            // Obtener información de la firma
-            const { data: firma, error: firmaError } = await supabase
-                .from('firmas_digitales')
-                .select(`
-                    *,
-                    contratos(*),
-                    solicitudes_credito(
-                        numero_solicitud,
-                        solicitante_id,
-                        operador_id
-                    )
-                `)
-                .eq('id', firma_id)
+        // Verificar permisos según el rol
+        if (usuario.rol === 'solicitante') {
+            const { data: solicitud } = await supabase
+                .from('solicitudes_credito')
+                .select('solicitante_id')
+                .eq('id', solicitud_id)
                 .single();
-
-            if (firmaError || !firma) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Registro de firma no encontrado'
-                });
-            }
-
-            // Verificar permisos
-            const puedeVer = await this.verificarPermisosFirma(usuario_id, firma);
-            if (!puedeVer) {
+                
+            if (!solicitud || solicitud.solicitante_id !== usuario.id) {
                 return res.status(403).json({
                     success: false,
-                    message: 'No tiene permisos para ver esta información de firma'
+                    message: 'No tienes permisos para firmar esta solicitud'
                 });
             }
+        }
 
-            // Verificar estado en PDFfiller
-            const estadoResult = await PDFFillerService.verificarEstadoFirma(firma.signature_request_id);
+        console.log('. Verificando existencia de contrato...');
+        
+        // 1. Verificar que la solicitud existe y está aprobada - CONSULTA CORREGIDA
+        const { data: solicitud, error: solError } = await supabase
+            .from('solicitudes_credito')
+            .select(`
+                *,
+                solicitantes:solicitantes!solicitante_id(
+                    usuarios(*)
+                ),
+                operadores:operadores!operador_id(
+                    usuarios(*)
+                )
+            `)
+            .eq('id', solicitud_id)
+            .eq('estado', 'aprobado')
+            .single();
 
-            if (!estadoResult.success) {
-                throw new Error('Error verificando estado en PDFfiller: ' + estadoResult.error);
-            }
-
-            // Si el estado cambió, actualizar en base de datos
-            if (estadoResult.estado !== firma.estado) {
-                await this.actualizarEstadoFirma(
-                    firma.id, 
-                    estadoResult.estado, 
-                    estadoResult.data,
-                    req.ip,
-                    req.get('User-Agent')
-                );
-            }
-
-            // Verificar validez legal si está firmado
-            let validezLegal = null;
-            if (estadoResult.estado.includes('firmado')) {
-                const validezResult = await PDFFillerService.verificarValidezLegal(firma.signature_request_id);
-                if (validezResult.success) {
-                    validezLegal = validezResult;
-                }
-            }
-
-            // Obtener información actualizada
-            const { data: firmaActualizada } = await supabase
-                .from('firmas_digitales')
-                .select('*')
-                .eq('id', firma_id)
-                .single();
-
-            // Obtener auditoría reciente
-            const { data: auditoria } = await supabase
-                .from('auditoria_firmas')
-                .select('*')
-                .eq('firma_id', firma_id)
-                .order('created_at', { ascending: false })
-                .limit(10);
-
-            console.log('✅ Estado de firma verificado:', {
-                firmaId: firma_id,
-                estado: firmaActualizada.estado,
-                validezLegal: validezLegal?.valido
+        if (solError || !solicitud) {
+            console.error('. Error en solicitud:', solError);
+            return res.status(404).json({
+                success: false,
+                message: 'Solicitud no encontrada o no aprobada'
             });
+        }
 
-            res.json({
-                success: true,
+        // 2. Consultar contratos - CONSULTA SIMPLIFICADA Y CORREGIDA
+        console.log('. Buscando contrato para solicitud:', solicitud_id);
+        const { data: contrato, error: contratoError } = await supabase
+            .from('contratos')
+            .select('*')
+            .eq('solicitud_id', solicitud_id)
+            .single();
+
+        if (contratoError) {
+            console.error('. Error consultando contrato:', contratoError);
+            // No es un error fatal, puede que el contrato no exista todavía
+        }
+
+        console.log('. Resultado de búsqueda de contrato:', {
+            encontrado: !!contrato,
+            contratoId: contrato?.id,
+            rutaDocumento: contrato?.ruta_documento,
+            estadoContrato: contrato?.estado
+        });
+
+        // Si no existe contrato, generarlo automáticamente
+        if (!contrato) {
+            console.log('. No se encontró contrato, generando automáticamente...');
+            try {
+                const contratoGenerado = await ContratoController.generarContratoParaSolicitud(solicitud_id);
+                if (!contratoGenerado) {
+                    throw new Error('No se pudo generar el contrato');
+                }
+                console.log('. Contrato generado exitosamente:', contratoGenerado.id);
+            } catch (error) {
+                console.error('. Error generando contrato:', error);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Error generando contrato: ' + error.message
+                });
+            }
+        }
+
+        // Reconsultar el contrato después de generarlo
+        const { data: contratoFinal, error: errorContratoFinal } = await supabase
+            .from('contratos')
+            .select('*')
+            .eq('solicitud_id', solicitud_id)
+            .single();
+
+        if (errorContratoFinal || !contratoFinal) {
+            console.error('. Error obteniendo contrato final:', errorContratoFinal);
+            return res.status(400).json({
+                success: false,
+                message: 'No se pudo obtener el contrato generado'
+            });
+        }
+
+        console.log('. Contrato final obtenido:', {
+            contratoId: contratoFinal.id,
+            rutaDocumento: contratoFinal.ruta_documento,
+            estado: contratoFinal.estado
+        });
+
+        // Verificar que el contrato tiene documento
+        if (!contratoFinal.ruta_documento) {
+            console.log('. El contrato no tiene documento, generando Word...');
+            try {
+                // Obtener datos completos de la solicitud para generar el Word
+                  const { data: solicitudCompleta, error: solicitudError } = await supabase
+            .from('solicitudes_credito')
+            .select(`
+                numero_solicitud,
+                solicitantes: solicitantes!solicitante_id(
+                    usuarios(*),
+                    nombre_empresa,
+                    cuit,
+                    representante_legal,
+                    domicilio
+                )
+            `)
+            .eq('id', firma.solicitud_id)
+            .single();
+
+        // Preparar datos del contrato para el frontend
+        const datosContrato = {
+            nombre_completo: solicitudCompleta?.solicitantes?.usuarios?.nombre_completo,
+            dni: solicitudCompleta?.solicitantes?.usuarios?.dni,
+            domicilio: solicitudCompleta?.solicitantes?.domicilio,
+            nombre_empresa: solicitudCompleta?.solicitantes?.nombre_empresa,
+            cuit: solicitudCompleta?.solicitantes?.cuit,
+            representante_legal: solicitudCompleta?.solicitantes?.representante_legal,
+            email: solicitudCompleta?.solicitantes?.usuarios?.email,
+            numero_solicitud: solicitudCompleta?.numero_solicitud
+        };
+
+                await ContratoController.generarWordContrato(contratoFinal.id, solicitudCompleta);
+                console.log('. Word del contrato generado exitosamente');
+            } catch (error) {
+                console.error('. Error generando Word del contrato:', error);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Error generando documento del contrato: ' + error.message
+                });
+            }
+        }
+
+        // Verificar si ya existe un proceso de firma
+        const { data: firmaExistente } = await supabase
+            .from('firmas_digitales')
+            .select('id, estado')
+            .eq('solicitud_id', solicitud_id)
+            .in('estado', ['pendiente', 'enviado', 'firmado_solicitante', 'firmado_operador'])
+            .single();
+
+ if (firmaExistente && !forzar_reinicio) {
+            console.log('. Ya existe proceso de firma:', firmaExistente);
+            return res.status(400).json({
+                success: false,
+                message: 'Ya existe un proceso de firma en curso para esta solicitud',
                 data: {
-                    firma: firmaActualizada,
-                    estado_detallado: estadoResult.estadoDetallado,
-                    validez_legal: validezLegal,
-                    auditoria_reciente: auditoria,
-                    trazabilidad: {
-                        ip_consulta: req.ip,
-                        user_agent: req.get('User-Agent'),
-                        fecha_consulta: new Date().toISOString()
-                    }
+                    firma_existente: firmaExistente,
+                    puede_continuar: true
                 }
             });
-
-        } catch (error) {
-            console.error('❌ Error verificando estado de firma:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Error verificando estado de firma: ' + error.message
-            });
         }
-    }
 
-    /**
-     * Verificar permisos para acceder a información de firma
-     */
-    static async verificarPermisosFirma(usuario_id, firma) {
-        try {
-            // Obtener información del usuario
-            const { data: usuario } = await supabase
-                .from('usuarios')
-                .select('rol')
-                .eq('id', usuario_id)
-                .single();
+        // Obtener el Word del contrato actualizado
+        const { data: fileData, error: fileError } = await supabase.storage
+            .from('kyc-documents')
+            .download(contratoFinal.ruta_documento);
 
-            if (!usuario) return false;
-
-            // Administradores y operadores pueden ver todo
-            if (['admin', 'operador'].includes(usuario.rol)) {
-                return true;
-            }
-
-            // Solicitantes solo pueden ver sus propias firmas
-            if (usuario.rol === 'solicitante') {
-                const { data: solicitud } = await supabase
-                    .from('solicitudes_credito')
-                    .select('solicitante_id')
-                    .eq('id', firma.solicitud_id)
-                    .single();
-
-                return solicitud && solicitud.solicitante_id === usuario_id;
-            }
-
-            return false;
-        } catch (error) {
-            console.error('Error verificando permisos de firma:', error);
-            return false;
+        if (fileError) {
+            console.error('. Error accediendo al documento:', fileError);
+            throw new Error('No se pudo acceder al documento del contrato: ' + fileError.message);
         }
-    }
 
-    /**
-     * Actualizar estado de firma con trazabilidad completa
-     */
-    static async actualizarEstadoFirma(firmaId, nuevoEstado, datosPDFfiller, ipAddress = null, userAgent = null) {
-        try {
-            const updateData = {
-                estado: nuevoEstado,
+        const buffer = Buffer.from(await fileData.arrayBuffer());
+        console.log('. Documento descargado, tamaño:', buffer.length);
+
+        // Generar hash del documento original
+        const metadatosDocumento = {
+            solicitud_id: solicitud_id,
+            contrato_id: contratoFinal.id,
+            numero_solicitud: solicitud.numero_solicitud,
+            fecha_generacion: contratoFinal.created_at,
+            tamanio: buffer.length
+        };
+
+        const hashOriginal = FirmaDigitalController.generarHashDocumento(buffer, metadatosDocumento);
+
+        // Registrar proceso de firma en base de datos
+        const firmaData = {
+            contrato_id: contratoFinal.id,
+            solicitud_id: solicitud_id,
+            hash_documento_original: hashOriginal,
+            estado: 'pendiente',
+            fecha_envio: new Date().toISOString(),
+            fecha_expiracion: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 días
+            created_at: new Date().toISOString()
+        };
+
+        const { data: firma, error: firmaError } = await supabase
+            .from('firmas_digitales')
+            .insert([firmaData])
+            .select()
+            .single();
+
+        if (firmaError) {
+            console.error('. Error creando registro de firma:', firmaError);
+            throw firmaError;
+        }
+
+        // Actualizar contrato con referencia a la firma digital
+        await supabase
+            .from('contratos')
+            .update({
+                estado: 'pendiente_firma',
+                firma_digital_id: firma.id,
+                hash_contrato: hashOriginal,
                 updated_at: new Date().toISOString()
-            };
+            })
+            .eq('id', contratoFinal.id);
 
-            // Obtener información actual de la firma
-            const { data: firmaActual } = await supabase
-                .from('firmas_digitales')
-                .select('*')
-                .eq('id', firmaId)
-                .single();
-
-            if (!firmaActual) {
-                throw new Error('Firma no encontrada');
-            }
-
-            // Procesar según el nuevo estado
-            switch (nuevoEstado) {
-                case 'firmado_solicitante':
-                    updateData.fecha_firma_solicitante = new Date().toISOString();
-                    updateData.ip_firmante = ipAddress;
-                    updateData.user_agent_firmante = userAgent;
-                    await this.procesarFirmaSolicitante(firmaId, firmaActual);
-                    break;
-
-                case 'firmado_operador':
-                    updateData.fecha_firma_operador = new Date().toISOString();
-                    await this.procesarFirmaOperador(firmaId, firmaActual);
-                    break;
-
-                case 'firmado_completo':
-                    updateData.fecha_firma_completa = new Date().toISOString();
-                    await this.procesarFirmaCompleta(firmaId, firmaActual);
-                    break;
-
-                case 'rechazado':
-                    await this.procesarRechazoFirma(firmaId, firmaActual);
-                    break;
-
-                case 'expirado':
-                    await this.procesarExpiracionFirma(firmaId, firmaActual);
-                    break;
-            }
-
-            // Actualizar en base de datos
-            const { error: updateError } = await supabase
-                .from('firmas_digitales')
-                .update(updateData)
-                .eq('id', firmaId);
-
-            if (updateError) {
-                throw updateError;
-            }
-
-            // Registrar auditoría con hash de transacción
-            const hashTransaccion = crypto
-                .createHash('sha256')
-                .update(`${firmaId}-${nuevoEstado}-${Date.now()}`)
-                .digest('hex');
-
-            await supabase
-                .from('auditoria_firmas')
-                .insert({
-                    firma_id: firmaId,
-                    accion: 'actualizar_estado',
-                    descripcion: `Estado actualizado a: ${nuevoEstado}. IP: ${ipAddress}`,
-                    estado_anterior: firmaActual.estado,
-                    estado_nuevo: nuevoEstado,
-                    signature_request_id: datosPDFfiller?.signature_request_id,
-                    ip_address: ipAddress,
-                    user_agent: userAgent,
-                    hash_transaccion: hashTransaccion,
-                    created_at: new Date().toISOString()
-                });
-
-            console.log('✅ Estado de firma actualizado:', {
-                firmaId,
-                estadoAnterior: firmaActual.estado,
-                estadoNuevo: nuevoEstado,
-                hashTransaccion
+        // Registrar auditoría
+        await supabase
+            .from('auditoria_firmas')
+            .insert({
+                firma_id: firma.id,
+                usuario_id: usuario.id,
+                accion: 'iniciar_proceso_firma',
+                descripcion: 'Proceso de firma digital iniciado - Sistema interno',
+                estado_anterior: 'pendiente',
+                estado_nuevo: 'pendiente',
+                ip_address: req.ip,
+                user_agent: req.get('User-Agent'),
+                created_at: new Date().toISOString()
             });
 
-        } catch (error) {
-            console.error('❌ Error actualizando estado de firma:', error);
-            throw error;
+        // Crear notificación para el solicitante
+        if (solicitud.solicitantes?.usuarios) {
+            await NotificacionesController.crearNotificacionFirmaSolicitante(
+                solicitud.solicitantes.usuarios.id,
+                solicitud_id,
+                firma.id
+            );
         }
-    }
 
-    /**
-     * Procesar firma del solicitante
-     */
-    static async procesarFirmaSolicitante(firmaId, firma) {
-        try {
-            console.log('👤 Procesando firma del solicitante:', firmaId);
+        console.log('. Proceso de firma digital iniciado exitosamente:', firma.id);
 
-            // Descargar documento firmado
-            const downloadResult = await PDFFillerService.descargarDocumentoFirmado(firma.signature_request_id);
-            
-            if (downloadResult.success) {
-                // Generar hash del documento firmado
-                const metadatosFirmado = {
-                    fecha_firma: new Date().toISOString(),
-                    tipo_firma: 'solicitante',
-                    tamanio: downloadResult.buffer.length
-                };
-
-                const hashFirmado = PDFFillerService.generarHashDocumento(downloadResult.buffer, metadatosFirmado);
-
-                // Validar integridad
-                const metadatosOriginal = {
-                    tamanio: downloadResult.buffer.length // Usar mismo tamaño para comparación
-                };
-
-                const integridadValida = PDFFillerService.validarIntegridadDocumento(
-                    firma.hash_documento_original,
-                    hashFirmado,
-                    metadatosOriginal,
-                    metadatosFirmado
-                );
-
-                // Guardar documento firmado en storage
-                const nombreArchivo = `contrato-firmado-solicitante-${firmaId}.pdf`;
-                const rutaStorage = `contratos-firmados/${nombreArchivo}`;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('kyc-documents')
-                    .upload(rutaStorage, downloadResult.buffer, {
-                        contentType: 'application/pdf',
-                        upsert: true
-                    });
-
-                if (!uploadError) {
-                    await supabase
-                        .from('firmas_digitales')
-                        .update({
-                            hash_documento_firmado: hashFirmado,
-                            integridad_valida: integridadValida,
-                            url_documento_firmado: rutaStorage
-                        })
-                        .eq('id', firmaId);
-                }
-
-                // Notificar al operador
-                await this.notificarFirmaSolicitanteCompletada(firma.contrato_id);
+        res.json({
+            success: true,
+            message: 'Proceso de firma digital iniciado exitosamente',
+            data: {
+                firma: firma,
+                fecha_expiracion: firmaData.fecha_expiracion,
+                url_firma: `/firmar-contrato/${firma.id}` // Ruta para el frontend
             }
+        });
 
-        } catch (error) {
-            console.error('Error procesando firma del solicitante:', error);
-        }
+    } catch (error) {
+        console.error('. Error iniciando proceso de firma:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error iniciando proceso de firma: ' + error.message
+        });
     }
-
+}
     /**
-     * Procesar firma del operador
+     * Obtener información para página de firma
      */
-    static async procesarFirmaOperador(firmaId, firma) {
-        try {
-            console.log('👨‍💼 Procesando firma del operador:', firmaId);
+static async obtenerInfoFirma(req, res) {
+    try {
+        const { firma_id } = req.params;
+        const usuario_id = req.usuario.id;
 
-            // Obtener certificado de firma
-            const certResult = await PDFFillerService.obtenerCertificadoFirma(firma.signature_request_id);
-            if (certResult.success) {
-                await supabase
-                    .from('firmas_digitales')
-                    .update({
-                        certificado_firma: certResult.certificado
-                    })
-                    .eq('id', firmaId);
-            }
+        console.log('. Obteniendo información para firma Word:', firma_id);
 
-            // Notificar que el operador ha firmado
-            await this.notificarFirmaOperadorCompletada(firma.contrato_id);
+        // CONSULTA CORREGIDA - Usar objetos en lugar de arrays
+        const { data: firma, error: firmaError } = await supabase
+            .from('firmas_digitales')
+            .select(`
+                id,
+                estado,
+                fecha_expiracion,
+                hash_documento_original,
+                contrato_id,
+                solicitud_id,
+                contratos (
+                    id,
+                    ruta_documento,
+                    solicitud_id,
+                    numero_contrato,
+                    estado
+                ),
+                solicitudes_credito (
+                    numero_solicitud,
+                    solicitante_id,
+                    operador_id
+                )
+            `)
+            .eq('id', firma_id)
+            .single();
 
-        } catch (error) {
-            console.error('Error procesando firma del operador:', error);
-        }
-    }
-
-    /**
-     * Procesar firma completa
-     */
-    static async procesarFirmaCompleta(firmaId, firma) {
-        try {
-            console.log('✅ Procesando firma completa:', firmaId);
-
-            // Descargar documento completamente firmado
-            const downloadResult = await PDFFillerService.descargarDocumentoFirmado(firma.signature_request_id);
-            
-            if (downloadResult.success) {
-                // Generar hash final
-                const metadatosFinal = {
-                    fecha_firma_completa: new Date().toISOString(),
-                    tipo_firma: 'completa',
-                    tamanio: downloadResult.buffer.length,
-                    firmantes: ['solicitante', 'operador']
-                };
-
-                const hashFinal = PDFFillerService.generarHashDocumento(downloadResult.buffer, metadatosFinal);
-
-                // Guardar documento final
-                const nombreArchivo = `contrato-firmado-completo-${firmaId}.pdf`;
-                const rutaStorage = `contratos-firmados/${nombreArchivo}`;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('kyc-documents')
-                    .upload(rutaStorage, downloadResult.buffer, {
-                        contentType: 'application/pdf',
-                        upsert: true
-                    });
-
-                if (!uploadError) {
-                    await supabase
-                        .from('firmas_digitales')
-                        .update({
-                            hash_documento_firmado: hashFinal,
-                            integridad_valida: true,
-                            url_documento_firmado: rutaStorage
-                        })
-                        .eq('id', firmaId);
-                }
-
-                // Obtener certificado final
-                const certResult = await PDFFillerService.obtenerCertificadoFirma(firma.signature_request_id);
-                if (certResult.success) {
-                    await supabase
-                        .from('firmas_digitales')
-                        .update({
-                            certificado_firma: certResult.certificado,
-                            fecha_verificacion: new Date().toISOString()
-                        })
-                        .eq('id', firmaId);
-                }
-
-                // Marcar contrato como completamente firmado
-                await this.marcarContratoComoFirmado(firmaId);
-            }
-
-        } catch (error) {
-            console.error('Error procesando firma completa:', error);
-        }
-    }
-
-    /**
-     * Procesar rechazo de firma
-     */
-    static async procesarRechazoFirma(firmaId, firma) {
-        try {
-            console.log('❌ Procesando rechazo de firma:', firmaId);
-
-            // Actualizar estado del contrato
-            await supabase
-                .from('contratos')
-                .update({
-                    estado: 'rechazado_firma',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', firma.contrato_id);
-
-            // Notificar rechazo
-            await this.notificarRechazoFirma(firma.contrato_id);
-
-        } catch (error) {
-            console.error('Error procesando rechazo de firma:', error);
-        }
-    }
-
-    /**
-     * Procesar expiración de firma
-     */
-    static async procesarExpiracionFirma(firmaId, firma) {
-        try {
-            console.log('⏰ Procesando expiración de firma:', firmaId);
-
-            // Actualizar estado del contrato
-            await supabase
-                .from('contratos')
-                .update({
-                    estado: 'expirado_firma',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', firma.contrato_id);
-
-            // Notificar expiración
-            await this.notificarExpiracionFirma(firma.contrato_id);
-
-        } catch (error) {
-            console.error('Error procesando expiración de firma:', error);
-        }
-    }
-
-    /**
-     * Marcar contrato como firmado completamente
-     */
-    static async marcarContratoComoFirmado(firmaId) {
-        try {
-            const { data: firma } = await supabase
-                .from('firmas_digitales')
-                .select('contrato_id, solicitud_id')
-                .eq('id', firmaId)
-                .single();
-
-            if (firma) {
-                await supabase
-                    .from('contratos')
-                    .update({
-                        estado: 'firmado_completo',
-                        fecha_firma_completa: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', firma.contrato_id);
-
-                // Notificar a todas las partes
-                await this.notificarFirmaCompletada(firma.contrato_id, firma.solicitud_id);
-
-                console.log('🎉 Contrato marcado como firmado completamente:', firma.contrato_id);
-            }
-        } catch (error) {
-            console.error('Error marcando contrato como firmado:', error);
-        }
-    }
-
-    /**
-     * Notificar firma del solicitante completada
-     */
-    static async notificarFirmaSolicitanteCompletada(contratoId) {
-        try {
-            const { data: contrato } = await supabase
-                .from('contratos')
-                .select(`
-                    *,
-                    solicitudes_credito(
-                        operador_id
-                    )
-                `)
-                .eq('id', contratoId)
-                .single();
-
-            if (contrato && contrato.solicitudes_credito) {
-                await supabase
-                    .from('notificaciones')
-                    .insert({
-                        usuario_id: contrato.solicitudes_credito.operador_id,
-                        tipo: 'firma_solicitante_completada',
-                        titulo: 'Solicitante Ha Firmado el Contrato',
-                        mensaje: 'El solicitante ha completado la firma digital del contrato. Ahora es tu turno de firmar.',
-                        leida: false,
-                        created_at: new Date().toISOString()
-                    });
-            }
-        } catch (error) {
-            console.error('Error notificando firma del solicitante:', error);
-        }
-    }
-
-    /**
-     * Notificar firma del operador completada
-     */
-    static async notificarFirmaOperadorCompletada(contratoId) {
-        try {
-            const { data: contrato } = await supabase
-                .from('contratos')
-                .select(`
-                    *,
-                    solicitudes_credito(
-                        solicitante_id
-                    )
-                `)
-                .eq('id', contratoId)
-                .single();
-
-            if (contrato && contrato.solicitudes_credito) {
-                await supabase
-                    .from('notificaciones')
-                    .insert({
-                        usuario_id: contrato.solicitudes_credito.solicitante_id,
-                        tipo: 'firma_operador_completada',
-                        titulo: 'Operador Ha Firmado el Contrato',
-                        mensaje: 'El operador ha completado su firma digital. El proceso de firma está casi completo.',
-                        leida: false,
-                        created_at: new Date().toISOString()
-                    });
-            }
-        } catch (error) {
-            console.error('Error notificando firma del operador:', error);
-        }
-    }
-
-    /**
-     * Notificar firma completada
-     */
-    static async notificarFirmaCompletada(contratoId, solicitudId) {
-        try {
-            const { data: contrato } = await supabase
-                .from('contratos')
-                .select(`
-                    *,
-                    solicitudes_credito(
-                        solicitante_id,
-                        operador_id
-                    )
-                `)
-                .eq('id', contratoId)
-                .single();
-
-            if (contrato && contrato.solicitudes_credito) {
-                const solicitud = contrato.solicitudes_credito;
-                const notificaciones = [];
-
-                // Notificar al operador
-                notificaciones.push({
-                    usuario_id: solicitud.operador_id,
-                    solicitud_id: solicitudId,
-                    tipo: 'firma_completada_operador',
-                    titulo: 'Firma Digital Completada',
-                    mensaje: 'El proceso de firma digital del contrato se ha completado exitosamente. El crédito está listo para desembolso.',
-                    leida: false,
-                    created_at: new Date().toISOString()
-                });
-
-                // Notificar al solicitante
-                notificaciones.push({
-                    usuario_id: solicitud.solicitante_id,
-                    solicitud_id: solicitudId,
-                    tipo: 'firma_completada_solicitante',
-                    titulo: 'Firma Digital Completada',
-                    mensaje: '¡Felicidades! Has completado exitosamente la firma digital del contrato. Tu crédito será desembolsado pronto.',
-                    leida: false,
-                    created_at: new Date().toISOString()
-                });
-
-                await supabase
-                    .from('notificaciones')
-                    .insert(notificaciones);
-
-                console.log('📧 Notificaciones de firma completada enviadas');
-            }
-        } catch (error) {
-            console.error('Error notificando firma completada:', error);
-        }
-    }
-
-    /**
-     * Notificar rechazo de firma
-     */
-    static async notificarRechazoFirma(contratoId) {
-        try {
-            const { data: contrato } = await supabase
-                .from('contratos')
-                .select(`
-                    *,
-                    solicitudes_credito(
-                        solicitante_id,
-                        operador_id
-                    )
-                `)
-                .eq('id', contratoId)
-                .single();
-
-            if (contrato && contrato.solicitudes_credito) {
-                const solicitud = contrato.solicitudes_credito;
-
-                // Notificar al operador
-                await supabase
-                    .from('notificaciones')
-                    .insert({
-                        usuario_id: solicitud.operador_id,
-                        tipo: 'firma_rechazada',
-                        titulo: 'Firma Digital Rechazada',
-                        mensaje: 'El solicitante ha rechazado la firma digital del contrato.',
-                        leida: false,
-                        created_at: new Date().toISOString()
-                    });
-            }
-        } catch (error) {
-            console.error('Error notificando rechazo de firma:', error);
-        }
-    }
-
-    /**
-     * Notificar expiración de firma
-     */
-    static async notificarExpiracionFirma(contratoId) {
-        try {
-            const { data: contrato } = await supabase
-                .from('contratos')
-                .select(`
-                    *,
-                    solicitudes_credito(
-                        solicitante_id,
-                        operador_id
-                    )
-                `)
-                .eq('id', contratoId)
-                .single();
-
-            if (contrato && contrato.solicitudes_credito) {
-                const solicitud = contrato.solicitudes_credito;
-                const notificaciones = [];
-
-                // Notificar al operador
-                notificaciones.push({
-                    usuario_id: solicitud.operador_id,
-                    tipo: 'firma_expirada_operador',
-                    titulo: 'Firma Digital Expirada',
-                    mensaje: 'El proceso de firma digital ha expirado. Se requiere acción del operador.',
-                    leida: false,
-                    created_at: new Date().toISOString()
-                });
-
-                // Notificar al solicitante
-                notificaciones.push({
-                    usuario_id: solicitud.solicitante_id,
-                    tipo: 'firma_expirada_solicitante',
-                    titulo: 'Firma Digital Expirada',
-                    mensaje: 'El tiempo para firmar el contrato ha expirado. Por favor, contacta al operador.',
-                    leida: false,
-                    created_at: new Date().toISOString()
-                });
-
-                await supabase
-                    .from('notificaciones')
-                    .insert(notificaciones);
-            }
-        } catch (error) {
-            console.error('Error notificando expiración de firma:', error);
-        }
-    }
-
-    /**
-     * Endpoint para webhooks de PDFfiller
-     */
-    static async procesarWebhook(req, res) {
-        try {
-            const webhookData = req.body;
-            const signatureHeader = req.headers['x-pdffiller-signature'];
-
-            console.log('🔄 Recibiendo webhook de PDFfiller:', {
-                event_type: webhookData.event_type,
-                signature_request_id: webhookData.signature_request_id,
-                ip: req.ip
-            });
-
-            // Procesar webhook
-            const result = await PDFFillerService.procesarWebhook(webhookData, signatureHeader);
-
-            if (result.success) {
-                // Actualizar estado en base de datos
-                await this.actualizarEstadoFirmaWebhook(
-                    result.signatureRequestId,
-                    result.nuevoEstado,
-                    webhookData,
-                    req.ip,
-                    req.get('User-Agent')
-                );
-
-                res.json({ 
-                    success: true, 
-                    message: 'Webhook procesado exitosamente',
-                    event_type: webhookData.event_type
-                });
-            } else {
-                console.error('❌ Error procesando webhook:', result.error);
-                res.status(400).json({ 
-                    success: false, 
-                    message: 'Error procesando webhook: ' + result.error 
+        if (firmaError) {
+            console.error('. Error en consulta de firma:', firmaError);
+            if (firmaError.code === 'PGRST116') {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Proceso de firma no encontrado'
                 });
             }
-
-        } catch (error) {
-            console.error('❌ Error procesando webhook:', error);
-            res.status(500).json({ 
-                success: false, 
-                message: 'Error interno del servidor: ' + error.message 
-            });
+            throw firmaError;
         }
-    }
 
-    /**
-     * Actualizar estado desde webhook
-     */
-    static async actualizarEstadoFirmaWebhook(signatureRequestId, nuevoEstado, webhookData, ipAddress, userAgent) {
-        try {
-            // Buscar la firma por signature_request_id
-            const { data: firma } = await supabase
-                .from('firmas_digitales')
-                .select('id, estado')
-                .eq('signature_request_id', signatureRequestId)
-                .single();
-
-            if (firma) {
-                await this.actualizarEstadoFirma(
-                    firma.id, 
-                    nuevoEstado, 
-                    webhookData, 
-                    ipAddress, 
-                    userAgent
-                );
-            } else {
-                console.warn('⚠️ No se encontró firma para webhook:', signatureRequestId);
-            }
-        } catch (error) {
-            console.error('Error actualizando estado desde webhook:', error);
-        }
-    }
-
-    /**
-     * Obtener historial de auditoría de firma
-     */
-    static async obtenerAuditoriaFirma(req, res) {
-        try {
-            const { firma_id } = req.params;
-
-            const { data: auditoria, error } = await supabase
-                .from('auditoria_firmas')
-                .select(`
-                    *,
-                    usuarios: usuario_id(
-                        nombre_completo,
-                        email
-                    )
-                `)
-                .eq('firma_id', firma_id)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            res.json({
-                success: true,
-                data: auditoria || []
-            });
-
-        } catch (error) {
-            console.error('Error obteniendo auditoría de firma:', error);
-            res.status(500).json({
+        if (!firma) {
+            return res.status(404).json({
                 success: false,
-                message: 'Error obteniendo historial de auditoría'
+                message: 'Proceso de firma no encontrado'
             });
         }
-    }
 
+        // CORRECCIÓN: Acceder directamente a los objetos de relación
+        const contrato = firma.contratos;
+        const solicitud = firma.solicitudes_credito;
+
+        // VERIFICACIÓN CRÍTICA MEJORADA
+        if (!contrato) {
+            console.error('. Contrato no encontrado para firma:', firma_id);
+            
+            // Intentar recuperar el contrato por solicitud_id como fallback
+            const { data: contratoFallback, error: contratoFallbackError } = await supabase
+                .from('contratos')
+                .select('*')
+                .eq('solicitud_id', firma.solicitud_id)
+                .single();
+
+            if (contratoFallbackError || !contratoFallback) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Contrato no encontrado para este proceso de firma'
+                });
+            }
+
+            // Actualizar la firma con el contrato_id correcto
+            await supabase
+                .from('firmas_digitales')
+                .update({ contrato_id: contratoFallback.id })
+                .eq('id', firma_id);
+
+            console.log('. Contrato recuperado y relación actualizada:', contratoFallback.id);
+        }
+
+        const contratoFinal = contrato || contratoFallback;
+
+        if (!contratoFinal.ruta_documento) {
+            console.error('. Contrato sin documento:', contratoFinal.id);
+            return res.status(404).json({
+                success: false,
+                message: 'El contrato no tiene documento Word generado'
+            });
+        }
+
+        console.log('. Contrato encontrado:', contratoFinal.ruta_documento);
+
+        // Obtener información del solicitante con más detalles
+        const { data: solicitudCompleta, error: solicitudError } = await supabase
+            .from('solicitudes_credito')
+            .select(`
+                numero_solicitud,
+                solicitantes: solicitantes!solicitante_id(
+                    usuarios(*),
+                    nombre_empresa,
+                    cuit,
+                    representante_legal,
+                    domicilio
+                )
+            `)
+            .eq('id', firma.solicitud_id)
+            .single();
+
+        // Preparar datos del contrato para el frontend - CORRECCIÓN: DECLARAR LA VARIABLE
+        const datosContrato = {
+            nombre_completo: solicitudCompleta?.solicitantes?.usuarios?.nombre_completo,
+            dni: solicitudCompleta?.solicitantes?.usuarios?.dni,
+            domicilio: solicitudCompleta?.solicitantes?.domicilio,
+            nombre_empresa: solicitudCompleta?.solicitantes?.nombre_empresa,
+            cuit: solicitudCompleta?.solicitantes?.cuit,
+            representante_legal: solicitudCompleta?.solicitantes?.representante_legal,
+            email: solicitudCompleta?.solicitantes?.usuarios?.email,
+            numero_solicitud: solicitudCompleta?.numero_solicitud
+        };
+
+        console.log('. Datos del contrato preparados:', datosContrato);
+
+        // Obtener el documento Word original
+        console.log('. Descargando documento desde:', contratoFinal.ruta_documento);
+        const { data: fileData, error: fileError } = await supabase.storage
+            .from('kyc-documents')
+            .download(contratoFinal.ruta_documento);
+
+        if (fileError) {
+            console.error('. Error accediendo al documento:', fileError);
+            return res.status(404).json({
+                success: false,
+                message: 'No se pudo acceder al documento del contrato'
+            });
+        }
+
+        const buffer = Buffer.from(await fileData.arrayBuffer());
+        const documentoBase64 = buffer.toString('base64');
+
+        // Preparar respuesta
+        const responseData = {
+            firma: {
+                id: firma.id,
+                estado: firma.estado,
+                fecha_expiracion: firma.fecha_expiracion,
+                solicitudes_credito: solicitud || {}
+            },
+            documento: documentoBase64,
+            nombre_documento: `contrato-${solicitud?.numero_solicitud || 'sin-numero'}.docx`,
+            tipo_documento: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            fecha_expiracion: firma.fecha_expiracion,
+            solicitante: solicitudCompleta?.solicitantes?.usuarios,
+            hash_original: firma.hash_documento_original,
+            datos_contrato: datosContrato // Incluir los datos del contrato
+        };
+
+        console.log('. Información de firma obtenida exitosamente');
+        res.json({
+            success: true,
+            data: responseData
+        });
+
+    } catch (error) {
+        console.error('. Error obteniendo información de firma Word:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error obteniendo información de firma: ' + error.message
+        });
+    }
+}
     /**
-     * Validar integridad de documento firmado
+     * Obtener documento para firma (base64)
      */
-    static async validarIntegridadDocumento(req, res) {
+    static async obtenerDocumentoParaFirma(req, res) {
         try {
             const { firma_id } = req.params;
 
             const { data: firma, error } = await supabase
                 .from('firmas_digitales')
-                .select('hash_documento_original, hash_documento_firmado, integridad_valida, url_documento_firmado')
+                .select('contratos(ruta_documento)')
                 .eq('id', firma_id)
                 .single();
 
             if (error || !firma) {
                 return res.status(404).json({
                     success: false,
-                    message: 'Registro de firma no encontrado'
+                    message: 'Proceso de firma no encontrado'
                 });
             }
 
-            // Validar integridad
-            const integridadValida = PDFFillerService.validarIntegridadDocumento(
-                firma.hash_documento_original,
-                firma.hash_documento_firmado
-            );
+            const { data: fileData, error: fileError } = await supabase.storage
+                .from('kyc-documents')
+                .download(firma.contratos.ruta_documento);
 
-            // Actualizar estado de integridad si cambió
-            if (integridadValida !== firma.integridad_valida) {
-                await supabase
-                    .from('firmas_digitales')
-                    .update({
-                        integridad_valida: integridadValida,
-                        fecha_verificacion: new Date().toISOString()
-                    })
-                    .eq('id', firma_id);
+            if (fileError) {
+                throw new Error('No se pudo acceder al documento: ' + fileError.message);
             }
+
+            const buffer = Buffer.from(await fileData.arrayBuffer());
+            const documentoBase64 = buffer.toString('base64');
 
             res.json({
                 success: true,
                 data: {
-                    integridad_valida: integridadValida,
-                    hash_original: firma.hash_documento_original,
-                    hash_firmado: firma.hash_documento_firmado,
-                    verificacion_anterior: firma.integridad_valida,
-                    url_documento_firmado: firma.url_documento_firmado,
-                    fecha_verificacion: new Date().toISOString()
+                    documento: documentoBase64,
+                    tipo: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 }
             });
 
         } catch (error) {
-            console.error('Error validando integridad:', error);
+            console.error('. Error obteniendo documento:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error validando integridad del documento'
+                message: 'Error obteniendo documento: ' + error.message
             });
         }
     }
+  /**
+   * Procesar firma del documento
+   */
+static async procesarFirma(req, res) {
+    try {
+        const { firma_id } = req.params;
+        const { 
+            firma_data, 
+            tipo_firma, 
+            posicion_firma,
+            documento_modificado 
+        } = req.body;
+        
+        const usuario_id = req.usuario.id;
+        const ip_address = req.ip;
+        const user_agent = req.get('User-Agent');
 
-    /**
-     * Reenviar solicitud de firma expirada
-     */
-    static async reenviarSolicitudFirma(req, res) {
-        try {
-            const { firma_id } = req.params;
-            const operador_id = req.usuario.id;
+        console.log('. Procesando firma Word para:', firma_id);
 
-            console.log('🔄 Reenviando solicitud de firma:', firma_id);
+        // Validaciones
+        if (!firma_data || !tipo_firma) {
+            return res.status(400).json({
+                success: false,
+                message: 'Datos de firma y tipo son requeridos'
+            });
+        }
 
-            // Verificar que la firma existe y está expirada
-            const { data: firma, error: firmaError } = await supabase
-                .from('firmas_digitales')
-                .select('*')
-                .eq('id', firma_id)
-                .eq('estado', 'expirado')
+        // Obtener información actual de la firma - CONSULTA MEJORADA
+        const { data: firma, error: firmaError } = await supabase
+            .from('firmas_digitales')
+            .select(`
+                *,
+                contratos (
+                    ruta_documento,
+                    id
+                )
+            `)
+            .eq('id', firma_id)
+            .single();
+
+        if (firmaError || !firma) {
+            console.error('. Error obteniendo firma:', firmaError);
+            return res.status(404).json({
+                success: false,
+                message: 'Proceso de firma no encontrado'
+            });
+        }
+
+        // VERIFICACIÓN CRÍTICA: Asegurar que tenemos la ruta del documento
+        if (!firma.contratos || !firma.contratos.ruta_documento) {
+            console.error('. Contrato o ruta de documento no encontrada:', {
+                tieneContrato: !!firma.contratos,
+                rutaDocumento: firma.contratos?.ruta_documento
+            });
+            
+            // Intentar obtener el contrato de manera alternativa
+            const { data: contratoAlternativo, error: contratoError } = await supabase
+                .from('contratos')
+                .select('ruta_documento')
+                .eq('solicitud_id', firma.solicitud_id)
                 .single();
-
-            if (firmaError || !firma) {
+                
+            if (contratoError || !contratoAlternativo) {
                 return res.status(404).json({
                     success: false,
-                    message: 'Firma no encontrada o no está expirada'
+                    message: 'No se pudo encontrar el documento del contrato'
                 });
             }
+            
+            // Usar la ruta alternativa
+            firma.contratos = contratoAlternativo;
+        }
 
-            // Reenviar solicitud en PDFfiller
-            const reenvioResult = await PDFFillerService.reenviarSolicitudFirma(firma.signature_request_id);
+        console.log('. Ruta del documento encontrada:', firma.contratos.ruta_documento);
 
-            if (!reenvioResult.success) {
-                throw new Error('Error reenviando solicitud: ' + reenvioResult.error);
+        // Obtener documento original - CON VALIDACIÓN MEJORADA
+        console.log('. Descargando documento desde:', firma.contratos.ruta_documento);
+        
+        const { data: fileData, error: fileError } = await supabase.storage
+            .from('kyc-documents')
+            .download(firma.contratos.ruta_documento);
+
+        if (fileError) {
+            console.error('. Error accediendo al documento:', fileError);
+            throw new Error('No se pudo acceder al documento original: ' + fileError.message);
+        }
+
+        // Validar que el archivo se descargó correctamente
+        if (!fileData) {
+            throw new Error('El documento descargado está vacío');
+        }
+
+        const bufferOriginal = Buffer.from(await fileData.arrayBuffer());
+        console.log('. Documento descargado correctamente, tamaño:', bufferOriginal.length);
+
+        // Resto del código permanece igual...
+        const datosFirma = {
+            nombreFirmante: req.usuario.nombre_completo,
+            fechaFirma: new Date().toISOString(),
+            ubicacion: firma_data.ubicacion || 'Ubicación no disponible',
+            firmaTexto: firma_data.firmaTexto,
+            firmaImagen: firma_data.firmaImagen,
+            tipoFirma: firma_data.tipoFirma,
+            hashDocumento: firma.hash_documento_original,
+            ipFirmante: ip_address,
+            userAgent: user_agent
+        };
+
+            // Procesar documento con firma
+            const documentoFirmadoBuffer = await WordService.agregarFirmaADocumento(
+                bufferOriginal, 
+                datosFirma
+            );
+
+            // Generar hash del documento firmado
+            const hashFirmado = WordService.generarHashDocumento(documentoFirmadoBuffer, {
+                fechaFirma: datosFirma.fechaFirma,
+                firmante: datosFirma.nombreFirmante
+            });
+
+            // Validar integridad
+            const integridadValida = WordService.validarIntegridadDocumento(
+                firma.hash_documento_original,
+                hashFirmado
+            );
+
+            // Guardar documento firmado en storage
+            const nombreArchivoFirmado = `contrato-firmado-${firma_id}-${Date.now()}.docx`;
+            const uploadResult = await WordService.subirDocumento(
+                nombreArchivoFirmado,
+                documentoFirmadoBuffer,
+                {
+                    firma_id: firma_id,
+                    firmante: datosFirma.nombreFirmante,
+                    fecha_firma: datosFirma.fechaFirma,
+                    hash_firmado: hashFirmado
+                }
+            );
+
+            if (!uploadResult.success) {
+                throw new Error('Error guardando documento firmado: ' + uploadResult.error);
             }
 
-            // Actualizar en base de datos
+            // Actualizar base de datos
             const updateData = {
-                estado: 'enviado',
-                signature_request_id: reenvioResult.nuevoSignatureRequestId || firma.signature_request_id,
-                fecha_envio: new Date().toISOString(),
-                fecha_expiracion: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-                intentos_envio: firma.intentos_envio + 1,
-                ultimo_error: null,
-                updated_at: new Date().toISOString()
+                hash_documento_firmado: hashFirmado,
+                integridad_valida: integridadValida,
+                updated_at: new Date().toISOString(),
+                url_documento_firmado: uploadResult.ruta
             };
+
+            // Configurar según tipo de firma
+            if (tipo_firma === 'solicitante') {
+                updateData.estado = 'firmado_solicitante';
+                updateData.fecha_firma_solicitante = new Date().toISOString();
+                updateData.ip_firmante = ip_address;
+                updateData.user_agent_firmante = user_agent;
+                updateData.ubicacion_firmante = datosFirma.ubicacion;
+            } else if (tipo_firma === 'operador') {
+                updateData.estado = 'firmado_operador';
+                updateData.fecha_firma_operador = new Date().toISOString();
+            }
 
             const { error: updateError } = await supabase
                 .from('firmas_digitales')
@@ -1175,124 +908,817 @@ class FirmaDigitalController {
                 throw updateError;
             }
 
+            // Actualizar contrato
+            await supabase
+                .from('contratos')
+                .update({
+                    estado: tipo_firma === 'solicitante' ? 'firmado_solicitante' : 'firmado_operador',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', firma.contrato_id);
+
             // Registrar auditoría
             await supabase
                 .from('auditoria_firmas')
                 .insert({
                     firma_id: firma_id,
-                    usuario_id: operador_id,
-                    accion: 'reenvio_solicitud_firma',
-                    descripcion: 'Solicitud de firma reenviada por operador después de expiración',
-                    estado_anterior: 'expirado',
-                    estado_nuevo: 'enviado',
-                    signature_request_id: updateData.signature_request_id,
-                    ip_address: req.ip,
-                    user_agent: req.get('User-Agent'),
+                    usuario_id: usuario_id,
+                    accion: 'firma_documento_word',
+                    descripcion: `Documento Word firmado por ${tipo_firma}. Integridad: ${integridadValida ? 'válida' : 'inválida'}`,
+                    estado_anterior: firma.estado,
+                    estado_nuevo: updateData.estado,
+                    ip_address: ip_address,
+                    user_agent: user_agent,
                     created_at: new Date().toISOString()
                 });
 
-            // Notificar al solicitante
-            await this.notificarReenvioFirma(firma.solicitud_id);
+            // Procesar según el tipo de firma
+            if (tipo_firma === 'solicitante') {
+                await FirmaDigitalController.procesarFirmaSolicitante(firma_id, firma);
+            } else if (tipo_firma === 'operador') {
+                await FirmaDigitalController.procesarFirmaOperador(firma_id, firma);
+            }
 
-            console.log('✅ Solicitud de firma reenviada exitosamente:', firma_id);
+            console.log('. Firma Word procesada exitosamente:', { 
+                firma_id, 
+                tipo_firma, 
+                integridadValida 
+            });
 
             res.json({
                 success: true,
-                message: 'Solicitud de firma reenviada exitosamente',
+                message: 'Documento firmado exitosamente',
                 data: {
                     firma_id: firma_id,
-                    nuevo_estado: 'enviado',
-                    fecha_expiracion: updateData.fecha_expiracion
+                    estado: updateData.estado,
+                    integridad_valida: integridadValida,
+                    url_descarga: uploadResult.ruta,
+                    hash_firmado: hashFirmado
                 }
             });
 
         } catch (error) {
-            console.error('❌ Error reenviando solicitud de firma:', error);
+            console.error('. Error procesando firma Word:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error reenviando solicitud de firma: ' + error.message
+                message: 'Error procesando firma: ' + error.message
             });
         }
     }
 
-    /**
-     * Notificar reenvío de firma
-     */
-    static async notificarReenvioFirma(solicitudId) {
-        try {
-            const { data: solicitud } = await supabase
-                .from('solicitudes_credito')
-                .select('solicitante_id')
-                .eq('id', solicitudId)
-                .single();
+  /**
+   * Procesar firma del solicitante
+   */
+  static async procesarFirmaSolicitante(firmaId, firma) {
+    try {
+      console.log('👤 Procesando firma del solicitante:', firmaId);
 
-            if (solicitud) {
-                await supabase
-                    .from('notificaciones')
-                    .insert({
-                        usuario_id: solicitud.solicitante_id,
-                        tipo: 'firma_reenviada',
-                        titulo: 'Solicitud de Firma Reenviada',
-                        mensaje: 'Se ha reenviado la solicitud de firma digital del contrato. Por favor, revisa tu correo.',
-                        leida: false,
-                        created_at: new Date().toISOString()
-                    });
-            }
-        } catch (error) {
-            console.error('Error notificando reenvío de firma:', error);
-        }
+      // Notificar al operador
+      await NotificacionesController.notificarFirmaSolicitanteCompletada(firma.contrato_id);
+
+      // Actualizar estado del contrato
+      await supabase
+        .from('contratos')
+        .update({
+          estado: 'firmado_solicitante',
+          fecha_firma_solicitante: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', firma.contrato_id);
+
+    } catch (error) {
+      console.error('. Error procesando firma del solicitante:', error);
     }
+  }
 
-    /**
-     * Obtener firmas pendientes para dashboard
+  /**
+   * Procesar firma del operador
+   */
+  static async procesarFirmaOperador(firmaId, firma) {
+    try {
+      console.log( '👨‍💼 Procesando firma del operador:', firmaId);
+
+      // Verificar si ambas partes han firmado
+      const { data: firmaActual } = await supabase
+        .from('firmas_digitales')
+        .select('*')
+        .eq('id', firmaId)
+        .single();
+
+      if (firmaActual.fecha_firma_solicitante && firmaActual.fecha_firma_operador) {
+        // Ambas partes han firmado - marcar como completo
+        await FirmaDigitalController.marcarFirmaCompleta(firmaId, firma);
+      } else {
+        // Solo el operador ha firmado - notificar
+        await NotificacionesController.notificarFirmaOperadorCompletada(firma.contrato_id);
+      }
+
+    } catch (error) {
+      console.error('. Error procesando firma del operador:', error);
+    }
+  }
+
+  /**
+   * Marcar firma como completa
+   */
+  static async marcarFirmaCompleta(firmaId, firma) {
+    try {
+      console.log( '. Marcando firma como completa:', firmaId);
+
+      await supabase
+        .from('firmas_digitales')
+        .update({
+          estado: 'firmado_completo',
+          fecha_firma_completa: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', firmaId);
+
+      // Actualizar contrato
+      await supabase
+        .from('contratos')
+        .update({
+          estado: 'firmado_completo',
+          fecha_firma_completa: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', firma.contrato_id);
+
+      // Notificar a todas las partes
+      await NotificacionesController.notificarFirmaCompletada(firma.contrato_id, firma.solicitud_id);
+
+      console.log ('📄 Contrato completamente firmado:', firma.contrato_id);
+
+    } catch (error) {
+      console.error('. Error marcando firma como completa:', error);
+    }
+  }
+
+  /**
+   * Verificar permisos para firmar
+   */
+ static async verificarPermisosFirma(usuario_id, firma) {
+    try {
+        // Obtener información del usuario
+        const { data: usuario } = await supabase
+            .from('usuarios')
+            .select('rol, email')
+            .eq('id', usuario_id)
+            .single();
+
+        if (!usuario) {
+            console.error('. Usuario no encontrado:', usuario_id);
+            return false;
+        }
+
+        console.log('. Verificando permisos para:', usuario.email, 'rol:', usuario.rol);
+
+        // Administradores y operadores pueden firmar cualquier documento
+        if (['admin', 'operador'].includes(usuario.rol)) {
+            console.log('. Permiso concedido por rol:', usuario.rol);
+            return true;
+        }
+
+        // Solicitantes solo pueden firmar sus propios documentos
+        if (usuario.rol === 'solicitante') {
+            const solicitud = firma.solicitudes_credito?.[0];
+            if (!solicitud) {
+                console.error('. No se pudo obtener información de la solicitud');
+                return false;
+            }
+
+            const esSolicitante = solicitud.solicitante_id === usuario_id;
+            console.log('. Verificación solicitante:', {
+                solicitante_id: solicitud.solicitante_id,
+                usuario_id,
+                coincide: esSolicitante
+            });
+            
+            return esSolicitante;
+        }
+
+        console.warn('. Rol no reconocido:', usuario.rol);
+        return false;
+    } catch (error) {
+        console.error('. Error verificando permisos de firma:', error);
+        return false;
+    }
+}
+  /**
+   * Descargar documento firmado
+   */
+  static async descargarDocumentoFirmado(req, res) {
+    try {
+      const { firma_id } = req.params;
+
+      const { data: firma, error } = await supabase
+        .from('firmas_digitales')
+        .select('url_documento_firmado, estado')
+        .eq('id', firma_id)
+        .single();
+
+      if (error || !firma || !firma.url_documento_firmado) {
+        return res.status(404).json({
+          success: false,
+          message: 'Documento firmado no encontrado'
+        });
+      }
+
+      if (firma.estado !== 'firmado_completo') {
+        return res.status(400).json({
+          success: false,
+          message: 'El documento no ha sido completamente firmado'
+        });
+      }
+
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('kyc-documents')
+        .download(firma.url_documento_firmado);
+
+      if (downloadError) {
+        throw new Error('Error descargando archivo: ' + downloadError.message);
+      }
+
+      const arrayBuffer = await fileData.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="contrato-firmado-${firma_id}.docx"`);
+      res.setHeader('Content-Length', buffer.length);
+
+      res.send(buffer);
+
+    } catch (error) {
+      console.error('. Error descargando documento firmado:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error descargando documento firmado'
+      });
+    }
+  }
+  /** 
+     * Reenviar solicitud de firma expirada 
+     */ 
+    static async reenviarSolicitudFirma(req, res) { 
+        try { 
+            const { firma_id } = req.params; 
+            const operador_id = req.usuario.id; 
+ 
+            console.log('. Reenviando solicitud de firma:', firma_id); 
+ 
+            // Verificar que la firma existe y está expirada 
+            const { data: firma, error: firmaError } = await supabase 
+                .from('firmas_digitales') 
+                .select('*') 
+                .eq('id', firma_id) 
+                .eq('estado', 'expirado') 
+                .single(); 
+119 
+ 
+ 
+            if (firmaError || !firma) { 
+                return res.status(404).json({ 
+                    success: false, 
+                    message: 'Firma no encontrada o no está expirada' 
+                }); 
+            } 
+ 
+            const reenvioResult = await 
+FirmaDigitalController.reenviarSolicitudFirma(firma.signature_request_id); 
+ 
+            if (!reenvioResult.success) { 
+                throw new Error('Error reenviando solicitud: ' + 
+reenvioResult.error); 
+            } 
+ 
+            // Actualizar en base de datos 
+            const updateData = { 
+                estado: 'enviado', 
+                signature_request_id: 
+reenvioResult.nuevoSignatureRequestId || firma.signature_request_id, 
+                fecha_envio: new Date().toISOString(), 
+                fecha_expiracion: new Date(Date.now() + 7 * 24 * 60 * 60 
+* 1000).toISOString(), 
+                intentos_envio: firma.intentos_envio + 1, 
+                ultimo_error: null, 
+                updated_at: new Date().toISOString() 
+            }; 
+ 
+            const { error: updateError } = await supabase 
+                .from('firmas_digitales') 
+                .update(updateData) 
+                .eq('id', firma_id); 
+ 
+            if (updateError) { 
+                throw updateError; 
+            } 
+ 
+            // Registrar auditoría 
+            await supabase 
+                .from('auditoria_firmas') 
+                .insert({ 
+                    firma_id: firma_id, 
+                    usuario_id: operador_id, 
+                    accion: 'reenvio_solicitud_firma', 
+                    descripcion: 'Solicitud de firma reenviada por operador después de expiración', 
+                    estado_anterior: 'expirado', 
+                    estado_nuevo: 'enviado', 
+                    signature_request_id: 
+updateData.signature_request_id, 
+                    ip_address: req.ip, 
+                    user_agent: req.get('User-Agent'), 
+                    created_at: new Date().toISOString() 
+                }); 
+ 
+            // Notificar al solicitante 
+            await 
+NotificacionesController.notificarReenvioFirma(firma.solicitud_id); 
+ 
+            console.log('. Solicitud de firma reenviada exitosamente:', 
+firma_id); 
+ 
+            res.json({ 
+                success: true, 
+                message: 'Solicitud de firma reenviada exitosamente', 
+                data: { 
+                    firma_id: firma_id, 
+                    nuevo_estado: 'enviado', 
+                    fecha_expiracion: updateData.fecha_expiracion 
+                } 
+            }); 
+ 
+        } catch (error) { 
+            console.error('. Error reenviando solicitud de firma:', 
+error); 
+            res.status(500).json({ 
+                success: false, 
+                message: 'Error reenviando solicitud de firma: ' + 
+error.message 
+            }); 
+        } 
+    } 
+    /** 
+     * Obtener firmas pendientes para dashboard 
+     */ 
+    static async obtenerFirmasPendientes(req, res) { 
+        try { 
+            const usuario_id = req.usuario.id; 
+            const { rol } = req.usuario; 
+ 
+            let query = supabase 
+                .from('firmas_digitales') 
+                .select(` 
+                    *, 
+                    contratos(*), 
+                    solicitudes_credito( 
+                        numero_solicitud, 
+                        monto_solicitado, 
+                        solicitante_id, 
+                        operador_id, 
+                        solicitantes: solicitantes!solicitante_id( 
+                            usuarios(*) 
+                        ) 
+                    ) 
+                `) 
+                .in('estado', ['enviado', 'firmado_solicitante', 
+'firmado_operador']) 
+                .order('fecha_envio', { ascending: true }); 
+ 
+            // Filtrar por rol 
+            if (rol === 'solicitante') { 
+122 
+ 
+                query = query.eq('solicitudes_credito.solicitante_id', 
+usuario_id); 
+            } else if (rol === 'operador') { 
+                query = query.eq('solicitudes_credito.operador_id', 
+usuario_id); 
+            } 
+ 
+            const { data: firmas, error } = await query; 
+ 
+            if (error) throw error; 
+ 
+            res.json({ 
+                success: true, 
+                data: firmas || [] 
+            }); 
+ 
+        } catch (error) { 
+            console.error('Error obteniendo firmas pendientes:', error); 
+            res.status(500).json({ 
+                success: false, 
+                message: 'Error obteniendo firmas pendientes' 
+            }); 
+        } 
+    } 
+     /** 
+     * Obtener historial de auditoría de firma 
+     */ 
+    static async obtenerAuditoriaFirma(req, res) { 
+        try { 
+            const { firma_id } = req.params; 
+ 
+            const { data: auditoria, error } = await supabase 
+                .from('auditoria_firmas') 
+                .select(` 
+                    *, 
+                    usuarios: usuario_id( 
+                        nombre_completo, 
+                        email 
+                    ) 
+                `) 
+117 
+ 
+                .eq('firma_id', firma_id) 
+                .order('created_at', { ascending: false }); 
+ 
+            if (error) throw error; 
+ 
+            res.json({ 
+                success: true, 
+                data: auditoria || [] 
+            }); 
+ 
+        } catch (error) { 
+            console.error('Error obteniendo auditoría de firma:', error); 
+            res.status(500).json({ 
+                success: false, 
+                message: 'Error obteniendo historial de auditoría' 
+            }); 
+        } 
+    } 
+    static async verificarEstadoFirma(signatureRequestId) { 
+        try { 
+            console.log('. Verificando estado de firma:', 
+signatureRequestId); 
+ 
+            const response = await this.executeRequest( 
+                'get', 
+                `/signature_requests/${signatureRequestId}` 
+            ); 
+ 
+356 
+ 
+            const data = response.data; 
+            const estado = data.status?.toLowerCase() || 'unknown'; 
+             
+            console.log('📊 Estado de firma:', {  
+                signatureRequestId,  
+                estado, 
+                completado: estado === 'completed' 
+            }); 
+ 
+            return { 
+                success: true, 
+                estado: estado, 
+                completado: estado === 'completed', 
+                estadoDetallado: data, 
+                recipients: data.recipients || [], 
+                data: data 
+            }; 
+ 
+        } catch (error) { 
+            console.error('. Error verificando estado de firma:', { 
+                error: error.response?.data || error.message, 
+                signatureRequestId 
+            }); 
+ 
+            return { 
+                success: false, 
+                error: error.response?.data || error.message, 
+                statusCode: error.response?.status 
+            }; 
+        } 
+    } 
+static async obtenerNumeroPaginasWord(buffer) {
+  try {
+    // ⚙️ Aproximación: una página cada 1800 palabras (ajústalo según tu caso)
+    const texto = buffer.toString('utf8');
+    const palabras = texto.split(/\s+/).length;
+    const paginasEstimadas = Math.max(1, Math.ceil(palabras / 1800));
+    return paginasEstimadas;
+  } catch (error) {
+    console.error('Error obteniendo número de páginas Word:', error);
+    return 1; // valor por defecto
+  }
+}
+ /**
+     * Crear solicitud de firma múltiple - VERSIÓN SIMPLIFICADA
      */
-    static async obtenerFirmasPendientes(req, res) {
-        try {
-            const usuario_id = req.usuario.id;
-            const { rol } = req.usuario;
+static async crearSolicitudFirmaMultiple(contratoId, solicitante, operador) {
+    try {
+        console.log('. Creando solicitud de firma múltiple INTERNA para documento ID:', contratoId);
 
-            let query = supabase
+        // Generar IDs únicos para la firma interna
+        const signatureRequestId = crypto.randomUUID();
+
+        // Crear URLs de firma interna
+        const urlFirmaSolicitante = `/firmar-contrato/${signatureRequestId}?tipo=solicitante`;
+        const urlFirmaOperador = `/firmar-contrato/${signatureRequestId}?tipo=operador`;
+
+        console.log('. Solicitud de firma múltiple interna creada:', {
+            signatureRequestId,
+            contratoId
+        });
+
+        return {
+            success: true,
+            signatureRequestId: signatureRequestId,
+            urlsFirma: {
+                solicitante: urlFirmaSolicitante,
+                operador: urlFirmaOperador
+            },
+            data: {
+                tipo: 'firma_multiple_interna',
+                urls: {
+                    solicitante: urlFirmaSolicitante,
+                    operador: urlFirmaOperador
+                },
+                expiracion: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            }
+        };
+    } catch (error) {
+        console.error('. Error creando solicitud de firma múltiple interna:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+   /**
+     * Crear solicitud de firma individual - FALLBACK
+     */
+static async crearSolicitudFirmaIndividual(contratoId, destinatario, tipoFirmante = 'solicitante') {
+    try {
+        console.log('. Creando solicitud de firma individual interna:', { contratoId, tipoFirmante });
+
+        // Generar IDs únicos para la firma interna
+        const signatureRequestId = crypto.randomUUID();
+
+        // Crear URL de firma interna
+        const urlFirma = `/firmar-contrato/${signatureRequestId}?tipo=${tipoFirmante}`;
+
+        console.log('. Solicitud de firma individual interna creada:', {
+            signatureRequestId,
+            contratoId
+        });
+
+        return {
+            success: true,
+            signatureRequestId: signatureRequestId,
+            urlFirma: urlFirma,
+            data: {
+                tipo: 'firma_individual_interna',
+                url: urlFirma,
+                expiracion: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            }
+        };
+    } catch (error) {
+        console.error('. Error creando solicitud de firma individual interna:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+/**
+ * Verificar si se puede reiniciar el proceso de firma
+ */
+static async verificarPuedeReiniciarFirma(firmaExistente) {
+    try {
+        // Permitir reinicio si han pasado más de 30 minutos desde el último intento
+        const { data: firmaCompleta } = await supabase
+            .from('firmas_digitales')
+            .select('created_at, intentos_envio, estado')
+            .eq('id', firmaExistente.id)
+            .single();
+
+        if (!firmaCompleta) return true;
+
+        const tiempoTranscurrido = Date.now() - new Date(firmaCompleta.created_at).getTime();
+        const minutosTranscurridos = tiempoTranscurrido / (1000 * 60);
+
+        // Permitir reinicio después de 30 minutos o si hay menos de 3 intentos
+        if (minutosTranscurridos > 30 || (firmaCompleta.intentos_envio || 0) < 3) {
+            return true;
+        }
+
+        return false;
+    } catch (error) {
+        console.error('. Error verificando reinicio de firma:', error);
+        return true; // Por defecto permitir reinicio en caso de error
+    }
+}
+
+// En FirmaDigitalController.js
+
+/**
+ * Verificar si existe proceso de firma para una solicitud
+ */
+static async verificarFirmaExistente(req, res) {
+    try {
+        const { solicitud_id } = req.params;
+
+        const { data: firmaExistente } = await supabase
+            .from('firmas_digitales')
+            .select('*')
+            .eq('solicitud_id', solicitud_id)
+            .in('estado', ['pendiente', 'enviado', 'firmado_solicitante', 'firmado_operador'])
+            .single();
+
+        res.json({
+            success: true,
+            data: {
+                firma_existente: firmaExistente || null,
+                existe: !!firmaExistente
+            }
+        });
+
+    } catch (error) {
+        console.error('. Error verificando firma existente:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error verificando firma existente'
+        });
+    }
+}
+
+/**
+ * Reiniciar proceso de firma existente
+ */
+static async reiniciarProcesoFirma(req, res) {
+    try {
+        const { solicitud_id } = req.params;
+        const { forzar_reinicio } = req.body;
+
+        console.log('. Reiniciando proceso de firma para:', solicitud_id);
+
+        // Buscar firma existente
+        const { data: firmaExistente } = await supabase
+            .from('firmas_digitales')
+            .select('*')
+            .eq('solicitud_id', solicitud_id)
+            .in('estado', ['pendiente', 'enviado', 'firmado_solicitante', 'firmado_operador'])
+            .single();
+
+        if (firmaExistente) {
+            // Marcar como expirado para permitir nuevo proceso
+            await supabase
                 .from('firmas_digitales')
-                .select(`
-                    *,
-                    contratos(*),
-                    solicitudes_credito(
-                        numero_solicitud,
-                        monto_solicitado,
-                        solicitante_id,
-                        operador_id,
-                        solicitantes: solicitantes!solicitante_id(
-                            usuarios(*)
-                        )
-                    )
-                `)
-                .in('estado', ['enviado', 'firmado_solicitante', 'firmado_operador'])
-                .order('fecha_envio', { ascending: true });
+                .update({
+                    estado: 'expirado',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', firmaExistente.id);
 
-            // Filtrar por rol
-            if (rol === 'solicitante') {
-                query = query.eq('solicitudes_credito.solicitante_id', usuario_id);
-            } else if (rol === 'operador') {
-                query = query.eq('solicitudes_credito.operador_id', usuario_id);
+            console.log('. Proceso de firma anterior marcado como expirado:', firmaExistente.id);
+        }
+
+        res.json({
+            success: true,
+            message: 'Proceso reiniciado exitosamente',
+            data: {
+                firma_anterior: firmaExistente
             }
+        });
 
-            const { data: firmas, error } = await query;
+    } catch (error) {
+        console.error('. Error reiniciando proceso de firma:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error reiniciando proceso de firma'
+        });
+    }
+}
 
-            if (error) throw error;
+/**
+ * Renovar firma expirada
+ */
+static async renovarFirmaExpirada(req, res) {
+    try {
+        const { solicitud_id } = req.params;
 
-            res.json({
-                success: true,
-                data: firmas || []
-            });
+        console.log('. Renovando firma expirada para:', solicitud_id);
 
-        } catch (error) {
-            console.error('Error obteniendo firmas pendientes:', error);
-            res.status(500).json({
+        // Buscar firma expirada
+        const { data: firmaExpirada } = await supabase
+            .from('firmas_digitales')
+            .select('*')
+            .eq('solicitud_id', solicitud_id)
+            .eq('estado', 'expirado')
+            .single();
+
+        if (!firmaExpirada) {
+            return res.status(404).json({
                 success: false,
-                message: 'Error obteniendo firmas pendientes'
+                message: 'No se encontró firma expirada para renovar'
             });
         }
+
+        // Actualizar fechas y estado
+        const nuevaFirmaData = {
+            estado: 'enviado',
+            fecha_envio: new Date().toISOString(),
+            fecha_expiracion: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            intentos_envio: (firmaExpirada.intentos_envio || 0) + 1,
+            updated_at: new Date().toISOString()
+        };
+
+        const { data: firmaRenovada, error } = await supabase
+            .from('firmas_digitales')
+            .update(nuevaFirmaData)
+            .eq('id', firmaExpirada.id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            message: 'Firma renovada exitosamente',
+            data: {
+                firma_id: firmaRenovada.id,
+                fecha_expiracion: firmaRenovada.fecha_expiracion
+            }
+        });
+
+    } catch (error) {
+        console.error('. Error renovando firma expirada:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error renovando firma expirada'
+        });
     }
+}
+// En FirmaDigitalController.js - Agregar este método
+static async repararRelacionFirmaContrato(req, res) {
+    try {
+        const { firma_id } = req.params;
+
+        console.log('. Reparando relación firma-contrato para:', firma_id);
+
+        // Obtener firma
+        const { data: firma, error: firmaError } = await supabase
+            .from('firmas_digitales')
+            .select('*')
+            .eq('id', firma_id)
+            .single();
+
+        if (firmaError || !firma) {
+            return res.status(404).json({
+                success: false,
+                message: 'Firma no encontrada'
+            });
+        }
+
+        // Buscar contrato por solicitud_id
+        const { data: contrato, error: contratoError } = await supabase
+            .from('contratos')
+            .select('*')
+            .eq('solicitud_id', firma.solicitud_id)
+            .single();
+
+        if (contratoError || !contrato) {
+            return res.status(404).json({
+                success: false,
+                message: 'No se encontró contrato para esta solicitud'
+            });
+        }
+
+        // Actualizar la firma con el contrato_id correcto
+        const { error: updateError } = await supabase
+            .from('firmas_digitales')
+            .update({ 
+                contrato_id: contrato.id,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', firma_id);
+
+        if (updateError) {
+            throw updateError;
+        }
+
+        console.log('. Relación reparada:', { firma_id, contrato_id: contrato.id });
+
+        res.json({
+            success: true,
+            message: 'Relación firma-contrato reparada exitosamente',
+            data: {
+                firma_id: firma_id,
+                contrato_id: contrato.id,
+                contrato_ruta_documento: contrato.ruta_documento
+            }
+        });
+
+    } catch (error) {
+        console.error('. Error reparando relación:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error reparando relación: ' + error.message
+        });
+    }
+}
 }
 
 module.exports = FirmaDigitalController;

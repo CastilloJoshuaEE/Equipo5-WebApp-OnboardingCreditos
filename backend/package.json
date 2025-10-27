@@ -7,7 +7,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "reparar-firmas": "node scripts/repararFirmas.js"
   },
   "author": "",
   "license": "ISC",
@@ -19,6 +20,7 @@
     "body-parser": "^2.2.0",
     "canvas": "^3.2.0",
     "cors": "^2.8.5",
+    "docx": "^9.5.1",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
@@ -27,6 +29,7 @@
     "nodemailer": "^7.0.6",
     "pdf-parse": "^2.2.3",
     "pdfjs-dist": "^3.11.174",
+    "pdfkit": "^0.17.2",
     "resend": "^6.1.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
