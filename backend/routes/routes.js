@@ -647,7 +647,7 @@ router.post("/usuarios/login", authController.login);
  * @swagger
  * /api/usuarios/logout:
  *   post:
- *     summary: Cerrar sesión
+ *     summary: Salir
  *     tags: [Autenticación]
  *     description: Cierra la sesión del usuario (invalida el token)
  *     responses:

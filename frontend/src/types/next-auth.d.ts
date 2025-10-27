@@ -4,6 +4,7 @@ import { UserRole } from './auth.types';
 
 declare module 'next-auth' {
   interface Session {
+    accessToken?: string;
     user: {
       id: string;
       rol: UserRole;
@@ -28,5 +29,6 @@ declare module 'next-auth/jwt' {
     rol: UserRole;
     email_confirmado: boolean;
     nombre_completo?: string;
+    accessToken?: string;
   }
 }

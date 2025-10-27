@@ -1,0 +1,117 @@
+/* frontend/src/styles/tabs.css */
+.tab-header {
+  display: flex;
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: 25px;
+  gap: 20px;
+  align-items: center;
+  padding: 0 25px;
+  background-color: var(--color-bg-white);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.tab-link {
+  padding: 15px 0;
+  cursor: pointer;
+  color: var(--color-text-light);
+  font-weight: bold;
+  transition: color 0.2s, border-bottom 0.2s;
+  font-size: 1rem;
+  position: relative;
+}
+
+.tab-link.active {
+  color: var(--color-primary);
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.tab-link:hover {
+  color: var(--color-primary);
+}
+
+.tab-section {
+  display: none;
+  padding: 0 25px 25px;
+}
+
+.tab-section.active {
+  display: block;
+}
+
+.back-link {
+  margin-left: auto;
+  font-size: 0.9rem;
+  color: var(--color-primary);
+  text-decoration: none;
+  padding: 8px 16px;
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.back-link:hover {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--color-text-dark);
+  font-size: 0.9rem;
+}
+
+.form-grid-2-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.page-content {
+  background-color: var(--color-bg-white);
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.content-box {
+  padding: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .tab-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 15px;
+  }
+  
+  .tab-link {
+    padding: 10px 0;
+    width: 100%;
+  }
+  
+  .back-link {
+    margin-left: 0;
+    margin-top: 10px;
+    width: 100%;
+    text-align: center;
+  }
+  
+  .form-grid-2-cols {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .tab-section {
+    padding: 0 15px 15px;
+  }
+}

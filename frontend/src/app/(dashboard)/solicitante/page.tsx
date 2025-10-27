@@ -137,17 +137,6 @@ export default function DashboardSolicitante() {
             sx={{ mt: 1 }}
           />
         </Box>
-
-        {/* Botones de acción en el header */}
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button 
-            variant="outlined" 
-            color="error"
-            onClick={handleLogout}
-          >
-            Cerrar Sesión
-          </Button>
-        </Box>
       </Box>
 
       {/* Alertas */}

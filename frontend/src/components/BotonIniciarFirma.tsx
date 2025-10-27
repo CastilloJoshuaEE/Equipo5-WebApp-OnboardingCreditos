@@ -1,5 +1,5 @@
-// components/BotonIniciarFirma.tsx - . .
-import { useState } from 'react';
+// components/BotonIniciarFirma.tsx
+import { useState, useEffect } from 'react';
 import { 
   Button, 
   Dialog, 
@@ -18,11 +18,37 @@ interface BotonIniciarFirmaProps {
   onFirmaIniciada: (data: any) => void;
 }
 
+interface SessionUser {
+  id: string;
+  email: string;
+  nombre: string;
+  rol: string;
+  accessToken?: string;
+}
+
 const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [firmaExistente, setFirmaExistente] = useState<any>(null);
+  const [userRol, setUserRol] = useState<string>('');
+
+  // Obtener el rol del usuario al cargar el componente
+  useEffect(() => {
+    const obtenerRolUsuario = async () => {
+      try {
+        const session = await getSession();
+        if (session?.user) {
+          const user = session.user as SessionUser;
+          setUserRol(user.rol || '');
+        }
+      } catch (error) {
+        console.error('Error obteniendo rol del usuario:', error);
+      }
+    };
+
+    obtenerRolUsuario();
+  }, []);
 
   const verificarFirmaExistente = async () => {
     try {
@@ -115,8 +141,8 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
           const firma = errorResult.data.firma_existente;
           
           if (firma.estado === 'expirado') {
-            // Si está expirado, ofrecer renovar
-            if (window.confirm('El proceso de firma anterior ha expirado. ¿Deseas crear uno nuevo?')) {
+            // Si está expirado, ofrecer renovar (solo para operadores)
+            if (userRol === 'operador' && window.confirm('El proceso de firma anterior ha expirado. ¿Deseas crear uno nuevo?')) {
               await handleRenovarFirmaExpirada(solicitudId);
             }
             return;
@@ -202,6 +228,11 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
     }
   };
 
+  // Función para verificar si el usuario es operador
+  const esOperador = () => {
+    return userRol === 'operador';
+  };
+
   return (
     <>
       <Button
@@ -281,14 +312,18 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
               >
                 Continuar Firma Existente
               </Button>
-              <Button 
-                onClick={handleIniciarFirma}
-                variant="contained"
-                disabled={loading}
-                color="secondary"
-              >
-                Crear Nueva Firma
-              </Button>
+              
+              {/* SOLO VISIBLE PARA OPERADORES */}
+              {esOperador() && (
+                <Button 
+                  onClick={handleIniciarFirma}
+                  variant="contained"
+                  disabled={loading}
+                  color="secondary"
+                >
+                  Crear Nueva Firma
+                </Button>
+              )}
             </>
           ) : (
             <Button 

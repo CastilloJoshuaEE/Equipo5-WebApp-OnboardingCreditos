@@ -1033,7 +1033,7 @@ if (verifyError) {
     // Desactivar cuenta en la base de datos
     const usuarioDesactivado = await UsuarioModel.deactivateAccount(req.usuario.id, motivo);
 
-    // Cerrar sesión en Supabase Auth
+    // Salir en Supabase Auth
     await supabase.auth.signOut();
 
     console.log('. Cuenta desactivada exitosamente para:', req.usuario.email);
