@@ -161,7 +161,7 @@ const insertarUsuariosEnTablas = async (usuariosAuthIds) => {
   }
 };
 
-// Función para crear usuarios en Auth - VERSIÓN MEJORADA
+// Función para crear usuarios en Auth - . MEJORADA
 const crearUsuariosAuth = async () => {
   const usuariosAuthIds = {};
   
@@ -195,7 +195,7 @@ const crearUsuariosAuth = async () => {
       console.log(`. Procesando usuario: ${usuario.email}`);
       
       try {
-        // . MEJORADO: Usar la función getUserByEmail correctamente
+        // . .: Usar la función getUserByEmail correctamente
         const { data: existingUser, error: getUserError } = await getUserByEmail(usuario.email);
         
         let userId;

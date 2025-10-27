@@ -42,7 +42,7 @@ class AuthController {
       // 2. LIMPIAR INTENTOS ANTIGUOS AUTOMÁTICAMENTE
       await AuthController.limpiarIntentosAntiguos(email);
 
-      // 3. VERIFICAR BLOQUEO TEMPORAL - CORREGIDO
+      // 3. VERIFICAR BLOQUEO TEMPORAL - .
       const { data: intentosRecientes, error: intentosError } = await supabase
         .from('intentos_login')
         .select('created_at')
@@ -589,7 +589,7 @@ class AuthController {
         console.log('. ID actualizado en tabla operadores');
       }
 
-      console.log('. Inconsistencia de IDs corregida exitosamente');
+      console.log('. Inconsistencia de IDs . exitosamente');
       return true;
     } catch (error) {
       console.error('. Error en corregirInconsistenciaIDs:', error);

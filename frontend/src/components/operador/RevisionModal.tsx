@@ -53,7 +53,7 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
         setPasoActivo((prev) => Math.max(prev - 1, 0));
     };
 
-    // FUNCIÓN CORREGIDA: Ahora hace la llamada real a la API
+    // FUNCIÓN .: Ahora hace la llamada real a la API
     const handleValidarDocumento = async (documentoId: string, estado: string, comentarios?: string) => {
         try {
             setLoading(true);

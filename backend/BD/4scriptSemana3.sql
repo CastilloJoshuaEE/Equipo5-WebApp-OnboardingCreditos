@@ -128,7 +128,7 @@ ADD COLUMN IF NOT EXISTS hash_contrato VARCHAR(255),
 ADD COLUMN IF NOT CONSTRAINT contratos_firma_digital_id_key UNIQUE (firma_digital_id);
 
 -- ============================
--- ÍNDICES MEJORADOS
+-- ÍNDICES .S
 -- ============================
 CREATE INDEX IF NOT EXISTS idx_firmas_contrato ON firmas_digitales(contrato_id);
 CREATE INDEX IF NOT EXISTS idx_firmas_solicitud ON firmas_digitales(solicitud_id);
@@ -144,7 +144,7 @@ CREATE INDEX IF NOT EXISTS idx_auditoria_event ON auditoria_firmas(event_type);
 CREATE INDEX IF NOT EXISTS idx_auditoria_hash ON auditoria_firmas(hash_transaccion);
 
 -- ============================
--- TRIGGERS MEJORADOS
+-- TRIGGERS .S
 -- ============================
 CREATE OR REPLACE FUNCTION update_firmas_timestamp()
 RETURNS TRIGGER AS $$
@@ -158,7 +158,7 @@ CREATE TRIGGER trigger_firmas_timestamp
     BEFORE UPDATE ON firmas_digitales 
     FOR EACH ROW EXECUTE FUNCTION update_firmas_timestamp();
 
--- Trigger para auditoría automática mejorado
+-- Trigger para auditoría automática .
 CREATE OR REPLACE FUNCTION log_auditoria_firma()
 RETURNS TRIGGER AS $$
 DECLARE

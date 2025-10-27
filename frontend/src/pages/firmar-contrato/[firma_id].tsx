@@ -296,32 +296,109 @@ const FirmaContratoPage = () => {
       alert('Error al descargar el documento');
     }
   };
-
-  const handleDescargarFirmado = async () => {
+const handleVerContratoFirmado = async (firmaId: string) => {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        const session = await getSession();
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+        const response = await fetch(`${API_URL}/firmas/ver-contrato-firmado/${firmaId}`, {
+            headers: {
+                'Authorization': `Bearer ${session?.accessToken}`
+            }
+        });
 
-      const response = await fetch(`${API_URL}/firmas/descargar/${firma_id}`, {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        } else {
+            alert('Error al cargar el contrato firmado');
         }
-      });      
-      
-      if (response.ok) {
+    } catch (error) {
+        console.error('Error viendo contrato firmado:', error);
+        alert('Error de conexión');
+    }
+};
+
+const handleDescargarFirmado = async (firmaId: string) => {
+    try {
+        console.log('Iniciando descarga para firma:', firmaId);
+        
+        const session = await getSession();
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+        // Primero, hacer diagnóstico
+        const diagnosticoResponse = await fetch(`${API_URL}/firmas/diagnostico-descarga/${firmaId}`, {
+            headers: {
+                'Authorization': `Bearer ${session?.accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const diagnostico = await diagnosticoResponse.json();
+        console.log('Diagnóstico de descarga:', diagnostico);
+
+        if (!diagnostico.existe_firma) {
+            alert('No se encontró el proceso de firma');
+            return;
+        }
+
+        if (!diagnostico.puede_descargar) {
+            alert(`No se puede descargar en estado: ${diagnostico.firma.estado}`);
+            return;
+        }
+
+        // Luego intentar la descarga
+        const response = await fetch(`${API_URL}/firmas/descargar/${firmaId}`, {
+            headers: {
+                'Authorization': `Bearer ${session?.accessToken}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error en descarga:', response.status, errorText);
+            
+            let errorMessage = `Error ${response.status} al descargar`;
+            try {
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.message || errorMessage;
+            } catch {
+                // Si no es JSON, usar el texto plano
+            }
+            
+            alert(errorMessage);
+            return;
+        }
+
+        // Procesar descarga exitosa
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `contrato-firmado-${firma_id}.docx`;
-        document.body.appendChild(a);
-        a.click();
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Obtener nombre del archivo del header o usar uno por defecto
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `contrato-firmado-${firmaId}.docx`;
+        
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+            if (filenameMatch) filename = filenameMatch[1];
+        }
+        
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }
+
+        console.log('Descarga completada exitosamente');
+
     } catch (error) {
-      console.error('Error descargando documento firmado:', error);
+        console.error('Error en handleDescargarFirmado:', error);
+        alert('Error de conexión al intentar descargar');
     }
-  };
+};
 
   if (sessionLoading || loading) {
     return (
@@ -532,14 +609,19 @@ const FirmaContratoPage = () => {
               </Typography>
               
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-                <Button
-                  variant="contained"
-                  startIcon={<Download />}
-                  onClick={handleDescargarFirmado}
-                >
-                  Descargar Contrato Firmado
-                </Button>
-                
+<Button
+  variant="contained"
+  startIcon={<Download />}
+  onClick={() => handleDescargarFirmado(firma_id as string)}
+>
+  Descargar Contrato Firmado
+</Button>
+<Button
+    variant="outlined"
+    onClick={() => handleVerContratoFirmado(firma_id as string)}
+>
+    Ver Contrato Firmado
+</Button>
                 <Button
                   variant="outlined"
                   onClick={() => {

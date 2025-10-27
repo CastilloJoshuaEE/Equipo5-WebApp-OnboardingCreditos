@@ -373,7 +373,6 @@ Fecha: ${new Date().toLocaleDateString()}
             setFirmas(historialFirmas.slice(0, pasoHistorial + 2));
         }
     };
-
 const handleGuardarDocumento = async () => {
     try {
         setCargando(true);
@@ -389,15 +388,40 @@ const handleGuardarDocumento = async () => {
             throw new Error('Debe agregar al menos una firma al documento');
         }
 
+        // Obtener ubicación aproximada
+        let ubicacion = 'Ubicación no disponible';
+        try {
+            const response = await fetch('https://ipapi.co/json/');
+            const locationData = await response.json();
+            ubicacion = `${locationData.city}, ${locationData.region}, ${locationData.country_name}`;
+        } catch (geoError) {
+            console.warn('No se pudo obtener la ubicación:', geoError);
+        }
+
+        // Determinar el tipo de firma basado en el rol del usuario
+        const tipoFirma = session.user?.rol === 'solicitante' ? 'solicitante' : 'operador';
+
+        // Crear objeto firma_data . con la estructura que espera el backend
+        const firma_data = {
+            firmaTexto: session.user?.name || session.user?.email || 'Usuario',
+            ubicacion: ubicacion,
+            tipoFirma: 'texto' // o 'dibujo' según corresponda
+        };
+
         const documentoFirmado = {
             firmas: firmas,
             posicion_firma: firmas[0]?.posicion,
-            tipo_firma: session.user?.rol === 'solicitante' ? 'solicitante' : 'operador',
+            tipo_firma: tipoFirma,
             fechaFirma: new Date().toISOString(),
-            firmaId: firmaId
+            firmaId: firmaId,
+            firma_data: firma_data // INCLUIR firma_data aquí
         };
 
-        console.log('📝 Enviando documento firmado al servidor...');
+        console.log('📝 Enviando documento firmado al servidor...', {
+            tipo_firma: tipoFirma,
+            tiene_firma_data: !!firma_data,
+            firmas_count: firmas.length
+        });
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         const response = await fetch(`${API_URL}/firmas/procesar-firma-word/${firmaId}`, {
@@ -452,7 +476,7 @@ const handleGuardarDocumento = async () => {
         setFirmaSeleccionada(null);
     };
 
-    // COMPONENTE DE FIRMA ARRASTRABLE MEJORADO
+    // COMPONENTE DE FIRMA ARRASTRABLE .
     const FirmaArrastrable = ({ firma }: { firma: Firma }) => {
         const isSelected = firmaSeleccionada === firma.id;
 
@@ -697,40 +721,76 @@ const handleGuardarDocumento = async () => {
                     </Alert>
                 )}
 
-                {/* Contenido real del contrato */}
-                <Box sx={{ 
-                    p: 4, 
-                    fontFamily: 'Times New Roman', 
-                    fontSize: '12pt', 
-                    lineHeight: 1.5,
-                    position: 'relative',
-                    minHeight: '100%',
-                    transform: `scale(${zoom})`,
-                    transformOrigin: 'top left',
-                    width: `${100 / zoom}%`,
-                    height: `${100 / zoom}%`
-                }}>
-                    {contenidoReal.split('\n').map((linea, index) => (
-                        <Typography 
-                            key={index} 
-                            variant="body1" 
-                            sx={{ 
-                                mb: linea.trim() ? 1 : 0.5,
-                                textAlign: linea.includes('_________________________') ? 'center' : 'left',
-                                fontWeight: linea.includes('CONTRATO') ? 'bold' : 'normal',
-                                fontSize: linea.includes('CONTRATO') ? '1.2rem' : 'inherit',
-                                whiteSpace: 'pre-wrap'
-                            }}
-                        >
-                            {linea}
-                        </Typography>
-                    ))}
+               // En el componente de renderizado, modifica esta parte:
+<Box sx={{ 
+    p: 4, 
+    fontFamily: 'Times New Roman, serif', 
+    fontSize: '12pt', 
+    lineHeight: 1.6, // Mejor interlineado
+    position: 'relative',
+    minHeight: '100%',
+    transform: `scale(${zoom})`,
+    transformOrigin: 'top left',
+    width: `${100 / zoom}%`,
+    height: `${100 / zoom}%`,
+    whiteSpace: 'pre-line' // ← CRÍTICO: preservar saltos de línea
+}}>
+    {contenidoReal.split('\n').map((linea, index) => {
+        // Determinar el estilo según el contenido
+        let estilo = {};
+        
+        if (linea.includes('CONTRATO DE AUTORIZACIÓN')) {
+            estilo = { 
+                fontWeight: 'bold', 
+                fontSize: '1.3rem', 
+                textAlign: 'center',
+                marginBottom: '1rem'
+            };
+        } else if (linea.match(/^[A-Z]+:/) && !linea.includes('_')) {
+            // Títulos de cláusulas (PRIMERA:, SEGUNDA:, etc.)
+            estilo = { 
+                fontWeight: 'bold', 
+                marginTop: '1rem',
+                marginBottom: '0.5rem'
+            };
+        } else if (linea.match(/^\d+\./)) {
+            // Elementos de lista numerados
+            estilo = { 
+                marginLeft: '2rem',
+                textIndent: '-1rem',
+                marginBottom: '0.25rem'
+            };
+        } else if (linea.trim() === '') {
+            // Líneas vacías
+            return <br key={index} />;
+        } else if (linea.includes('_________________________')) {
+            // Líneas de firma
+            estilo = { 
+                textAlign: 'center',
+                marginTop: '2rem'
+            };
+        }
 
-                    {/* Mostrar firmas arrastrables */}
-                    {firmas.map((firma) => (
-                        <FirmaArrastrable key={firma.id} firma={firma} />
-                    ))}
-                </Box>
+        return (
+            <Typography 
+                key={index} 
+                variant="body1" 
+                sx={{ 
+                    mb: linea.trim() ? 0.5 : 0.25,
+                    ...estilo,
+                    fontFamily: 'inherit'
+                }}
+            >
+                {linea}
+            </Typography>
+        );
+    })}
+
+    {/* Mostrar firmas arrastrables */}
+    {firmas.map((firma) => (
+        <FirmaArrastrable key={firma.id} firma={firma} />
+    ))}
+</Box>
             </Paper>
 
             {/* Instrucciones */}

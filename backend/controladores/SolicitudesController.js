@@ -304,7 +304,7 @@ if (solicitud.estado === 'aprobado') {
     try {
         const contrato= await ContratoController.generarContratoParaSolicitud(solicitud_id);
         
-        // Iniciar proceso de firma automático CORREGIDO
+        // Iniciar proceso de firma automático .
         setTimeout(async () => {
             try {
                 console.log('. Iniciando proceso de firma digital automático para solicitud:', solicitud_id);

@@ -2733,7 +2733,86 @@ router.post('/firmas/:firma_id/reparar-relacion',
     AuthMiddleware.proteger,
     FirmaDigitalController.repararRelacionFirmaContrato
 );
-// Agregar esta ruta temporal para diagnóstico
+/**
+ * @swagger
+ * /api/firmas/diagnostico-descarga/{firma_id}:
+ *   get:
+ *     summary: Diagnóstico de descarga de documento
+ *     tags: [Firmas Digitales]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/firmas/diagnostico-descarga/:firma_id', 
+    AuthMiddleware.proteger,
+    async (req, res) => {
+        try {
+            const { firma_id } = req.params;
+            
+            console.log('. 🔍 DIAGNÓSTICO de descarga para:', firma_id);
+            
+            // Obtener información completa de la firma
+            const { data: firma, error: firmaError } = await supabase
+                .from('firmas_digitales')
+                .select(`
+                    *,
+                    contratos(*),
+                    solicitudes_credito(*)
+                `)
+                .eq('id', firma_id)
+                .single();
+
+            if (firmaError || !firma) {
+                return res.json({
+                    existe_firma: false,
+                    error: firmaError?.message
+                });
+            }
+
+            // Verificar archivos en storage
+            const archivosRelevantes = [];
+            
+            if (firma.url_documento_firmado) {
+                const { error: firmadoError } = await supabase.storage
+                    .from('kyc-documents')
+                    .download(firma.url_documento_firmado);
+                archivosRelevantes.push({
+                    tipo: 'firmado',
+                    ruta: firma.url_documento_firmado,
+                    existe: !firmadoError
+                });
+            }
+
+            if (firma.contratos?.ruta_documento) {
+                const { error: originalError } = await supabase.storage
+                    .from('kyc-documents')
+                    .download(firma.contratos.ruta_documento);
+                archivosRelevantes.push({
+                    tipo: 'original',
+                    ruta: firma.contratos.ruta_documento,
+                    existe: !originalError
+                });
+            }
+
+            res.json({
+                existe_firma: true,
+                firma: {
+                    id: firma.id,
+                    estado: firma.estado,
+                    url_documento_firmado: firma.url_documento_firmado,
+                    contrato_id: firma.contrato_id,
+                    solicitud_id: firma.solicitud_id
+                },
+                contrato: firma.contratos,
+                archivos: archivosRelevantes,
+                puede_descargar: ['firmado_completo', 'firmado_solicitante', 'firmado_operador', 'pendiente'].includes(firma.estado)
+            });
+
+        } catch (error) {
+            console.error('. Error en diagnóstico:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
 router.get('/firmas/diagnostico/:firma_id', 
     AuthMiddleware.proteger,
     async (req, res) => {
@@ -2792,6 +2871,102 @@ router.get('/firmas/diagnostico/:firma_id',
         } catch (error) {
             console.error('. Error en diagnóstico:', error);
             res.status(500).json({ error: error.message });
+        }
+    }
+);
+/**
+ * @swagger
+ * /api/firmas/ver-contrato-firmado/{firma_id}:
+ *   get:
+ *     summary: Ver contrato firmado en el navegador
+ *     tags: [Firmas Digitales]
+ *     description: Muestra el contrato firmado directamente en el navegador
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: firma_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Contrato firmado mostrado exitosamente
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Contrato no encontrado
+ */
+router.get('/firmas/ver-contrato-firmado/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+    async (req, res) => {
+        try {
+            const { firma_id } = req.params;
+            
+            console.log('. Solicitando visualización de contrato firmado:', firma_id);
+
+            // Obtener información de la firma
+            const { data: firma, error } = await supabase
+                .from('firmas_digitales')
+                .select(`
+                    id,
+                    estado,
+                    url_documento_firmado,
+                    contratos(ruta_documento)
+                `)
+                .eq('id', firma_id)
+                .single();
+
+            if (error || !firma) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Proceso de firma no encontrado'
+                });
+            }
+
+            // Determinar qué documento mostrar (preferir el firmado, sino el original)
+            let rutaDocumento = firma.url_documento_firmado || firma.contratos?.ruta_documento;
+
+            if (!rutaDocumento) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Documento no encontrado'
+                });
+            }
+
+            console.log('. Mostrando documento desde:', rutaDocumento);
+
+            // Descargar archivo
+            const { data: fileData, error: downloadError } = await supabase.storage
+                .from('kyc-documents')
+                .download(rutaDocumento);
+
+            if (downloadError) {
+                throw new Error('Error accediendo al documento: ' + downloadError.message);
+            }
+
+            const arrayBuffer = await fileData.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+
+            // Configurar headers para visualización en navegador
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            res.setHeader('Content-Disposition', `inline; filename="contrato-firmado-${firma_id}.docx"`);
+            res.setHeader('Content-Length', buffer.length);
+            res.setHeader('Cache-Control', 'no-cache');
+
+            console.log('. Contrato firmado enviado para visualización');
+            res.send(buffer);
+
+        } catch (error) {
+            console.error('. Error mostrando contrato firmado:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al mostrar el contrato: ' + error.message
+            });
         }
     }
 );

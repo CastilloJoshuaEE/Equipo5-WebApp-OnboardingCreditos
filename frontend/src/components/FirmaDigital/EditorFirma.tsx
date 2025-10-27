@@ -165,30 +165,39 @@ const EditorFirma: React.FC<EditorFirmaProps> = ({ open, onClose, onFirmaGuardad
     }, []);
 
     const handleGuardarFirma = () => {
-        let firmaData: any = {
-            tipoFirma: tabValue === 0 ? 'texto' : tabValue === 1 ? 'dibujo' : 'imagen',
-            fechaCreacion: new Date().toISOString()
-        };
-
-        if (tabValue === 0) {
-            firmaData.firmaTexto = nombreCompleto;
-            firmaData.iniciales = iniciales;
-            firmaData.estilo = estiloFirma;
-        } else if (tabValue === 1) {
-            firmaData.firmaImagen = firmaDibujada;
-            firmaData.grosorPincel = grosorPincel;
-            firmaData.colorFirma = colorFirma;
-        }
-
-        onFirmaGuardada(firmaData);
-        onClose();
-        
-        // Resetear formulario
-        setNombreCompleto('');
-        setIniciales('');
-        setFirmaDibujada('');
-        limpiarCanvas();
+    let firmaData: any = {
+        tipoFirma: tabValue === 0 ? 'texto' : tabValue === 1 ? 'dibujo' : 'imagen',
+        fechaCreacion: new Date().toISOString()
     };
+
+    if (tabValue === 0) {
+        firmaData.firmaTexto = nombreCompleto;
+        firmaData.iniciales = iniciales;
+        firmaData.estilo = estiloFirma;
+    } else if (tabValue === 1) {
+        firmaData.firmaImagen = firmaDibujada;
+        firmaData.grosorPincel = grosorPincel;
+        firmaData.colorFirma = colorFirma;
+    }
+
+    // Asegurar estructura completa antes de enviarla
+    const firmaCompleta = {
+        ...firmaData,
+        tipoFirma: firmaData.tipoFirma || 'texto',
+        firmaTexto: firmaData.firmaTexto || '',
+        ubicacion: firmaData.ubicacion || 'Ubicación no disponible'
+    };
+
+    onFirmaGuardada(firmaCompleta);
+    onClose();
+    
+    // Resetear formulario
+    setNombreCompleto('');
+    setIniciales('');
+    setFirmaDibujada('');
+    limpiarCanvas();
+};
+
 
     // Inicializar canvas
     React.useEffect(() => {

@@ -1161,7 +1161,7 @@ static async actualizarEmailRecuperacion(req, res) {
         console.warn('. No se pudo actualizar tabla operadores:', operadorError.message);
       }
 
-      console.log('. Inconsistencia de IDs corregida exitosamente');
+      console.log('. Inconsistencia de IDs . exitosamente');
       return true;
     } catch (error) {
       console.error('. Error en corregirInconsistenciaIDs:', error);

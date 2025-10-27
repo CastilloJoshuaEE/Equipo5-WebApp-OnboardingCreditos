@@ -59,7 +59,7 @@ const getContactoInfo = (solicitud: SolicitudOperador) => {
             nombre_empresa: solicitud.solicitantes.nombre_empresa || 'No disponible',
             cuit: solicitud.solicitantes.cuit || 'No disponible',
             representante_legal: solicitud.solicitantes.representante_legal || 'No disponible',
-            domicilio: solicitud.solicitantes.domicilio || 'No disponible' // CORREGIDO: ahora la propiedad existe
+            domicilio: solicitud.solicitantes.domicilio || 'No disponible' // .: ahora la propiedad existe
         };
     };
 
@@ -127,7 +127,7 @@ const contacto = getContactoInfo(solicitud);
                                 <strong>Plazo:</strong> {solicitud.plazo_meses || '0'} meses
                             </Typography>
                             <Typography variant="body2">
-                                <strong>Propósito:</strong> {solicitud.proposito || 'No especificado'} {/* CORREGIDO: ahora la propiedad existe */}
+                                <strong>Propósito:</strong> {solicitud.proposito || 'No especificado'} {/* .: ahora la propiedad existe */}
                             </Typography>
                         </CardContent>
                     </Card>
@@ -146,7 +146,7 @@ const contacto = getContactoInfo(solicitud);
                                 <strong>Riesgo:</strong> {solicitud.nivel_riesgo || 'No disponible'}
                             </Typography>
                             <Typography variant="body2">
-                                <strong>Moneda:</strong> {solicitud.moneda || 'ARS'} {/* CORREGIDO: ahora la propiedad existe */}
+                                <strong>Moneda:</strong> {solicitud.moneda || 'ARS'} {/* .: ahora la propiedad existe */}
                             </Typography>
                         </CardContent>
                     </Card>

@@ -1,4 +1,4 @@
-// components/BotonIniciarFirma.tsx - VERSIÓN CORREGIDA
+// components/BotonIniciarFirma.tsx - . .
 import { useState } from 'react';
 import { 
   Button, 
