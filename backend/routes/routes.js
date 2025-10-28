@@ -1,4 +1,5 @@
 const express = require("express");
+const { supabase } = require('../config/conexion');
 const AuthMiddleware = require("../middleware/auth");
 const authController = require("../controladores/authController");
 const usuariosController = require("../controladores/UsuarioController");
@@ -14,6 +15,8 @@ const ComentariosController = require('../controladores/ComentariosController');
 const PlantillasDocumentoController = require('../controladores/PlantillasDocumentosController');
 const ChatbotController = require('../controladores/ChatbotController');
 const FirmaDigitalController = require('../controladores/FirmaDigitalController');
+const ContratoController = require("../controladores/ContratoController");
+
 // Middleware existentes
 const router = express.Router();
 const multer = require('multer');
@@ -42,7 +45,7 @@ const allowedTypes = [
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Tipo de archivo no permitido. Solo DOCX, PDF, JPG, JPEG, PNG.'), false);
+      cb(new Error('Tipo de archivo no permitido. Solo DOCX, PDF'), false);
     }
   }
 });
@@ -644,7 +647,7 @@ router.post("/usuarios/login", authController.login);
  * @swagger
  * /api/usuarios/logout:
  *   post:
- *     summary: Cerrar sesión
+ *     summary: Salir
  *     tags: [Autenticación]
  *     description: Cierra la sesión del usuario (invalida el token)
  *     responses:
@@ -1704,7 +1707,7 @@ router.get('/solicitudes/:solicitud_id', AuthMiddleware.proteger, SolicitudesCon
  *               archivo:
  *                 type: string
  *                 format: binary
- *                 description: Archivo a subir (PDF, JPG, JPEG, PNG, máximo 5MB)
+ *                 description: Archivo a subir (PDF máximo 5MB)
  *               tipo:
  *                 type: string
  *                 enum: [dni, cuit, comprobante_domicilio, balance_contable, estado_financiero, declaracion_impuestos]
@@ -2643,40 +2646,330 @@ router.get('/comentarios/contador-no-leidos', AuthMiddleware.proteger, Comentari
  *               $ref: '#/components/schemas/Error'
  */
 router.delete('/comentarios/:id', AuthMiddleware.proteger, ComentariosController.eliminarComentario);
-router.post('/solicitudes/:solicitud_id/iniciar-firma', 
-AuthMiddleware.proteger,
-    AuthMiddleware.autorizar(['operador']), 
+router.post('/firmas/iniciar-proceso/:solicitud_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
     FirmaDigitalController.iniciarProcesoFirma
 );
-router.get('/firmas/:firma_id/estado', 
-AuthMiddleware.proteger,
-    FirmaDigitalController.verificarEstadoFirma
-);
-router.get('/firmas/:firma_id/auditoria', 
-    AuthMiddleware.proteger, 
-    FirmaDigitalController.obtenerAuditoriaFirma
-);
-router.get('/firmas/:firma_id/validar-integridad', 
-AuthMiddleware.proteger,
-    FirmaDigitalController.validarIntegridadDocumento
-);
-router.post('/firmas/:firma_id/reenviar', 
-   AuthMiddleware.proteger,
-    AuthMiddleware.autorizar(['operador']), 
-    FirmaDigitalController.reenviarSolicitudFirma
+
+// Obtener información para firma Word
+router.get('/firmas/info-firma-word/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+    FirmaDigitalController.obtenerInfoFirma
 );
 
+// Procesar firma Word
+router.post('/firmas/procesar-firma-word/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+    FirmaDigitalController.procesarFirma
+);
+router.get('/firmas/verificar-contrato/:firma_id', AuthMiddleware.proteger, ContratoController.verificarEstadoContrato);
+// Obtener documento para firma
+router.get('/firmas/documento-para-firma/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+
+    FirmaDigitalController.obtenerDocumentoParaFirma
+);
+
+// Descargar documento firmado
+router.get('/firmas/descargar/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+
+    FirmaDigitalController.descargarDocumentoFirmado
+);
+
+// Verificar estado de firma
+router.get('/firmas/estado/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+
+    FirmaDigitalController.verificarEstadoFirma
+);
+router.get('/firmas/contenido-contrato/:firma_id', 
+    AuthMiddleware.proteger,
+    ContratoController.obtenerContenidoContrato
+);
+// Obtener firmas pendientes
 router.get('/firmas/pendientes', 
     AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+
     FirmaDigitalController.obtenerFirmasPendientes
 );
 
-router.post('/webhooks/pdffiller', 
-    FirmaDigitalController.procesarWebhook
+// Reenviar solicitud de firma
+router.post('/firmas/:firma_id/reenviar', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+    FirmaDigitalController.reenviarSolicitudFirma
 );
 
+// Obtener auditoría de firma
+router.get('/firmas/:firma_id/auditoria', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
 
+    FirmaDigitalController.obtenerAuditoriaFirma
+);
+router.get('/firmas/verificar-existente/:solicitud_id', 
+    AuthMiddleware.proteger,
+    FirmaDigitalController.verificarFirmaExistente
+);
 
+router.post('/firmas/reiniciar-proceso/:solicitud_id', 
+    AuthMiddleware.proteger,
+    FirmaDigitalController.reiniciarProcesoFirma
+);
+
+router.post('/firmas/renovar-expirada/:solicitud_id', 
+    AuthMiddleware.proteger,
+    FirmaDigitalController.renovarFirmaExpirada
+);
+router.post('/firmas/:firma_id/reparar-relacion', 
+    AuthMiddleware.proteger,
+    FirmaDigitalController.repararRelacionFirmaContrato
+);
+/**
+ * @swagger
+ * /api/firmas/diagnostico-descarga/{firma_id}:
+ *   get:
+ *     summary: Diagnóstico de descarga de documento
+ *     tags: [Firmas Digitales]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/firmas/diagnostico-descarga/:firma_id', 
+    AuthMiddleware.proteger,
+    async (req, res) => {
+        try {
+            const { firma_id } = req.params;
+            
+            console.log('. 🔍 DIAGNÓSTICO de descarga para:', firma_id);
+            
+            // Obtener información completa de la firma
+            const { data: firma, error: firmaError } = await supabase
+                .from('firmas_digitales')
+                .select(`
+                    *,
+                    contratos(*),
+                    solicitudes_credito(*)
+                `)
+                .eq('id', firma_id)
+                .single();
+
+            if (firmaError || !firma) {
+                return res.json({
+                    existe_firma: false,
+                    error: firmaError?.message
+                });
+            }
+
+            // Verificar archivos en storage
+            const archivosRelevantes = [];
+            
+            if (firma.url_documento_firmado) {
+                const { error: firmadoError } = await supabase.storage
+                    .from('kyc-documents')
+                    .download(firma.url_documento_firmado);
+                archivosRelevantes.push({
+                    tipo: 'firmado',
+                    ruta: firma.url_documento_firmado,
+                    existe: !firmadoError
+                });
+            }
+
+            if (firma.contratos?.ruta_documento) {
+                const { error: originalError } = await supabase.storage
+                    .from('kyc-documents')
+                    .download(firma.contratos.ruta_documento);
+                archivosRelevantes.push({
+                    tipo: 'original',
+                    ruta: firma.contratos.ruta_documento,
+                    existe: !originalError
+                });
+            }
+
+            res.json({
+                existe_firma: true,
+                firma: {
+                    id: firma.id,
+                    estado: firma.estado,
+                    url_documento_firmado: firma.url_documento_firmado,
+                    contrato_id: firma.contrato_id,
+                    solicitud_id: firma.solicitud_id
+                },
+                contrato: firma.contratos,
+                archivos: archivosRelevantes,
+                puede_descargar: ['firmado_completo', 'firmado_solicitante', 'firmado_operador', 'pendiente'].includes(firma.estado)
+            });
+
+        } catch (error) {
+            console.error('. Error en diagnóstico:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+router.get('/firmas/diagnostico/:firma_id', 
+    AuthMiddleware.proteger,
+    async (req, res) => {
+        try {
+            const { firma_id } = req.params;
+            
+            console.log('. . DIAGNÓSTICO para firma_id:', firma_id);
+            
+            // 1. Verificar si existe en firmas_digitales
+            const { data: firma, error: firmaError } = await supabase
+                .from('firmas_digitales')
+                .select('*')
+                .eq('id', firma_id)
+                .single();
+
+            console.log('. Resultado firma_digitales:', { firma, error: firmaError });
+
+            if (firmaError || !firma) {
+                return res.json({
+                    existe_firma: false,
+                    error: firmaError?.message || 'No encontrado'
+                });
+            }
+
+            // 2. Verificar contrato asociado
+            const { data: contrato, error: contratoError } = await supabase
+                .from('contratos')
+                .select('*')
+                .eq('id', firma.contrato_id)
+                .single();
+
+            console.log('. Resultado contratos:', { contrato, error: contratoError });
+
+            // 3. Verificar solicitud
+            const { data: solicitud, error: solicitudError } = await supabase
+                .from('solicitudes_credito')
+                .select('*')
+                .eq('id', firma.solicitud_id)
+                .single();
+
+            console.log('. Resultado solicitudes_credito:', { solicitud, error: solicitudError });
+
+            res.json({
+                existe_firma: true,
+                firma: {
+                    id: firma.id,
+                    estado: firma.estado,
+                    contrato_id: firma.contrato_id,
+                    solicitud_id: firma.solicitud_id
+                },
+                contrato: contrato || { error: contratoError?.message },
+                solicitud: solicitud || { error: solicitudError?.message },
+                tiene_documento: !!contrato?.ruta_documento
+            });
+
+        } catch (error) {
+            console.error('. Error en diagnóstico:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+/**
+ * @swagger
+ * /api/firmas/ver-contrato-firmado/{firma_id}:
+ *   get:
+ *     summary: Ver contrato firmado en el navegador
+ *     tags: [Firmas Digitales]
+ *     description: Muestra el contrato firmado directamente en el navegador
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: firma_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Contrato firmado mostrado exitosamente
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Contrato no encontrado
+ */
+router.get('/firmas/ver-contrato-firmado/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+    async (req, res) => {
+        try {
+            const { firma_id } = req.params;
+            
+            console.log('. Solicitando visualización de contrato firmado:', firma_id);
+
+            // Obtener información de la firma
+            const { data: firma, error } = await supabase
+                .from('firmas_digitales')
+                .select(`
+                    id,
+                    estado,
+                    url_documento_firmado,
+                    contratos(ruta_documento)
+                `)
+                .eq('id', firma_id)
+                .single();
+
+            if (error || !firma) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Proceso de firma no encontrado'
+                });
+            }
+
+            // Determinar qué documento mostrar (preferir el firmado, sino el original)
+            let rutaDocumento = firma.url_documento_firmado || firma.contratos?.ruta_documento;
+
+            if (!rutaDocumento) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Documento no encontrado'
+                });
+            }
+
+            console.log('. Mostrando documento desde:', rutaDocumento);
+
+            // Descargar archivo
+            const { data: fileData, error: downloadError } = await supabase.storage
+                .from('kyc-documents')
+                .download(rutaDocumento);
+
+            if (downloadError) {
+                throw new Error('Error accediendo al documento: ' + downloadError.message);
+            }
+
+            const arrayBuffer = await fileData.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+
+            // Configurar headers para visualización en navegador
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            res.setHeader('Content-Disposition', `inline; filename="contrato-firmado-${firma_id}.docx"`);
+            res.setHeader('Content-Length', buffer.length);
+            res.setHeader('Cache-Control', 'no-cache');
+
+            console.log('. Contrato firmado enviado para visualización');
+            res.send(buffer);
+
+        } catch (error) {
+            console.error('. Error mostrando contrato firmado:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al mostrar el contrato: ' + error.message
+            });
+        }
+    }
+);
 router.get('/plantillas', PlantillasDocumentoController.listarPlantillas);
 router.get('/:id/descargar', PlantillasDocumentoController.descargarPlantilla);
 router.post('/plantillas', upload.single('archivo'), PlantillasDocumentoController.subirPlantilla);

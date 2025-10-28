@@ -1,4 +1,4 @@
-// frontend/src/app/(dashboard)/solicitante/page.tsx
+// frontend/src/app/solicitante/page.tsx
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
@@ -15,16 +15,32 @@ import {
   Alert,
   Tab,
   Tabs,
+  Grid,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField
 } from '@mui/material';
+import { 
+  Dashboard as DashboardIcon,
+  CreditCard as CreditCardIcon,
+  Person as PersonIcon,
+  Notifications as NotificationsIcon,
+  Schedule as ScheduleIcon,
+  CheckCircle as CheckCircleIcon,
+  Description as DescriptionIcon,
+  Visibility as VisibilityIcon,
+  FileDownload as FileDownloadIcon,
+  HelpOutline as HelpOutlineIcon
+} from '@mui/icons-material';
 import { UserRole } from '@/types/auth.types';
 import SolicitudCreditoForm from '@/components/solicitudes/SolicitudCreditoForm';
 import ListaSolicitudes from '@/components/solicitudes/ListaSolicitudes';
 import PlantillasDocumento from '@/components/solicitante/PlantillasDocumento';
+import { useSessionExpired } from '@/providers/SessionExpiredProvider';
+
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -47,22 +63,76 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+interface SummaryCardProps {
+  title: string;
+  amount: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  color?: string;
+}
+
+function SummaryCard({ title, amount, subtitle, icon, color }: SummaryCardProps) {
+  return (
+    <Card className="summary-card">
+      <CardContent>
+        <Box className="card-header">
+          <Typography variant="h6" className="card-title">{title}</Typography>
+          <Box className="card-icon">{icon}</Box>
+        </Box>
+        <Typography variant="h4" className="card-amount" sx={{ color }}>
+          {amount}
+        </Typography>
+        <Typography variant="body2" className="card-subtitle">{subtitle}</Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function DashboardSolicitante() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const router = useRouter();
   const [tabValue, setTabValue] = useState(0);
   const [solicitudActiva, setSolicitudActiva] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { showSessionExpired } = useSessionExpired();
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
+      return;
     }
     
-    if (session?.user?.rol !== UserRole.SOLICITANTE) {
+    if (session?.user?.rol && session.user.rol !== UserRole.SOLICITANTE) {
       router.push('/operador');
     }
   }, [status, session, router]);
+
+  // Verificar token expirado periódicamente
+  useEffect(() => {
+    const checkTokenExpiry = () => {
+      if (session?.accessToken) {
+        try {
+          const payload = JSON.parse(atob(session.accessToken.split('.')[1]));
+          const exp = payload.exp * 1000;
+          const now = Date.now();
+          
+          if (now >= exp) {
+            console.log('Token expirado detectado');
+            showSessionExpired();
+          }
+        } catch (error) {
+          console.error('Error verificando token:', error);
+        }
+      }
+    };
+
+    // Verificar cada 30 segundos
+    const interval = setInterval(checkTokenExpiry, 30000);
+    checkTokenExpiry(); // Verificar inmediatamente
+
+    return () => clearInterval(interval);
+  }, [session, showSessionExpired]);
 
   // Cargar la solicitud activa
   useEffect(() => {
@@ -80,13 +150,14 @@ export default function DashboardSolicitante() {
 
         if (response.ok) {
           const result = await response.json();
-          // Tomar la primera solicitud en estado borrador o enviado
           const solicitud = result.data?.find((s: any) => 
             s.estado === 'borrador' || s.estado === 'enviado'
           );
           if (solicitud) {
             setSolicitudActiva(solicitud.id);
           }
+        } else if (response.status === 401) {
+          showSessionExpired();
         }
       } catch (error) {
         console.error('Error cargando solicitud activa:', error);
@@ -96,21 +167,37 @@ export default function DashboardSolicitante() {
     if (session) {
       cargarSolicitudActiva();
     }
-  }, [session]);
+  }, [session, showSessionExpired]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  
-      const handleLogout = async () => {
-         
-  
-              await signOut({ 
-                  callbackUrl: '/login',
-                  redirect: true 
-              });
-      };
+  const handleLogout = async () => {
+    await signOut({ 
+      callbackUrl: '/login',
+      redirect: true 
+    });
+  };
+
+  const handleVerDetalles = (solicitudId: string) => {
+    router.push(`/solicitante/solicitudes/${solicitudId}`);
+  };
+
+  const handleNuevaSolicitud = () => {
+    setTabValue(0);
+  };
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  // Función para manejar el éxito del formulario
+  const handleSuccessSolicitud = () => {
+    setMessage('Solicitud creada exitosamente');
+    setTabValue(1);
+  };
+
   if (status === 'loading') {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
@@ -120,89 +207,108 @@ export default function DashboardSolicitante() {
   }
 
   return (
-    <Box sx={{ p: 3, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
-      {/* Header */}
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom color="primary">
-            Dashboard Solicitante PYME
-          </Typography>
-          <Typography variant="h6" color="text.secondary">
-            Bienvenido, {session?.user?.name || 'Usuario'}
-          </Typography>
-          <Chip 
-            label="Solicitante" 
-            color="primary" 
-            variant="outlined" 
-            sx={{ mt: 1 }}
-          />
-        </Box>
-
-        {/* Botones de acción en el header */}
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button 
-            variant="outlined" 
-            color="error"
-            onClick={handleLogout}
-          >
-            Cerrar Sesión
-          </Button>
-        </Box>
-      </Box>
-
-      {/* Alertas */}
-      {message && (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          {message}
-        </Alert>
-      )}
-      
-      <Alert severity="info" sx={{ mb: 3 }}>
-        Complete su solicitud de crédito y suba toda la documentación requerida para agilizar el proceso.
-      </Alert>
-
-      {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={handleTabChange}>
-          <Tab label="Nueva solicitud" />
-          <Tab label="Mis solicitudes" />
-          <Tab label="Plantilla de documentos" />
-        </Tabs>
-      </Box>
-
-      {/* Contenido de Tabs */}
-      <TabPanel value={tabValue} index={0}>
-        <Card>
-          <CardContent>
-            <Typography variant="h5" gutterBottom>
-              Nueva solicitud de crédito
+    <Box className="dashboard-container">
+      {/* Main Content */}
+      <main className="main-content">
+        <section className="page-content">
+          {/* Header con Bienvenida */}
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h1" className="page-title">
+              Dashboard Solicitante PYME
             </Typography>
-            <SolicitudCreditoForm />
-          </CardContent>
-        </Card>
-      </TabPanel>
+            <Typography variant="subtitle1" className="page-subtitle">
+              Bienvenido {session?.user?.name || 'Usuario'}, gestión de solicitudes de crédito
+            </Typography>
+            <Chip 
+              label="Solicitante" 
+              color="primary" 
+              variant="outlined" 
+              sx={{ mt: 1 }}
+            />
+          </Box>
 
-      <TabPanel value={tabValue} index={1}>
-        <ListaSolicitudes />
-      </TabPanel>
+          {/* Alertas */}
+          {message && (
+            <Alert severity="success" sx={{ mb: 3 }}>
+              {message}
+            </Alert>
+          )}
+          
+          <Alert severity="info" sx={{ mb: 3 }}>
+            Complete su solicitud de crédito y suba toda la documentación requerida para agilizar el proceso.
+          </Alert>
 
-<TabPanel value={tabValue} index={2}>
-  <Card>
-    <CardContent>
-      <Typography variant="h5" gutterBottom>
-        Plantilla de Documentos
-      </Typography>
-      <Typography variant="body1" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
-        Aquí podrás ver y descargar los archivos Word de ejemplo disponibles.
-        Recuerde subir los archivos en formato PDF
-      </Typography>
+          {/* Tarjetas de Métricas */}
+          <Grid container spacing={3} className="metrics-grid" sx={{ mb: 4 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <SummaryCard
+                title="Total solicitado"
+                amount="$ 5.000.000"
+                subtitle="Solicitudes activas 1"
+                icon={<DescriptionIcon />}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <SummaryCard
+                title="Crédito aprobado"
+                amount="$ 0"
+                subtitle="Total disponible"
+                icon={<CheckCircleIcon />}
+                color="#28a745"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <SummaryCard
+                title="En revisión"
+                amount="1"
+                subtitle="Respuesta en 24h"
+                icon={<ScheduleIcon />}
+                color="#ffc107"
+              />
+            </Grid>
+          </Grid>
 
-      <PlantillasDocumento />
-    </CardContent>
-  </Card>
-</TabPanel>
+          {/* Tabs Principal */}
+          <Card className="content-box">
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+              <Tabs value={tabValue} onChange={handleTabChange}>
+                <Tab label="Nueva solicitud" />
+                <Tab label="Mis solicitudes" />
+                <Tab label="Plantilla de documentos" />
+              </Tabs>
+            </Box>
 
+            {/* Contenido de Tabs */}
+            <TabPanel value={tabValue} index={0}>
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="h5" gutterBottom>
+                  Nueva solicitud de crédito
+                </Typography>
+                <SolicitudCreditoForm />
+              </Box>
+            </TabPanel>
 
+            <TabPanel value={tabValue} index={1}>
+              <Box sx={{ mt: 2 }}>
+                <ListaSolicitudes />
+              </Box>
+            </TabPanel>
+
+            <TabPanel value={tabValue} index={2}>
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="h5" gutterBottom>
+                  Plantilla de Documentos
+                </Typography>
+                <Typography variant="body1" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+                  Aquí podrás ver y descargar los archivos Word de ejemplo disponibles.
+                  Recuerde subir los archivos en formato PDF
+                </Typography>
+                <PlantillasDocumento />
+              </Box>
+            </TabPanel>
+          </Card>
+        </section>
+      </main>
     </Box>
   );
 }

@@ -56,8 +56,7 @@ export default function Footer() {
       <section className={styles.socialMediaSection}>
         <div className={styles.socialMediaCenter}>
           <div className={styles.contact}>
-            <p className={styles.text}>Enlaces Rápidos</p>
-            <p className={styles.text}>Contactanos</p>
+          
           </div>
           <div className={styles.socialMedia}>
             <a

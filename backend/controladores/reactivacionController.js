@@ -187,7 +187,7 @@ console.log('. Intentos fallidos después de limpieza:', intentosDespuesLimpieza
   }
 
   /**
-   * Procesa la recuperación de cuenta via token (versión JSON para frontend)
+   * Procesa la recuperación de cuenta via token (. JSON para frontend)
    * @param {import('express').Request} req 
    * @param {import('express').Response} res 
    */
@@ -283,7 +283,7 @@ console.log('. Intentos fallidos después de limpieza:', intentosDespuesLimpieza
             console.error('. Error corrigiendo ID:', updateError);
             // Continuar con el proceso usando el ID del token
           } else {
-            console.log('. ID corregido exitosamente');
+            console.log('. ID . exitosamente');
           }
         }
 

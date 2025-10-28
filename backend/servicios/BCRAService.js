@@ -137,7 +137,7 @@ class BCRAService {
         }
     }
 
-    // Procesar respuesta de BCRA - MEJORADO
+    // Procesar respuesta de BCRA - .
     procesarRespuestaBCRA(data) {
         try {
             console.log('. Procesando respuesta BCRA...');
@@ -220,7 +220,7 @@ class BCRAService {
         return Math.round(suma / situacionesValidas.length);
     }
 
-    // Obtener descripción de situación - MEJORADO según documentación BCRA
+    // Obtener descripción de situación - . según documentación BCRA
     obtenerDescripcionSituacion(situacion) {
         const situaciones = {
             1: 'Normal - Situación crediticia normal',

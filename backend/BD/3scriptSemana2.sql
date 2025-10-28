@@ -187,15 +187,6 @@ CREATE POLICY "solicitudes_acceso" ON solicitudes_credito
         EXISTS (SELECT 1 FROM operadores WHERE id::text = auth.uid()::text)
     );
 
-CREATE POLICY "contratos_acceso" ON contratos
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM solicitudes_credito sc
-            WHERE sc.id = contratos.solicitud_id
-            AND (sc.solicitante_id::text = auth.uid()::text OR
-                 EXISTS (SELECT 1 FROM operadores WHERE id::text = auth.uid()::text))
-        )
-    );
 
 -- TRIGGER: Cambiar estado cuando operador comienza revisión
 CREATE OR REPLACE FUNCTION trigger_iniciar_revision()

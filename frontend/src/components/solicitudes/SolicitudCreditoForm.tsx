@@ -1,8 +1,6 @@
 // frontend/src/components/solicitudes/SolicitudCreditoForm.tsx
-'use client';
-
 import React, { useState, useCallback, useEffect } from 'react';
-import { getSession,useSession  } from 'next-auth/react';
+import { getSession, useSession } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -20,11 +18,24 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Chip,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction
 } from '@mui/material';
+import { Delete, CloudUpload, Description } from '@mui/icons-material';
 import { solicitudCreditoSchema, type SolicitudCreditoInput } from '@/schemas/solicitud.schema';
-
 const steps = ['Datos del Crédito', 'Documentación', 'Revisión'];
+interface DocumentoConTipo {
+  file: File;
+  tipo: string;
+  id: string; // ID único para identificar el documento
+}
+
+
 type FormData = {
   monto: number;
   plazo_meses: number;
@@ -36,7 +47,7 @@ export default function SolicitudCreditoForm() {
   const [activeStep, setActiveStep] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [documentos, setDocumentos] = useState<File[]>([]);
+  const [documentos, setDocumentos] = useState<DocumentoConTipo[]>([]);
   const [solicitudId, setSolicitudId] = useState<string | null>(null);
   const { data: session } = useSession();
 
@@ -69,12 +80,13 @@ export default function SolicitudCreditoForm() {
       plazo_meses: watch('plazo_meses'),
       moneda: watch('moneda'),
       proposito: watch('proposito'),
-      documentos: documentos.map(doc => ({
-        name: doc.name,
-        size: doc.size,
-        type: doc.type,
-        lastModified: doc.lastModified
-      })),
+documentos: documentos.map(doc => ({
+  name: doc.file.name,
+  size: doc.file.size,
+  type: doc.file.type,
+  lastModified: doc.file.lastModified
+})),
+
       ultimaActualizacion: new Date().toISOString()
     };
     
@@ -125,14 +137,55 @@ export default function SolicitudCreditoForm() {
       }
     }
   }, [setValue, session]);
-
+  // Función para eliminar documento
+  const eliminarDocumento = (documentoId: string) => {
+    setDocumentos(prev => prev.filter(doc => doc.id !== documentoId));
+    console.log('Documento eliminado:', documentoId);
+  };
+   // Función para manejar la selección de archivos con tipo específico
   const handleDocumentoChange = (event: React.ChangeEvent<HTMLInputElement>, tipo: string) => {
     const files = event.target.files;
     if (files && files[0]) {
-      setDocumentos(prev => [...prev, files[0]]);
+      const nuevoDocumento: DocumentoConTipo = {
+        file: files[0],
+        tipo: tipo,
+        id: `${tipo}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // ID único
+      };
+      
+      // Verificar si ya existe un documento del mismo tipo
+      const existeMismoTipo = documentos.some(doc => doc.tipo === tipo);
+      
+      if (existeMismoTipo) {
+        if (confirm(`Ya existe un documento de tipo ${obtenerNombreTipo(tipo)}. ¿Desea reemplazarlo?`)) {
+          // Reemplazar el documento existente del mismo tipo
+          setDocumentos(prev => prev.filter(doc => doc.tipo !== tipo).concat([nuevoDocumento]));
+        }
+      } else {
+        // Agregar nuevo documento
+        setDocumentos(prev => [...prev, nuevoDocumento]);
+      }
+      
+      // Limpiar el input file
+      event.target.value = '';
     }
   };
-
+    const obtenerNombreTipo = (tipo: string): string => {
+    const tipos: { [key: string]: string } = {
+      'dni': 'DNI',
+      'cuit': 'CUIT',
+      'comprobante_domicilio': 'Comprobante de Domicilio',
+      'balance_contable': 'Balance Contable',
+      'declaracion_impuestos': 'Declaración de Impuestos'
+    };
+    return tipos[tipo] || tipo;
+  };
+   const formatearTamaño = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
   const limpiarFormulario = () => {
     if (session?.user?.id) {
       localStorage.removeItem(`solicitud_borrador_${session.user.id}`);
@@ -160,7 +213,53 @@ export default function SolicitudCreditoForm() {
   const handleBack = () => {
     setActiveStep((prev) => prev - 1);
   };
-
+ // ALTERNATIVA: Usar primary y secondary por separado
+// CORREGIR: Función renderListaDocumentos
+const renderListaDocumentos = () => (
+  <Box sx={{ mt: 2 }}>
+    <Typography variant="subtitle1" gutterBottom>
+      Documentos Subidos ({documentos.length})
+    </Typography>
+    {documentos.length === 0 ? (
+      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+        No hay documentos subidos
+      </Typography>
+    ) : (
+      <List dense sx={{ maxHeight: 300, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+        {documentos.map((documento) => (
+          <ListItem key={documento.id} divider>
+            <Description sx={{ mr: 1, color: 'primary.main' }} />
+            <ListItemText
+              primary={documento.file.name}
+              secondary={
+                // CORRECCIÓN: Usar Fragment en lugar de Box
+                <React.Fragment>
+                  <Typography variant="caption" display="block">
+                    Tipo: {obtenerNombreTipo(documento.tipo)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Tamaño: {formatearTamaño(documento.file.size)}
+                  </Typography>
+                </React.Fragment>
+              }
+            />
+            <ListItemSecondaryAction>
+              <IconButton
+                edge="end"
+                aria-label="eliminar"
+                onClick={() => eliminarDocumento(documento.id)}
+                color="error"
+                size="small"
+              >
+                <Delete />
+              </IconButton>
+            </ListItemSecondaryAction>
+          </ListItem>
+        ))}
+      </List>
+    )}
+  </Box>
+);
   const onSubmit = async (data: SolicitudCreditoInput) => {
     try {
       setError('');
@@ -194,9 +293,9 @@ export default function SolicitudCreditoForm() {
       for (const documento of documentos) {
         const formData = new FormData();
         if (!nuevaSolicitudId) throw new Error('ID de solicitud inválido');
-        formData.append('archivo', documento);
+formData.append('archivo', documento.file);
         formData.append('solicitud_id', nuevaSolicitudId);
-        formData.append('tipo', obtenerTipoDocumento(documento.name));
+formData.append('tipo', obtenerTipoDocumento(documento.file.name));
 
         const documentoResponse = await fetch(`${API_URL}/solicitudes/${nuevaSolicitudId}/documentos`, {
           method: 'POST',
@@ -207,7 +306,7 @@ export default function SolicitudCreditoForm() {
         });
 
         if (!documentoResponse.ok) {
-          console.error('Error subiendo documento:', documento.name);
+          console.error('Error subiendo documento:', documento.file.name);
         }
       }
 
@@ -238,7 +337,172 @@ export default function SolicitudCreditoForm() {
     if (nombreArchivo.includes('impuestos')) return 'declaracion_impuestos';
     return 'otros';
   };
+  // Renderizar los controles de subida de documentos
+  const renderControlesDocumentos = () => (
+    <Grid container spacing={3}>
+      <Grid size={{ xs: 12 }}>
+        <Typography variant="h6" gutterBottom>
+          Documentación Obligatoria
+        </Typography>
+      </Grid>
 
+      {/* DNI */}
+      <Grid size={{ xs: 12, md: 6 }}>
+        <Card variant="outlined">
+          <CardContent>
+            <Typography variant="subtitle1" gutterBottom>
+              DNI - Documento Nacional de Identidad
+            </Typography>
+            <Button
+              variant="outlined"
+              component="label"
+              fullWidth
+              startIcon={<CloudUpload />}
+              color={documentos.some(d => d.tipo === 'dni') ? "success" : "primary"}
+            >
+              {documentos.some(d => d.tipo === 'dni') ? 'DNI Subido' : 'Subir DNI'}
+              <input
+                type="file"
+                hidden
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => handleDocumentoChange(e, 'dni')}
+              />
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Formatos: PDF (Máx. 5MB)
+            </Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* CUIT */}
+      <Grid size={{ xs: 12, md: 6 }}>
+        <Card variant="outlined">
+          <CardContent>
+            <Typography variant="subtitle1" gutterBottom>
+              CUIT - Constancia de Inscripción
+            </Typography>
+            <Button
+              variant="outlined"
+              component="label"
+              fullWidth
+              startIcon={<CloudUpload />}
+              color={documentos.some(d => d.tipo === 'cuit') ? "success" : "primary"}
+            >
+              {documentos.some(d => d.tipo === 'cuit') ? 'CUIT Subido' : 'Subir CUIT'}
+              <input
+                type="file"
+                hidden
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => handleDocumentoChange(e, 'cuit')}
+              />
+            </Button>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* Comprobante de Domicilio */}
+      <Grid size={{ xs: 12, md: 6 }}>
+        <Card variant="outlined">
+          <CardContent>
+            <Typography variant="subtitle1" gutterBottom>
+              Comprobante de Domicilio
+            </Typography>
+            <Button
+              variant="outlined"
+              component="label"
+              fullWidth
+              startIcon={<CloudUpload />}
+              color={documentos.some(d => d.tipo === 'comprobante_domicilio') ? "success" : "primary"}
+            >
+              {documentos.some(d => d.tipo === 'comprobante_domicilio') ? 'Comprobante Subido' : 'Subir Comprobante'}
+              <input
+                type="file"
+                hidden
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => handleDocumentoChange(e, 'comprobante_domicilio')}
+              />
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Factura de servicios (luz, gas o agua)
+            </Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* Balance Contable () */}
+      <Grid size={{ xs: 12, md: 6 }}>
+        <Card variant="outlined">
+          <CardContent>
+            <Typography variant="subtitle1" gutterBottom>
+              Balance Contable
+            </Typography>
+            <Button
+              variant="outlined"
+              component="label"
+              fullWidth
+              startIcon={<CloudUpload />}
+              color={documentos.some(d => d.tipo === 'balance_contable') ? "success" : "primary"}
+            >
+              {documentos.some(d => d.tipo === 'balance_contable') ? 'Balance Subido' : 'Subir Balance'}
+              <input
+                type="file"
+                hidden
+                accept=".pdf"
+                onChange={(e) => handleDocumentoChange(e, 'balance_contable')}
+              />
+            </Button>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* Declaración de Impuestos () */}
+      <Grid size={{ xs: 12, md: 6 }}>
+        <Card variant="outlined">
+          <CardContent>
+            <Typography variant="subtitle1" gutterBottom>
+              Declaración de Impuestos
+            </Typography>
+            <Button
+              variant="outlined"
+              component="label"
+              fullWidth
+              startIcon={<CloudUpload />}
+              color={documentos.some(d => d.tipo === 'declaracion_impuestos') ? "success" : "primary"}
+            >
+              {documentos.some(d => d.tipo === 'declaracion_impuestos') ? 'DDJJ Subida' : 'Subir DDJJ'}
+              <input
+                type="file"
+                hidden
+                accept=".pdf"
+                onChange={(e) => handleDocumentoChange(e, 'declaracion_impuestos')}
+              />
+            </Button>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* Lista de documentos subidos */}
+      <Grid size={{ xs: 12 }}>
+        {renderListaDocumentos()}
+      </Grid>
+
+      {/* Resumen de documentos obligatorios */}
+      <Grid size={{ xs: 12 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
+          {['dni', 'cuit', 'comprobante_domicilio'].map(tipo => (
+            <Chip
+              key={tipo}
+              label={obtenerNombreTipo(tipo)}
+              color={documentos.some(d => d.tipo === tipo) ? "success" : "default"}
+              variant={documentos.some(d => d.tipo === tipo) ? "filled" : "outlined"}
+              size="small"
+            />
+          ))}
+        </Box>
+      </Grid>
+    </Grid>
+  );
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
@@ -301,154 +565,7 @@ export default function SolicitudCreditoForm() {
         );
 
       case 1:
-        return (
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12 }}>
-              <Typography variant="h6" gutterBottom>
-                Documentación Obligatoria
-              </Typography>
-            </Grid>
-
-            {/* DNI */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="subtitle1" gutterBottom>
-                    DNI - Documento Nacional de Identidad
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    fullWidth
-                  >
-                    Subir DNI
-                    <input
-                      type="file"
-                      hidden
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => handleDocumentoChange(e, 'dni')}
-                    />
-                  </Button>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    Formatos: PDF(Máx. 5MB)
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* CUIT */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="subtitle1" gutterBottom>
-                    CUIT - Constancia de Inscripción
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    fullWidth
-                  >
-                    Subir CUIT
-                    <input
-                      type="file"
-                      hidden
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => handleDocumentoChange(e, 'cuit')}
-                    />
-                  </Button>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Comprobante de Domicilio */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Comprobante de Domicilio
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    fullWidth
-                  >
-                    Subir Comprobante
-                    <input
-                      type="file"
-                      hidden
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => handleDocumentoChange(e, 'comprobante_domicilio')}
-                    />
-                  </Button>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    Factura de servicios (luz, gas o agua)
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Balance Contable
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    fullWidth
-                  >
-                    Subir Balance
-                    <input
-                      type="file"
-                      hidden
-                      accept=".pdf"
-                      onChange={(e) => handleDocumentoChange(e, 'balance_contable')}
-                    />
-                  </Button>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Declaración de Impuestos
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    fullWidth
-                  >
-                    Subir DDJJ
-                    <input
-                      type="file"
-                      hidden
-                      accept=".pdf"
-                      onChange={(e) => handleDocumentoChange(e, 'declaracion_impuestos')}
-                    />
-                  </Button>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Archivos subidos */}
-            {documentos.length > 0 && (
-              <Grid size={{ xs: 12 }}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Archivos Subidos ({documentos.length})
-                </Typography>
-                <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-                  {documentos.map((doc, index) => (
-                    <Typography key={index} variant="body2" color="text.secondary">
-                      • {doc.name}
-                    </Typography>
-                  ))}
-                </Box>
-              </Grid>
-            )}
-          </Grid>
-        );
+        return renderControlesDocumentos();
 
       case 2:
         return (
@@ -564,21 +681,26 @@ export default function SolicitudCreditoForm() {
           )}
 
           {/* Paso 1: verificar documentos */}
-          {activeStep === 1 && (
-            <Button
-              variant="contained"
-              onClick={() => {
-                if (documentos.length < 3) {
-                  setError('Debe subir al menos los documentos obligatorios: DNI, CUIT y Comprobante de Domicilio.');
-                  return;
-                }
-                setError('');
-                setActiveStep(2);
-              }}
-            >
-              Siguiente
-            </Button>
-          )}
+{activeStep === 1 && (
+  <Button
+    variant="contained"
+    onClick={() => {
+      const documentosObligatorios = ['dni', 'cuit', 'comprobante_domicilio'];
+      const documentosFaltantes = documentosObligatorios.filter(
+        tipo => !documentos.some(doc => doc.tipo === tipo)
+      );
+
+      if (documentosFaltantes.length > 0) {
+        setError(`Faltan documentos obligatorios: ${documentosFaltantes.map(obtenerNombreTipo).join(', ')}`);
+        return;
+      }
+      setError('');
+      setActiveStep(2);
+    }}
+  >
+    Siguiente
+  </Button>
+)}
 
           {/* Paso 2: botón de envío real */}
           {activeStep === 2 && (

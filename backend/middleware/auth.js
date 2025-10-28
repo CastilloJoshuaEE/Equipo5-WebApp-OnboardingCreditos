@@ -187,7 +187,7 @@ static async proteger(req, res, next) {
         console.warn('. Error en tabla operadores:', operadorError.message);
       }
 
-      console.log('. Inconsistencia corregida en middleware');
+      console.log('. Inconsistencia . en middleware');
       return true;
     } catch (error) {
       console.error('. Error en . middleware:', error);

@@ -109,8 +109,8 @@ static async obtenerDashboard(req, res) {
   }
 }
 
-// Iniciar revision de solicitud (abrir modal de acciones) - MEJORADO
-// Iniciar revisión de solicitud (abrir modal de acciones) - MEJORADO
+// Iniciar revision de solicitud (abrir modal de acciones) - .
+// Iniciar revisión de solicitud (abrir modal de acciones) - .
 static async iniciarRevision(req, res) {
   try {
     const { solicitud_id } = req.params;

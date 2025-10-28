@@ -80,7 +80,7 @@ export const authOptions: NextAuthOptions = {
             throw new Error(data.message || 'Error en autenticación');
           }
 
-          // . ESTRUCTURA CORREGIDA - Incluir tokens de Supabase
+          // . ESTRUCTURA . - Incluir tokens de Supabase
           if (data.data?.profile && data.data?.session) {
             const user = data.data.profile;
             const session = data.data.session;

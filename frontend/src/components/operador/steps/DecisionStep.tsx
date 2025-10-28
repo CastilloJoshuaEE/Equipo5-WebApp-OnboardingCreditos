@@ -2,6 +2,8 @@
 'use client';
 import React, { useState } from 'react';
 import { getSession } from 'next-auth/react';
+import { SolicitudOperador } from '@/types/operador';
+import { useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -35,6 +37,7 @@ interface DecisionStepProps {
     onClose: () => void;
     onComentarioEnviado?: (comentario: string) => void;
     onDecisionTomada?: (decision: string, motivo?: string) => void;
+    onDashboardActualizado?: () => void;
     loading?: boolean;
 }
 
@@ -67,8 +70,19 @@ export default function DecisionStep({
     onClose, 
     onComentarioEnviado, 
     onDecisionTomada,
-    loading = false 
+    onDashboardActualizado,
 }: DecisionStepProps) {
+    const [solicitudes, setSolicitudes] = useState<SolicitudOperador[]>([]);
+     const [loading, setLoading] = useState(true);
+        
+    const [filtros, setFiltros] = useState({
+            estado: '',
+            nivel_riesgo: '',
+            fecha_desde: '',
+            fecha_hasta: '',
+            numero_solicitud: '',
+            dni: ''
+        });
     const [dialogoComentario, setDialogoComentario] = useState(false);
     const [dialogoDecision, setDialogoDecision] = useState(false);
     const [tipoDecision, setTipoDecision] = useState<'aprobacion' | 'rechazo' | null>(null);
@@ -77,6 +91,9 @@ export default function DecisionStep({
     const [checklistDecision, setChecklistDecision] = useState<{[key: string]: boolean}>({});
     const [enviando, setEnviando] = useState(false);
     const [mensaje, setMensaje] = useState('');
+    useEffect(() => {
+        cargarDashboard();
+    }, []);
 
     // Calcular progreso de documentación
     const calcularProgresoDocumentacion = () => {
@@ -90,96 +107,126 @@ export default function DecisionStep({
     };
 
     const progresoDocumentacion = calcularProgresoDocumentacion();
+    const cargarDashboard = async () => {
+        try {
+            const session = await getSession();
+            if (!session?.accessToken) {
+                console.error('. No hay token de acceso');
+                return;
+            }
 
+            const params = new URLSearchParams();
+            Object.entries(filtros).forEach(([key, value]) => {
+                if (value) params.append(key, value);
+            });
+
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+            console.log(`. Solicitando dashboard: ${API_URL}/operador/dashboard?${params}`);
+
+            const response = await fetch(`${API_URL}/operador/dashboard?${params}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${session.accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            console.log(`.Respuesta del servidor: ${response.status}`);
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('. Dashboard cargado:', data);
+                setSolicitudes(data.data.solicitudes || []);
+            } else {
+                const errorText = await response.text();
+                console.error('. Error cargando dashboard:', response.status, errorText);
+            }
+        } catch (error) {
+            console.error('. Error cargando dashboard:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
     // Manejar aprobación con token seguro
-    const handleAprobar = async () => {
-        try {
-            setEnviando(true);
-            
-            const session = await getSession();
-            if (!session?.accessToken) {
-                throw new Error('No estás autenticado');
-            }
+const handleAprobar = async () => {
+    try {
+        setEnviando(true);
+        const session = await getSession();
+        if (!session?.accessToken) throw new Error('No estás autenticado');
 
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-            const response = await fetch(`${API_URL}/solicitudes/${solicitud.id}/aprobar`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.accessToken}`
-                },
-                body: JSON.stringify({
-                    comentarios: motivoDecision || 'Solicitud aprobada por el operador luego de revisión completa',
-                    criterios_aprobados: checklistDecision
-                })
-            });
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        const response = await fetch(`${API_URL}/solicitudes/${solicitud.id}/aprobar`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.accessToken}`
+            },
+            body: JSON.stringify({
+                comentarios: motivoDecision || 'Solicitud aprobada por el operador luego de revisión completa',
+                criterios_aprobados: checklistDecision
+            })
+        });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
-            }
-
-            setMensaje('✅ Solicitud aprobada exitosamente');
-            
-            if (onDecisionTomada) {
-                onDecisionTomada('aprobada', motivoDecision);
-            }
-            
-            setTimeout(() => {
-                onClose();
-            }, 2000);
-        } catch (error) {
-            console.error('Error aprobando solicitud:', error);
-            setMensaje(error instanceof Error ? error.message : 'Error al aprobar la solicitud');
-        } finally {
-            setEnviando(false);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
         }
-    };
 
+        setMensaje('. Solicitud aprobada exitosamente');
+        if (onDecisionTomada) onDecisionTomada('aprobada', motivoDecision);
+
+        // . Refrescar dashboard del operador
+        if (onDashboardActualizado) onDashboardActualizado();
+
+        setTimeout(() => onClose(), 1500);
+
+    } catch (error) {
+        console.error('Error aprobando solicitud:', error);
+        setMensaje(error instanceof Error ? error.message : 'Error al aprobar la solicitud');
+    } finally {
+        setEnviando(false);
+    }
+};
     // Manejar rechazo con token seguro
-    const handleRechazar = async () => {
-        try {
-            setEnviando(true);
-            
-            const session = await getSession();
-            if (!session?.accessToken) {
-                throw new Error('No estás autenticado');
-            }
+ const handleRechazar = async () => {
+    try {
+        setEnviando(true);
+        const session = await getSession();
+        if (!session?.accessToken) throw new Error('No estás autenticado');
 
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-            const response = await fetch(`${API_URL}/solicitudes/${solicitud.id}/rechazar`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.accessToken}`
-                },
-                body: JSON.stringify({
-                    motivo_rechazo: motivoDecision || 'Solicitud rechazada por el operador luego de revisión completa',
-                    criterios_rechazo: checklistDecision
-                })
-            });
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        const response = await fetch(`${API_URL}/solicitudes/${solicitud.id}/rechazar`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.accessToken}`
+            },
+            body: JSON.stringify({
+                motivo_rechazo: motivoDecision || 'Solicitud rechazada por el operador luego de revisión completa',
+                criterios_rechazo: checklistDecision
+            })
+        });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
-            }
-
-            setMensaje('❌ Solicitud rechazada exitosamente');
-            
-            if (onDecisionTomada) {
-                onDecisionTomada('rechazada', motivoDecision);
-            }
-            
-            setTimeout(() => {
-                onClose();
-            }, 2000);
-        } catch (error) {
-            console.error('Error rechazando solicitud:', error);
-            setMensaje(error instanceof Error ? error.message : 'Error al rechazar la solicitud');
-        } finally {
-            setEnviando(false);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
         }
-    };
+
+        setMensaje('. Solicitud rechazada exitosamente');
+        if (onDecisionTomada) onDecisionTomada('rechazada', motivoDecision);
+
+        // . Refrescar dashboard del operador
+        if (onDashboardActualizado) onDashboardActualizado();
+
+        setTimeout(() => onClose(), 1500);
+
+    } catch (error) {
+        console.error('Error rechazando solicitud:', error);
+        setMensaje(error instanceof Error ? error.message : 'Error al rechazar la solicitud');
+    } finally {
+        setEnviando(false);
+    }
+};
 
     // Manejar envío de comentario con token seguro
     const handleEnviarComentario = async () => {
@@ -222,7 +269,7 @@ export default function DecisionStep({
             setTimeout(() => setMensaje(''), 3000);
         } catch (error) {
             console.error('Error enviando comentario:', error);
-            setMensaje('❌ Error al enviar comentario');
+            setMensaje('. Error al enviar comentario');
         } finally {
             setEnviando(false);
         }
@@ -278,7 +325,7 @@ export default function DecisionStep({
 
             {mensaje && (
                 <Alert 
-                    severity={mensaje.includes('❌') ? 'error' : 'success'} 
+                    severity={mensaje.includes('.') ? 'error' : 'success'} 
                     sx={{ mb: 2 }}
                 >
                     {mensaje}

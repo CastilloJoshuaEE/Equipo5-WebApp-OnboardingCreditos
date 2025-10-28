@@ -300,7 +300,7 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.jpg,.jpeg,.png"
+          accept=".pdf"
           onChange={handleFileChange}
           style={{ display: 'none' }}
           id={`file-input-${tipo}`}

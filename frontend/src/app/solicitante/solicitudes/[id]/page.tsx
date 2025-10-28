@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import { getSession } from 'next-auth/react';
 import GestionDocumentos from '@/components/documentos/GestionDocumentos';
-
+import BotonIniciarFirma from '@/components/BotonIniciarFirma';
 interface SolicitudDetalle {
   id: string;
   numero_solicitud: string;
@@ -185,6 +185,14 @@ export default function DetalleSolicitud() {
         >
           Volver al Dashboard
         </Button>
+    <BotonIniciarFirma 
+      solicitudId={solicitudId} 
+      onFirmaIniciada={(data) => {
+        console.log('Firma digital iniciada:', data);
+        // Aquí podrías recargar la solicitud si quieres actualizar el estado
+        cargarDetalleSolicitud();
+      }} 
+    />
       </Box>
     );
   }
@@ -202,6 +210,15 @@ export default function DetalleSolicitud() {
         >
           Volver al Dashboard
         </Button>
+    <BotonIniciarFirma 
+      solicitudId={solicitudId} 
+      onFirmaIniciada={(data) => {
+        console.log('Firma digital iniciada:', data);
+        // Aquí podrías recargar la solicitud si quieres actualizar el estado
+        cargarDetalleSolicitud();
+      }} 
+    />
+
       </Box>
     );
   }
@@ -389,7 +406,14 @@ export default function DetalleSolicitud() {
               >
                 Volver al Dashboard
               </Button>
-
+    <BotonIniciarFirma 
+      solicitudId={solicitudId} 
+      onFirmaIniciada={(data) => {
+        console.log('Firma digital iniciada:', data);
+        // Aquí podrías recargar la solicitud si quieres actualizar el estado
+        cargarDetalleSolicitud();
+      }} 
+    />
               {solicitud.estado === 'borrador' && (
                 <Button 
                   variant="contained" 

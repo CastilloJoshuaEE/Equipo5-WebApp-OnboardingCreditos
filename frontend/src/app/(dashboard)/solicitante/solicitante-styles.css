@@ -1,0 +1,419 @@
+        :root {
+          --sidebar-width: 250px;
+          --color-primary: #A020F0;
+          --color-bg-light: #f8f9fa;
+          --color-bg-white: #ffffff;
+          --color-text-dark: #343a3a;
+          --color-text-light: #6c757d;
+          --color-border: #e9ecef;
+          --color-status-success: #28a745;
+          --color-status-warning: #ffc107;
+          --color-status-info: #007bff;
+          --color-purple-light: #f7f3ff;
+        }
+
+        .dashboard-container {
+          display: flex;
+          min-height: 100vh;
+          font-family: 'Roboto', sans-serif;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+          width: var(--sidebar-width);
+          background-color: var(--color-bg-white);
+          box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .logo {
+          padding: 20px;
+          font-size: 1.8rem;
+          font-weight: bold;
+          color: var(--color-primary);
+          text-align: center;
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .sidebar-nav ul {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+
+        .sidebar-nav .nav-item {
+          margin: 5px 0;
+        }
+
+        .sidebar-nav a, .sidebar-nav button {
+          display: flex;
+          align-items: center;
+          padding: 15px 20px;
+          color: var(--color-text-light);
+          text-decoration: none;
+          cursor: pointer;
+          transition: all 0.2s;
+          position: relative;
+          width: 100%;
+          border: none;
+          background: none;
+          font-family: inherit;
+          font-size: inherit;
+        }
+
+        .sidebar-nav a:hover,
+        .sidebar-nav a.active,
+        .sidebar-nav button:hover {
+          background-color: var(--color-purple-light);
+          color: var(--color-primary);
+          border-left: 4px solid var(--color-primary);
+        }
+
+        .sidebar-nav .MuiSvgIcon-root {
+          margin-right: 15px;
+          font-size: 1.2rem;
+        }
+
+        /* Main Content */
+        .main-content {
+          flex-grow: 1;
+          display: flex;
+          flex-direction: column;
+          background-color: var(--color-bg-light);
+        }
+
+        .navbar-top {
+          background: var(--color-bg-white);
+          padding: 10px 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .menu-button {
+          background: none;
+          border: none;
+          cursor: pointer;
+          display: none;
+        }
+
+        .user-profile {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: var(--color-text-dark);
+        }
+
+        .profile-avatar {
+          color: white;
+          background-color: var(--color-primary);
+          border-radius: 50%;
+          padding: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .page-content {
+          padding: 30px;
+          flex-grow: 1;
+        }
+
+        /* Component Styles */
+        .page-title {
+          font-size: 1.8rem;
+          margin-bottom: 5px;
+          color: var(--color-text-dark);
+          font-weight: 600;
+        }
+
+        .page-subtitle {
+          color: var(--color-text-light);
+          margin-bottom: 25px;
+          font-size: 1rem;
+        }
+
+        .content-box {
+          background-color: var(--color-bg-white);
+          padding: 25px;
+          border-radius: 8px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+          margin-bottom: 25px;
+        }
+
+        .section-title {
+          font-size: 1.4rem;
+          margin-bottom: 5px;
+          color: var(--color-text-dark);
+        }
+
+        .section-subtitle {
+          color: var(--color-text-light);
+          margin-bottom: 20px;
+          font-size: 0.95rem;
+        }
+
+        /* Summary Cards */
+        .summary-card {
+          height: 100%;
+          transition: transform 0.2s;
+        }
+
+        .summary-card:hover {
+          transform: translateY(-2px);
+        }
+
+        .card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 15px;
+        }
+
+        .card-title {
+          font-size: 1rem;
+          color: var(--color-text-light);
+          font-weight: normal;
+        }
+
+        .card-icon {
+          color: var(--color-text-light);
+        }
+
+        .card-amount {
+          font-size: 1.8rem;
+          font-weight: bold;
+          margin-bottom: 5px;
+        }
+
+        .card-subtitle {
+          font-size: 0.9rem;
+          color: var(--color-text-light);
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+          display: flex;
+          gap: 15px;
+          margin-top: 20px;
+        }
+
+        .btn-primary {
+          background-color: var(--color-primary);
+          color: white;
+          padding: 12px 25px;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 600;
+          font-family: 'Roboto', sans-serif;
+          transition: background-color 0.2s;
+        }
+
+        .btn-primary:hover {
+          background-color: #8a2be2;
+        }
+
+        .btn-secondary {
+          background-color: transparent;
+          color: var(--color-primary);
+          padding: 12px 25px;
+          border: 1px solid var(--color-primary);
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 600;
+          font-family: 'Roboto', sans-serif;
+          transition: background-color 0.2s;
+        }
+
+        .btn-secondary:hover {
+          background-color: var(--color-purple-light);
+        }
+
+        /* Solicitud Card */
+        .solicitud-card {
+          border: 1px solid var(--color-border);
+          border-radius: 8px;
+          padding: 20px;
+          margin-top: 15px;
+        }
+
+        .solicitud-header {
+          display: flex;
+          align-items: center;
+          margin-bottom: 15px;
+          gap: 10px;
+        }
+
+        .solicitud-icon {
+          color: var(--color-status-info);
+          font-size: 20px;
+        }
+
+        .solicitud-id {
+          font-weight: 600;
+          color: var(--color-text-dark);
+        }
+
+        .status-badge {
+          font-size: 0.75rem;
+          font-weight: 500;
+          padding: 4px 10px;
+          border-radius: 4px;
+          color: white;
+        }
+
+        .status-review {
+          background-color: var(--color-status-info);
+        }
+
+        .solicitud-date {
+          color: var(--color-text-light);
+          margin-bottom: 15px;
+          font-size: 0.9rem;
+        }
+
+        .solicitud-details-grid {
+          margin-bottom: 15px;
+        }
+
+        .detail-column {
+          margin-bottom: 10px;
+        }
+
+        .detail-label {
+          font-size: 0.9rem;
+          color: var(--color-text-light);
+          font-weight: 500;
+          margin-bottom: 2px;
+        }
+
+        .detail-value {
+          font-size: 0.95rem;
+          color: var(--color-text-dark);
+          font-weight: 600;
+          margin-bottom: 10px;
+        }
+
+        .detail-status {
+          font-size: 0.85rem;
+          color: var(--color-text-light);
+          margin-top: 5px;
+        }
+
+        .solicitud-actions {
+          display: flex;
+          justify-content: flex-end;
+          align-items: center;
+          gap: 15px;
+          border-top: 1px solid var(--color-border);
+          padding-top: 15px;
+        }
+
+        .btn-detail {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 8px 15px;
+          border: 1px solid var(--color-border);
+          border-radius: 6px;
+          background: none;
+          color: var(--color-text-light);
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-detail:hover {
+          border-color: var(--color-primary);
+          color: var(--color-primary);
+        }
+
+        .download-icon {
+          color: var(--color-text-light);
+          transition: color 0.2s;
+        }
+
+        .download-icon:hover {
+          color: var(--color-text-dark);
+        }
+
+        /* Floating Button */
+        .floating-button {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background-color: var(--color-primary);
+          color: white;
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 12px rgba(160, 32, 240, 0.3);
+          cursor: pointer;
+          z-index: 1000;
+          transition: all 0.3s;
+          border: none;
+        }
+
+        .floating-button:hover {
+          background-color: #8a2be2;
+          transform: scale(1.1);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+          .sidebar {
+            position: fixed;
+            height: 100%;
+            transform: translateX(-100%);
+            z-index: 1000;
+            transition: transform 0.3s;
+          }
+
+          .sidebar.show {
+            transform: translateX(0);
+          }
+
+          .menu-button {
+            display: block;
+          }
+
+          .page-content {
+            padding: 20px 15px;
+          }
+
+          .action-buttons {
+            flex-direction: column;
+          }
+
+          .solicitud-actions {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .btn-detail {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .page-content {
+            padding: 15px 10px;
+          }
+
+          .content-box {
+            padding: 15px;
+          }
+
+          .solicitud-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+          }
+        }

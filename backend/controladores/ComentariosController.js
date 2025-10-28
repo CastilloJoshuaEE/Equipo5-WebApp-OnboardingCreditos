@@ -1,5 +1,6 @@
 // controladores/ComentariosController.js
 const { supabase } = require('../config/conexion');
+const NotificacionesController = require('./NotificacionesController');
 
 class ComentariosController {
     
@@ -81,7 +82,7 @@ class ComentariosController {
             }
 
             // . CREAR NOTIFICACIÓN PARA EL DESTINATARIO
-            await ComentariosController.crearNotificacionComentario(
+            await NotificacionesController.crearNotificacionComentario(
                 solicitud, 
                 nuevoComentario, 
                 req.usuario
@@ -101,59 +102,6 @@ class ComentariosController {
                 success: false,
                 message: 'Error al crear comentario: ' + error.message
             });
-        }
-    }
-
-    /**
-     * Crear notificación cuando se agrega un comentario
-     */
-    static async crearNotificacionComentario(solicitud, comentario, usuarioOrigen) {
-        try {
-            let usuarioDestino = null;
-            let titulo = '';
-            let mensaje = '';
-
-            if (comentario.tipo === 'operador_a_solicitante') {
-                // Notificar al solicitante
-                usuarioDestino = solicitud.solicitante_id;
-                titulo = 'Nuevo comentario del operador';
-                mensaje = `El operador ha enviado un comentario sobre tu solicitud: "${comentario.comentario.substring(0, 100)}..."`;
-            } else if (comentario.tipo === 'solicitante_a_operador') {
-                // Notificar al operador
-                usuarioDestino = solicitud.operador_id;
-                titulo = 'Nuevo comentario del solicitante';
-                mensaje = `El solicitante ha respondido a tu comentario: "${comentario.comentario.substring(0, 100)}..."`;
-            }
-
-            if (usuarioDestino) {
-                const notificacionData = {
-                    usuario_id: usuarioDestino,
-                    solicitud_id: solicitud.id,
-                    tipo: 'nuevo_comentario',
-                    titulo: titulo,
-                    mensaje: mensaje,
-                    leida: false,
-                    datos_adicionales: {
-                        comentario_id: comentario.id,
-                        tipo_comentario: comentario.tipo,
-                        usuario_origen: usuarioOrigen.nombre_completo,
-                        comentario_preview: comentario.comentario.substring(0, 100)
-                    },
-                    created_at: new Date().toISOString()
-                };
-
-                const { error: notifError } = await supabase
-                    .from('notificaciones')
-                    .insert([notificacionData]);
-
-                if (notifError) {
-                    console.error('. Error creando notificación:', notifError);
-                } else {
-                    console.log(`📨 Notificación enviada a usuario: ${usuarioDestino}`);
-                }
-            }
-        } catch (error) {
-            console.error('. Error en crearNotificacionComentario:', error);
         }
     }
 

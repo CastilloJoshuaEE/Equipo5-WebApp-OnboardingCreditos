@@ -36,7 +36,7 @@ export default function ConfiguracionPage() {
 
     setMessage('Cuenta desactivada exitosamente. Serás redirigido...');
     
-    // Cerrar sesión y redirigir
+    // Salir y redirigir
     setTimeout(() => {
       window.location.href = '/login';
     }, 2000);

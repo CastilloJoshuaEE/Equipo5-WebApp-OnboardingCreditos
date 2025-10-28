@@ -1,12 +1,33 @@
+// frontend/src/app/(dashboard)/layout.tsx
 'use client';
-
+import { signOut } from 'next-auth/react';
+import { useTheme } from '@mui/material/styles';
+import { ThemeProvider, CssBaseline } from "@mui/material";
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { Box, CircularProgress, Button, AppBar, Toolbar, Typography } from '@mui/material';
+import { useEffect, useState } from 'react';
+import {
+  Box,
+  CircularProgress,
+  Drawer,
+  IconButton,
+  useMediaQuery,
+  AppBar,
+  Toolbar,
+  Button,
+} from '@mui/material';
+import { Menu, Person } from '@mui/icons-material';
 import { NotificacionesBell } from '@/components/notificaciones/NotificacionesBell';
-import { Person } from '@mui/icons-material';
-import Image from "next/image";
+import Image from 'next/image';
+import './dashboard-styles.css';
+import DesktopWindowsIcon from '@mui/icons-material/DesktopWindows';
+import PersonIcon from '@mui/icons-material/Person';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+
+// Importa tu tema MUI
+import theme from '@/styles/theme';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -15,7 +36,16 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const handleLogout = async () => {
+    await signOut({ 
+      callbackUrl: '/login',
+      redirect: true 
+    });
+  };
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
@@ -30,73 +60,170 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  if (!session) {
-    return null;
-  }
+  if (!session) return null;
 
-  const handleVerPerfil = () => {
-    router.push('/usuario/perfil');
-  };
+  const handleVerPerfil = () => router.push('/usuario/perfil');
 
   const handleIrDashboard = () => {
-    if (session?.user?.rol) {
-      const userRole = session.user.rol.toLowerCase();
+        router.push('/');
 
-      switch (userRole) {
-        case 'solicitante':
-          router.push('/solicitante');
-          break;
-        case 'operador':
-          router.push('/operador');
-          break;
-        default:
-          router.push('/');
-          break;
-      }
-    } else {
-      console.warn('No se pudo determinar el rol del usuario, redirigiendo al home');
-      router.push('/');
-    }
   };
 
-  return (
-    <Box>
-      <AppBar position="static" elevation={0} sx={{ backgroundColor: 'white', color: 'text.primary', borderBottom: 1, borderColor: 'divider' }}>
-        <Toolbar sx={{ justifyContent: 'space-between' }}>
-<Image
-  src="/logos/logoVariant3.svg"
-  alt="LogoNexia"
-  width={120}
-  height={40}
-  priority
-  onClick={handleIrDashboard}
-  style={{ cursor: 'pointer', transition: 'transform 0.2s', transformOrigin: 'center' }}
-  onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
-  onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-/>
+  const SidebarContent = () => (
+    <aside className="sidebar">
+      <nav className="sidebar-nav">
+        <ul>
 
-        
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Button
-              color="inherit"
-              startIcon={<Person />}
-              onClick={handleVerPerfil}
-              sx={{ 
-                textTransform: 'none',
-                '&:hover': { backgroundColor: 'action.hover' }
-              }}
+          {session.user.rol === 'operador' ? (
+            <>
+<li>
+  <a href="/operador" className="nav-link">
+    <DesktopWindowsIcon sx={{ mr: 1 }} /> Panel operador
+  </a>
+</li>
+<li>
+  <a href="/usuario/perfil" className="nav-link">
+    <PersonIcon sx={{ mr: 1 }} /> Perfil
+  </a>
+</li>
+
+<li>
+  <a href="/notificaciones" className="nav-link">
+    <NotificationsIcon sx={{ mr: 1 }} /> Notificaciones
+  </a>
+</li>
+<li>
+            <Button 
+              variant="outlined" 
+              color="error"
+              onClick={handleLogout}
+              sx={{ ml: 'auto' }}
             >
-              Mi Perfil
+              Salir
             </Button>
+</li>
+            </>
+          ) : (
+            <>
 
-            <NotificacionesBell />
+              <li>
+  <a href="/solicitante" className="nav-link">
+    <DashboardIcon sx={{ mr: 1 }} /> Panel solicitante
+  </a>
+</li>
+<li>
+  <a href="/usuario/perfil" className="nav-link">
+    <PersonIcon sx={{ mr: 1 }} /> Perfil
+  </a>
+</li>
+<li>
+  <a href="/notificaciones" className="nav-link">
+    <NotificationsIcon sx={{ mr: 1 }} /> Notificaciones
+  </a>
+</li>
+                      <li>
+            <Button 
+              variant="outlined" 
+              color="error"
+              onClick={handleLogout}
+              sx={{ ml: 'auto' }}
+            >
+              Salir
+            </Button>
+</li>
+            </>
+          )}
+        </ul>
+      </nav>
+    </aside>
+  );
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box display="flex">
+        {/* Sidebar permanente en escritorio */}
+        {!isMobile && <SidebarContent />}
+
+        {/* Drawer para mobile */}
+        {isMobile && (
+          <Drawer
+            variant="temporary"
+            open={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            ModalProps={{ keepMounted: true }}
+            sx={{
+              display: { xs: 'block', md: 'none' },
+              '& .MuiDrawer-paper': {
+                width: 250,
+                backgroundColor: 'white',
+              },
+            }}
+          >
+            <SidebarContent />
+          </Drawer>
+        )}
+
+        {/* Contenido principal */}
+        <Box flexGrow={1} sx={{ minHeight: '100vh', backgroundColor: '#fafafa' }}>
+          <AppBar
+            position="static"
+            elevation={0}
+            sx={{
+              backgroundColor: 'white',
+              color: 'text.primary',
+              borderBottom: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <Toolbar sx={{ justifyContent: 'space-between' }}>
+              <Box display="flex" alignItems="center" gap={1}>
+                {isMobile && (
+                  <IconButton onClick={() => setSidebarOpen(true)}>
+                    <Menu />
+                  </IconButton>
+                )}
+                <Image
+                  src="/logos/logoVariant3.svg"
+                  alt="Logo Nexia"
+                  width={120}
+                  height={40}
+                  priority
+                  
+                  onClick={handleIrDashboard}
+                  style={{
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                />
+              </Box>
+
+              <Box display="flex" alignItems="center" gap={2}>
+                <Button
+                  color="inherit"
+                  startIcon={<Person />}
+                  onClick={handleVerPerfil}
+                  sx={{
+                    textTransform: 'none',
+                    '&:hover': { backgroundColor: 'action.hover' },
+                  }}
+                >
+                  Mi Perfil
+                </Button>
+
+                <NotificacionesBell />
+              </Box>
+            </Toolbar>
+          </AppBar>
+
+          {/* Contenido dinámico */}
+          <Box component="main" p={2}>
+            {children}
           </Box>
-        </Toolbar>
-      </AppBar>
-
-      <Box component="main">
-        {children}
+        </Box>
       </Box>
-    </Box>
+    </ThemeProvider>
   );
 }

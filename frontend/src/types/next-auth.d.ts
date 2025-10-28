@@ -1,16 +1,19 @@
-import { DefaultSession } from 'next-auth';
+// types/next-auth.d.ts
+import { DefaultSession, DefaultUser } from 'next-auth';
 import { UserRole } from './auth.types';
 
 declare module 'next-auth' {
   interface Session {
+    accessToken?: string;
     user: {
       id: string;
       rol: UserRole;
       email_confirmado: boolean;
+      nombre_completo?: string;
     } & DefaultSession['user']
   }
 
-  interface User {
+  interface User extends DefaultUser {
     id: string;
     rol: UserRole;
     email_confirmado: boolean;
@@ -25,5 +28,7 @@ declare module 'next-auth/jwt' {
     id: string;
     rol: UserRole;
     email_confirmado: boolean;
+    nombre_completo?: string;
+    accessToken?: string;
   }
 }
