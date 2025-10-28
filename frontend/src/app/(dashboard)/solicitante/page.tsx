@@ -88,6 +88,13 @@ function SummaryCard({ title, amount, subtitle, icon, color }: SummaryCardProps)
   );
 }
 
+interface SolicitudStats {
+  totalSolicitado: number;
+  totalAprobadas: number;
+  enRevision: number;
+  solicitudesActivas: number;
+}
+
 export default function DashboardSolicitante() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
@@ -95,6 +102,12 @@ export default function DashboardSolicitante() {
   const [solicitudActiva, setSolicitudActiva] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [stats, setStats] = useState<SolicitudStats>({
+    totalSolicitado: 0,
+    totalAprobadas: 0,
+    enRevision: 0,
+    solicitudesActivas: 0
+  });
   const { showSessionExpired } = useSessionExpired();
 
   useEffect(() => {
@@ -107,6 +120,68 @@ export default function DashboardSolicitante() {
       router.push('/operador');
     }
   }, [status, session, router]);
+
+  // Cargar estadísticas de solicitudes
+  const cargarEstadisticas = async () => {
+    try {
+      const session = await getSession();
+      if (!session?.accessToken) return;
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/solicitudes/mis-solicitudes`, {
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const solicitudes = result.data || [];
+
+        // Calcular estadísticas
+        const totalSolicitado = solicitudes
+          .filter((s: any) => s.estado !== 'rechazado')
+          .reduce((sum: number, s: any) => sum + (s.monto || 0), 0);
+
+        const totalAprobadas = solicitudes
+          .filter((s: any) => s.estado === 'aprobado').length;
+
+        const enRevision = solicitudes
+          .filter((s: any) => 
+            s.estado === 'en_revision' || 
+            s.estado === 'pendiente_info' ||
+            s.estado === 'enviado'
+          ).length;
+
+        const solicitudesActivas = solicitudes
+          .filter((s: any) => 
+            s.estado === 'borrador' || 
+            s.estado === 'enviado' || 
+            s.estado === 'en_revision' || 
+            s.estado === 'pendiente_info'
+          ).length;
+
+        setStats({
+          totalSolicitado,
+          totalAprobadas,
+          enRevision,
+          solicitudesActivas
+        });
+
+        // Establecer solicitud activa
+        const solicitudActiva = solicitudes.find((s: any) => 
+          s.estado === 'borrador' || s.estado === 'enviado'
+        );
+        if (solicitudActiva) {
+          setSolicitudActiva(solicitudActiva.id);
+        }
+      } else if (response.status === 401) {
+        showSessionExpired();
+      }
+    } catch (error) {
+      console.error('Error cargando estadísticas:', error);
+    }
+  };
 
   // Verificar token expirado periódicamente
   useEffect(() => {
@@ -134,38 +209,10 @@ export default function DashboardSolicitante() {
     return () => clearInterval(interval);
   }, [session, showSessionExpired]);
 
-  // Cargar la solicitud activa
+  // Cargar estadísticas cuando cambie la sesión
   useEffect(() => {
-    const cargarSolicitudActiva = async () => {
-      try {
-        const session = await getSession();
-        if (!session?.accessToken) return;
-
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-        const response = await fetch(`${API_URL}/solicitudes/mis-solicitudes`, {
-          headers: {
-            'Authorization': `Bearer ${session.accessToken}`,
-          },
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          const solicitud = result.data?.find((s: any) => 
-            s.estado === 'borrador' || s.estado === 'enviado'
-          );
-          if (solicitud) {
-            setSolicitudActiva(solicitud.id);
-          }
-        } else if (response.status === 401) {
-          showSessionExpired();
-        }
-      } catch (error) {
-        console.error('Error cargando solicitud activa:', error);
-      }
-    };
-
     if (session) {
-      cargarSolicitudActiva();
+      cargarEstadisticas();
     }
   }, [session, showSessionExpired]);
 
@@ -196,6 +243,18 @@ export default function DashboardSolicitante() {
   const handleSuccessSolicitud = () => {
     setMessage('Solicitud creada exitosamente');
     setTabValue(1);
+    // Recargar estadísticas después de crear una nueva solicitud
+    cargarEstadisticas();
+  };
+
+  // Formatear moneda
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
   };
 
   if (status === 'loading') {
@@ -243,16 +302,16 @@ export default function DashboardSolicitante() {
             <Grid size={{ xs: 12, md: 4 }}>
               <SummaryCard
                 title="Total solicitado"
-                amount="$ 5.000.000"
-                subtitle="Solicitudes activas 1"
+                amount={formatCurrency(stats.totalSolicitado)}
+                subtitle={`Solicitudes activas: ${stats.solicitudesActivas}`}
                 icon={<DescriptionIcon />}
               />
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
               <SummaryCard
-                title="Crédito aprobado"
-                amount="$ 0"
-                subtitle="Total disponible"
+                title="Créditos aprobados"
+                amount={stats.totalAprobadas.toString()}
+                subtitle="Total de solicitudes aprobadas"
                 icon={<CheckCircleIcon />}
                 color="#28a745"
               />
@@ -260,7 +319,7 @@ export default function DashboardSolicitante() {
             <Grid size={{ xs: 12, md: 4 }}>
               <SummaryCard
                 title="En revisión"
-                amount="1"
+                amount={stats.enRevision.toString()}
                 subtitle="Respuesta en 24h"
                 icon={<ScheduleIcon />}
                 color="#ffc107"
@@ -284,13 +343,13 @@ export default function DashboardSolicitante() {
                 <Typography variant="h5" gutterBottom>
                   Nueva solicitud de crédito
                 </Typography>
-                <SolicitudCreditoForm />
+                <SolicitudCreditoForm onSuccess={handleSuccessSolicitud} />
               </Box>
             </TabPanel>
 
             <TabPanel value={tabValue} index={1}>
               <Box sx={{ mt: 2 }}>
-                <ListaSolicitudes />
+                <ListaSolicitudes onUpdate={cargarEstadisticas} />
               </Box>
             </TabPanel>
 

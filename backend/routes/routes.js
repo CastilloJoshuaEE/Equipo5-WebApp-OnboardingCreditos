@@ -2136,6 +2136,45 @@ router.post('/solicitudes/:solicitud_id/verificar-kyc', AuthMiddleware.proteger,
  *         description: Sin permisos (solo operadores)
  */
 router.get('/estadisticas', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), SolicitudesController.obtenerEstadisticas);
+/**
+ * @swagger
+ * /api/documentos/{documento_id}/descargar:
+ *   get:
+ *     summary: Descargar documento
+ *     description: Descarga un documento específico del sistema de almacenamiento
+ *     tags:
+ *       - Documentos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: documento_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID único del documento
+ *     responses:
+ *       '200':
+ *         description: Documento descargado exitosamente
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ *       '404':
+ *         description: Documento no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/documentos/:documento_id/descargar', AuthMiddleware.proteger, DocumentoController.descargarDocumento);
 /**
  * @swagger
@@ -2179,26 +2218,6 @@ router.get('/documentos/:documento_id/descargar', AuthMiddleware.proteger, Docum
  *         description: Datos inválidos
  *       404:
  *         description: Documento no encontrado
- * 
- *   delete:
- *     summary: Eliminar documento
- *     tags: [Documentos]
- *     description: Elimina un documento y su archivo asociado
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: documento_id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: ID del documento a eliminar
- *     responses:
- *       200:
- *         description: Documento eliminado exitosamente
- *       404:
- *         description: Documento no encontrado
  */
 router.put(
   '/documentos/:documento_id',
@@ -2208,12 +2227,114 @@ router.put(
   DocumentoController.actualizarDocumento
 );
 
+/**
+ * @swagger
+ * /api/documentos/{documento_id}:
+ *   delete:
+ *     summary: Eliminar documento
+ *     description: Elimina un documento del sistema (solo para solicitantes)
+ *     tags:
+ *       - Documentos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: documento_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID único del documento a eliminar
+ *     responses:
+ *       '200':
+ *         description: Documento eliminado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ *       '404':
+ *         description: Documento no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.delete(
   '/documentos/:documento_id',
   AuthMiddleware.proteger,
   AuthMiddleware.autorizar('solicitante'),
   DocumentoController.eliminarDocumento
 );
+
+/**
+ * @swagger
+ * /api/documentos/{documento_id}/historial-evaluaciones:
+ *   get:
+ *     summary: Obtener historial de evaluaciones de documento
+ *     description: Obtiene el historial completo de evaluaciones y criterios aplicados a un documento
+ *     tags:
+ *       - Documentos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: documento_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID único del documento
+ *     responses:
+ *       '200':
+ *         description: Historial obtenido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             format: uuid
+ *                           criterios:
+ *                             type: object
+ *                             additionalProperties:
+ *                               type: boolean
+ *                           comentarios:
+ *                             type: string
+ *                           estado_final:
+ *                             type: string
+ *                             enum: [validado, rechazado, pendiente]
+ *                           porcentaje_aprobado:
+ *                             type: number
+ *                             format: float
+ *                           fecha_evaluacion:
+ *                             type: string
+ *                             format: date-time
+ *                           evaluado_por:
+ *                             $ref: '#/components/schemas/Usuario'
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '404':
+ *         description: Documento no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
+router.get('/documentos/:documento_id/historial-evaluaciones', DocumentoController.obtenerHistorialEvaluaciones);
+
 /**
  * @swagger
  * /api/webhooks/didit:
@@ -2367,6 +2488,43 @@ router.get('/operador/solicitudes/:solicitud_id/revision', AuthMiddleware.proteg
  *         description: Datos inválidos
  */
 router.put('/operador/solicitudes/:solicitud_id/documentos/:documento_id/validar-balance', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), OperadorController.validarBalanceContable);
+
+/**
+ * @swagger
+ * /api/operador/health:
+ *   get:
+ *     summary: Health check del endpoint de operador
+ *     description: Verifica que el endpoint de operador esté funcionando correctamente
+ *     tags:
+ *       - Operador
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Endpoint funcionando correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Operador endpoint funcionando"
+ *                 usuario:
+ *                   type: string
+ *                   format: uuid
+ *                   example: "123e4567-e89b-12d3-a456-426614174000"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ */
 router.get('/operador/health', AuthMiddleware.proteger, AuthMiddleware.autorizar('operador'), (req, res) => {
   res.json({
     success: true,
@@ -2646,27 +2804,355 @@ router.get('/comentarios/contador-no-leidos', AuthMiddleware.proteger, Comentari
  *               $ref: '#/components/schemas/Error'
  */
 router.delete('/comentarios/:id', AuthMiddleware.proteger, ComentariosController.eliminarComentario);
+/**
+ * @swagger
+ * /api/firmas/iniciar-proceso/{solicitud_id}:
+ *   post:
+ *     summary: Iniciar proceso de firma digital
+ *     description: Inicia el proceso de firma digital para un contrato de solicitud aprobada
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: solicitud_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud de crédito aprobada
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               forzar_reinicio:
+ *                 type: boolean
+ *                 description: Forzar reinicio si existe proceso activo
+ *                 example: false
+ *     responses:
+ *       '200':
+ *         description: Proceso de firma iniciado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         firma:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: string
+ *                               format: uuid
+ *                             estado:
+ *                               type: string
+ *                               enum: [pendiente, enviado, firmado_solicitante, firmado_operador, firmado_completo, expirado]
+ *                             fecha_expiracion:
+ *                               type: string
+ *                               format: date-time
+ *                         fecha_expiracion:
+ *                           type: string
+ *                           format: date-time
+ *                         url_firma:
+ *                           type: string
+ *                           description: Ruta para acceder a la firma desde el frontend
+ *       '400':
+ *         description: Ya existe proceso de firma activo
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ *       '404':
+ *         description: Solicitud no encontrada o no aprobada
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.post('/firmas/iniciar-proceso/:solicitud_id', 
     AuthMiddleware.proteger,
     AuthMiddleware.autorizar('operador', 'solicitante'),
     FirmaDigitalController.iniciarProcesoFirma
 );
 
-// Obtener información para firma Word
+
+/**
+ * @swagger
+ * /api/firmas/info-firma-word/{firma_id}:
+ *   get:
+ *     summary: Obtener información para firma Word
+ *     description: Obtiene la información completa necesaria para mostrar la interfaz de firma digital de Word
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del proceso de firma
+ *     responses:
+ *       '200':
+ *         description: Información de firma obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         firma:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: string
+ *                               format: uuid
+ *                             estado:
+ *                               type: string
+ *                             fecha_expiracion:
+ *                               type: string
+ *                               format: date-time
+ *                             solicitudes_credito:
+ *                               type: object
+ *                         documento:
+ *                           type: string
+ *                           format: byte
+ *                           description: Documento Word en base64
+ *                         nombre_documento:
+ *                           type: string
+ *                         tipo_documento:
+ *                           type: string
+ *                         fecha_expiracion:
+ *                           type: string
+ *                           format: date-time
+ *                         solicitante:
+ *                           $ref: '#/components/schemas/Usuario'
+ *                         hash_original:
+ *                           type: string
+ *                         datos_contrato:
+ *                           type: object
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ *       '404':
+ *         description: Proceso de firma no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/firmas/info-firma-word/:firma_id', 
     AuthMiddleware.proteger,
     AuthMiddleware.autorizar('operador', 'solicitante'),
     FirmaDigitalController.obtenerInfoFirma
 );
 
-// Procesar firma Word
+
+/**
+ * @swagger
+ * /api/firmas/procesar-firma-word/{firma_id}:
+ *   post:
+ *     summary: Procesar firma Word
+ *     description: Procesa y aplica la firma digital a un documento Word
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del proceso de firma
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firma_data
+ *               - tipo_firma
+ *             properties:
+ *               firma_data:
+ *                 type: object
+ *                 required:
+ *                   - firmaTexto
+ *                   - firmaImagen
+ *                 properties:
+ *                   firmaTexto:
+ *                     type: string
+ *                     description: Texto de la firma
+ *                   firmaImagen:
+ *                     type: string
+ *                     format: byte
+ *                     description: Imagen de la firma en base64 (opcional)
+ *                   ubicacion:
+ *                     type: string
+ *                     description: Ubicación del firmante
+ *                   tipoFirma:
+ *                     type: string
+ *                     enum: [texto, imagen, mixta]
+ *               tipo_firma:
+ *                 type: string
+ *                 enum: [solicitante, operador]
+ *                 description: Tipo de firmante
+ *               position_firma:
+ *                 type: object
+ *                 description: Posición de la firma en el documento
+ *               documento_modificado:
+ *                 type: string
+ *                 format: byte
+ *                 description: Documento modificado (opcional)
+ *               firmas:
+ *                 type: array
+ *                 description: Múltiples firmas (para casos complejos)
+ *     responses:
+ *       '200':
+ *         description: Firma procesada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         firma_id:
+ *                           type: string
+ *                           format: uuid
+ *                         estado:
+ *                           type: string
+ *                         integridad_valida:
+ *                           type: boolean
+ *                         url_descarga:
+ *                           type: string
+ *                         hash_firmado:
+ *                           type: string
+ *       '400':
+ *         description: Datos de firma incompletos o inválidos
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ *       '404':
+ *         description: Proceso de firma no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.post('/firmas/procesar-firma-word/:firma_id', 
     AuthMiddleware.proteger,
     AuthMiddleware.autorizar('operador', 'solicitante'),
     FirmaDigitalController.procesarFirma
 );
+/**
+ * @swagger
+ * /api/firmas/verificar-contrato/{firma_id}:
+ *   get:
+ *     summary: Verificar estado del contrato
+ *     description: Verifica el estado y validez del contrato antes del proceso de firma
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       '200':
+ *         description: Estado del contrato verificado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         firma_id:
+ *                           type: string
+ *                           format: uuid
+ *                         estado_firma:
+ *                           type: string
+ *                         contrato_valido:
+ *                           type: boolean
+ *                         ruta_documento:
+ *                           type: string
+ *                         estado_contrato:
+ *                           type: string
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '404':
+ *         description: Proceso de firma no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/firmas/verificar-contrato/:firma_id', AuthMiddleware.proteger, ContratoController.verificarEstadoContrato);
-// Obtener documento para firma
+/**
+ * @swagger
+ * /api/firmas/documento-para-firma/{firma_id}:
+ *   get:
+ *     summary: Obtener documento para firma
+ *     description: Obtiene el documento Word en base64 listo para firma
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       '200':
+ *         description: Documento obtenido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         documento:
+ *                           type: string
+ *                           format: byte
+ *                         tipo:
+ *                           type: string
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ *       '404':
+ *         description: Proceso de firma no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/firmas/documento-para-firma/:firma_id', 
     AuthMiddleware.proteger,
     AuthMiddleware.autorizar('operador', 'solicitante'),
@@ -2674,7 +3160,41 @@ router.get('/firmas/documento-para-firma/:firma_id',
     FirmaDigitalController.obtenerDocumentoParaFirma
 );
 
-// Descargar documento firmado
+
+/**
+ * @swagger
+ * /api/firmas/descargar/{firma_id}:
+ *   get:
+ *     summary: Descargar documento firmado
+ *     description: Descarga el documento Word ya firmado
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       '200':
+ *         description: Documento descargado exitosamente
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ *       '404':
+ *         description: Proceso de firma no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/firmas/descargar/:firma_id', 
     AuthMiddleware.proteger,
     AuthMiddleware.autorizar('operador', 'solicitante'),
@@ -2682,53 +3202,473 @@ router.get('/firmas/descargar/:firma_id',
     FirmaDigitalController.descargarDocumentoFirmado
 );
 
-// Verificar estado de firma
+/**
+ * @swagger
+ * /api/firmas/estado/{firma_id}:
+ *   get:
+ *     summary: Verificar estado de firma
+ *     description: Verifica el estado actual del proceso de firma digital
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       '200':
+ *         description: Estado obtenido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         estado:
+ *                           type: string
+ *                         integridad_valida:
+ *                           type: boolean
+ *                         fecha_firma_solicitante:
+ *                           type: string
+ *                           format: date-time
+ *                         fecha_firma_operador:
+ *                           type: string
+ *                           format: date-time
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ *       '404':
+ *         description: Proceso de firma no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/firmas/estado/:firma_id', 
     AuthMiddleware.proteger,
     AuthMiddleware.autorizar('operador', 'solicitante'),
 
     FirmaDigitalController.verificarEstadoFirma
 );
+
+/**
+ * @swagger
+ * /api/firmas/contenido-contrato/{firma_id}:
+ *   get:
+ *     summary: Obtener contenido del contrato
+ *     description: Obtiene información detallada del contenido del contrato
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       '200':
+ *         description: Contenido del contrato obtenido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         nombre:
+ *                           type: string
+ *                         tipo:
+ *                           type: string
+ *                         tamanio:
+ *                           type: integer
+ *                         informacion:
+ *                           type: string
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '404':
+ *         description: Proceso de firma no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/firmas/contenido-contrato/:firma_id', 
     AuthMiddleware.proteger,
     ContratoController.obtenerContenidoContrato
 );
-// Obtener firmas pendientes
+
+/**
+ * @swagger
+ * /api/firmas/pendientes:
+ *   get:
+ *     summary: Obtener firmas pendientes
+ *     description: Obtiene la lista de firmas pendientes para el dashboard del usuario
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Lista de firmas pendientes obtenida
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             format: uuid
+ *                           estado:
+ *                             type: string
+ *                           fecha_envio:
+ *                             type: string
+ *                             format: date-time
+ *                           fecha_expiracion:
+ *                             type: string
+ *                             format: date-time
+ *                           contratos:
+ *                             type: object
+ *                           solicitudes_credito:
+ *                             type: object
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/firmas/pendientes', 
     AuthMiddleware.proteger,
     AuthMiddleware.autorizar('operador', 'solicitante'),
 
     FirmaDigitalController.obtenerFirmasPendientes
 );
-
-// Reenviar solicitud de firma
+/**
+ * @swagger
+ * /api/firmas/{firma_id}/reenviar:
+ *   post:
+ *     summary: Reenviar solicitud de firma
+ *     description: Reenvía una solicitud de firma expirada
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       '200':
+ *         description: Solicitud reenviada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         firma_id:
+ *                           type: string
+ *                           format: uuid
+ *                         nuevo_estado:
+ *                           type: string
+ *                         fecha_expiracion:
+ *                           type: string
+ *                           format: date-time
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ *       '404':
+ *         description: Firma no encontrada o no expirada
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.post('/firmas/:firma_id/reenviar', 
     AuthMiddleware.proteger,
     AuthMiddleware.autorizar('operador', 'solicitante'),
     FirmaDigitalController.reenviarSolicitudFirma
 );
 
-// Obtener auditoría de firma
+/**
+ * @swagger
+ * /api/firmas/{firma_id}/auditoria:
+ *   get:
+ *     summary: Obtener auditoría de firma
+ *     description: Obtiene el historial completo de auditoría de un proceso de firma
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       '200':
+ *         description: Auditoría obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             format: uuid
+ *                           accion:
+ *                             type: string
+ *                           descripcion:
+ *                             type: string
+ *                           estado_anterior:
+ *                             type: string
+ *                           estado_nuevo:
+ *                             type: string
+ *                           created_at:
+ *                             type: string
+ *                             format: date-time
+ *                           usuarios:
+ *                             $ref: '#/components/schemas/Usuario'
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '403':
+ *         $ref: '#/components/responses/Prohibido'
+ *       '404':
+ *         description: Proceso de firma no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/firmas/:firma_id/auditoria', 
     AuthMiddleware.proteger,
     AuthMiddleware.autorizar('operador', 'solicitante'),
 
     FirmaDigitalController.obtenerAuditoriaFirma
 );
+
+/**
+ * @swagger
+ * /api/firmas/verificar-existente/{solicitud_id}:
+ *   get:
+ *     summary: Verificar firma existente
+ *     description: Verifica si ya existe un proceso de firma activo para una solicitud
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: solicitud_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       '200':
+ *         description: Verificación completada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         firma_existente:
+ *                           type: object
+ *                           nullable: true
+ *                         existe:
+ *                           type: boolean
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/firmas/verificar-existente/:solicitud_id', 
     AuthMiddleware.proteger,
     FirmaDigitalController.verificarFirmaExistente
 );
 
+/**
+ * @swagger
+ * /api/firmas/reiniciar-proceso/{solicitud_id}:
+ *   post:
+ *     summary: Reiniciar proceso de firma
+ *     description: Reinicia completamente el proceso de firma para una solicitud
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: solicitud_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               forzar_reinicio:
+ *                 type: boolean
+ *                 description: Forzar reinicio incluso si hay procesos activos
+ *     responses:
+ *       '200':
+ *         description: Proceso reiniciado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         firma_anterior:
+ *                           type: object
+ *                           nullable: true
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.post('/firmas/reiniciar-proceso/:solicitud_id', 
     AuthMiddleware.proteger,
     FirmaDigitalController.reiniciarProcesoFirma
 );
 
+/**
+ * @swagger
+ * /api/firmas/renovar-expirada/{solicitud_id}:
+ *   post:
+ *     summary: Renovar firma expirada
+ *     description: Renueva una firma digital que ha expirado
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: solicitud_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       '200':
+ *         description: Firma renovada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         firma_id:
+ *                           type: string
+ *                           format: uuid
+ *                         fecha_expiracion:
+ *                           type: string
+ *                           format: date-time
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '404':
+ *         description: No se encontró firma expirada
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.post('/firmas/renovar-expirada/:solicitud_id', 
     AuthMiddleware.proteger,
     FirmaDigitalController.renovarFirmaExpirada
 );
+
+/**
+ * @swagger
+ * /api/firmas/{firma_id}/reparar-relacion:
+ *   post:
+ *     summary: Reparar relación firma-contrato
+ *     description: Repara la relación entre una firma digital y su contrato asociado
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       '200':
+ *         description: Relación reparada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         firma_id:
+ *                           type: string
+ *                           format: uuid
+ *                         contrato_id:
+ *                           type: string
+ *                           format: uuid
+ *                         contrato_ruta_documento:
+ *                           type: string
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '404':
+ *         description: Firma o contrato no encontrado
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.post('/firmas/:firma_id/reparar-relacion', 
     AuthMiddleware.proteger,
     FirmaDigitalController.repararRelacionFirmaContrato
@@ -2813,6 +3753,65 @@ router.get('/firmas/diagnostico-descarga/:firma_id',
         }
     }
 );
+
+/**
+ * @swagger
+ * /api/firmas/diagnostico/{firma_id}:
+ *   get:
+ *     summary: Diagnóstico de firma digital
+ *     description: Realiza un diagnóstico completo del estado de un proceso de firma digital
+ *     tags:
+ *       - Firmas Digitales
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       '200':
+ *         description: Diagnóstico completado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 existe_firma:
+ *                   type: boolean
+ *                 error:
+ *                   type: string
+ *                   nullable: true
+ *                 firma:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       format: uuid
+ *                     estado:
+ *                       type: string
+ *                     contrato_id:
+ *                       type: string
+ *                       format: uuid
+ *                     solicitud_id:
+ *                       type: string
+ *                       format: uuid
+ *                 contrato:
+ *                   type: object
+ *                   nullable: true
+ *                 solicitud:
+ *                   type: object
+ *                   nullable: true
+ *                 tiene_documento:
+ *                   type: boolean
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/firmas/diagnostico/:firma_id', 
     AuthMiddleware.proteger,
     async (req, res) => {
@@ -2970,12 +3969,175 @@ router.get('/firmas/ver-contrato-firmado/:firma_id',
         }
     }
 );
-router.get('/plantillas', PlantillasDocumentoController.listarPlantillas);
-router.get('/:id/descargar', PlantillasDocumentoController.descargarPlantilla);
-router.post('/plantillas', upload.single('archivo'), PlantillasDocumentoController.subirPlantilla);
-router.put('/:id', upload.single('archivo'), PlantillasDocumentoController.actualizarPlantilla);
-router.get('/documentos/:documento_id/historial-evaluaciones', DocumentoController.obtenerHistorialEvaluaciones);
+// ==================== RUTAS DE PLANTILLAS ====================
 
+/**
+ * @swagger
+ * /api/plantillas:
+ *   get:
+ *     summary: Listar plantillas de documentos
+ *     description: Obtiene la lista de todas las plantillas de documentos disponibles
+ *     tags:
+ *       - Plantillas
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Lista de plantillas obtenida
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           tipo:
+ *                             type: string
+ *                           nombre_archivo:
+ *                             type: string
+ *                           ruta_storage:
+ *                             type: string
+ *                           tamanio_bytes:
+ *                             type: integer
+ *                           created_at:
+ *                             type: string
+ *                             format: date-time
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
+router.get('/plantillas', PlantillasDocumentoController.listarPlantillas);
+
+/**
+ * @swagger
+ * /api/plantillas:
+ *   post:
+ *     summary: Subir nueva plantilla
+ *     description: Sube una nueva plantilla de documento al sistema
+ *     tags:
+ *       - Plantillas
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               archivo:
+ *                 type: string
+ *                 format: binary
+ *                 description: Archivo Word de la plantilla
+ *               tipo:
+ *                 type: string
+ *                 description: Tipo de plantilla
+ *     responses:
+ *       '200':
+ *         description: Plantilla subida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *       '400':
+ *         description: No se envió archivo
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
+router.post('/plantillas', upload.single('archivo'), PlantillasDocumentoController.subirPlantilla);
+
+/**
+ * @swagger
+ * /api/plantillas/{id}:
+ *   put:
+ *     summary: Actualizar plantilla existente
+ *     description: Actualiza una plantilla de documento existente
+ *     tags:
+ *       - Plantillas
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la plantilla
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               archivo:
+ *                 type: string
+ *                 format: binary
+ *                 description: Nuevo archivo Word de la plantilla
+ *     responses:
+ *       '200':
+ *         description: Plantilla actualizada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '404':
+ *         description: Plantilla no encontrada
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
+router.put('/plantillas/:id', upload.single('archivo'), PlantillasDocumentoController.actualizarPlantilla);
+
+/**
+ * @swagger
+ * /api/plantillas/{id}/descargar:
+ *   get:
+ *     summary: Descargar plantilla específica
+ *     description: Descarga una plantilla de documento específica
+ *     tags:
+ *       - Plantillas
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       '200':
+ *         description: Plantilla descargada exitosamente
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '404':
+ *         description: Plantilla no encontrada
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
+router.get('/plantillas/:id/descargar', PlantillasDocumentoController.descargarPlantilla);
 /**
  * @swagger
  * tags:
@@ -3026,18 +4188,162 @@ router.get('/documentos/:documento_id/historial-evaluaciones', DocumentoControll
  */
 router.post('/chatbot/mensaje', ChatbotController.procesarMensaje);
 
-// Rutas protegidas para usuarios autenticados
+/**
+ * @swagger
+ * /api/chatbot/mensaje-autenticado:
+ *   post:
+ *     summary: Procesar mensaje del chatbot (autenticado)
+ *     description: Procesa un mensaje del chatbot para usuarios autenticados
+ *     tags:
+ *       - Chatbot
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - mensaje
+ *             properties:
+ *               mensaje:
+ *                 type: string
+ *                 maxLength: 1000
+ *                 description: Mensaje del usuario al chatbot
+ *     responses:
+ *       '200':
+ *         description: Mensaje procesado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         respuesta:
+ *                           type: string
+ *                         timestamp:
+ *                           type: string
+ *                           format: date-time
+ *                         usuario:
+ *                           type: object
+ *                           nullable: true
+ *       '400':
+ *         description: Mensaje vacío o demasiado largo
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.post('/chatbot/mensaje-autenticado', 
     AuthMiddleware.proteger, 
     ChatbotController.procesarMensaje
 );
 
+/**
+ * @swagger
+ * /api/chatbot/historial:
+ *   get:
+ *     summary: Obtener historial del chatbot
+ *     description: Obtiene el historial de conversaciones del chatbot para el usuario autenticado
+ *     tags:
+ *       - Chatbot
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: limit
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Límite de registros a obtener
+ *       - name: offset
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Offset para paginación
+ *     responses:
+ *       '200':
+ *         description: Historial obtenido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             format: uuid
+ *                           usuario_id:
+ *                             type: string
+ *                             format: uuid
+ *                           pregunta:
+ *                             type: string
+ *                           respuesta:
+ *                             type: string
+ *                           sentimiento:
+ *                             type: string
+ *                           created_at:
+ *                             type: string
+ *                             format: date-time
+ *       '401':
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       '500':
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/chatbot/historial',
     AuthMiddleware.proteger,
     ChatbotController.obtenerHistorial
 );
 
-// Health check (público)
+/**
+ * @swagger
+ * /api/chatbot/health:
+ *   get:
+ *     summary: Health check del chatbot
+ *     description: Verifica que el servicio de chatbot esté funcionando correctamente
+ *     tags:
+ *       - Chatbot
+ *     responses:
+ *       '200':
+ *         description: Chatbot funcionando correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Chatbot funcionando correctamente"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     servicio:
+ *                       type: string
+ *                       example: "Gemini API"
+ *                     estado:
+ *                       type: string
+ *                       example: "activo"
+ *                     prueba:
+ *                       type: string
+ *                       example: "exitosa"
+ *       '503':
+ *         description: Chatbot temporalmente no disponible
+ */
 router.get('/chatbot/health', ChatbotController.healthCheck);
 
 module.exports = router;

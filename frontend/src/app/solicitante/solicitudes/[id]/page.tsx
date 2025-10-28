@@ -251,12 +251,10 @@ export default function DetalleSolicitud() {
             <Step>
               <StepLabel>En Revisión</StepLabel>
             </Step>
-            <Step>
-              <StepLabel>Pendiente Info</StepLabel>
-            </Step>
+
             <Step>
               <StepLabel>Decisión</StepLabel>
-            </Step>
+            </Step>            
           </Stepper>
           
           <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>

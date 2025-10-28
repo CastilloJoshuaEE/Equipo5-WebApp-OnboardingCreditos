@@ -1,4 +1,4 @@
-// servicios/notificacionService.js
+// servicios/NotificacionService.js
 const { supabase } = require('../config/conexion');
 const { supabaseAdmin } = require('../config/supabaseAdmin');
 
