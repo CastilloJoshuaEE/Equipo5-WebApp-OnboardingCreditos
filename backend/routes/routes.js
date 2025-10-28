@@ -8,14 +8,18 @@ const notificacionesController = require("../controladores/NotificacionesControl
 const SolicitudesController = require('../controladores/SolicitudesController');
 const OperadorController = require('../controladores/OperadorController');
 const DocumentoController = require('../controladores/DocumentoController');
-const reactivacionController = require('../controladores/reactivacionController'); // Cambiado
-const webhooksController = require('../controladores/webhooksController'); // Cambiado
+const reactivacionController = require('../controladores/reactivacionController');
+const webhooksController = require('../controladores/webhooksController'); 
 const EmailValidationMiddleware = require("../middleware/emailValidation");
 const ComentariosController = require('../controladores/ComentariosController');
 const PlantillasDocumentoController = require('../controladores/PlantillasDocumentosController');
 const ChatbotController = require('../controladores/ChatbotController');
 const FirmaDigitalController = require('../controladores/FirmaDigitalController');
 const ContratoController = require("../controladores/ContratoController");
+const ContactosBancariosController= require("../controladores/ContactosBancariosController");
+
+const TransferenciasBancariasController= require("../controladores/TransferenciasBancariasController");
+const WordService= require("../servicios/WordService");
 
 // Middleware existentes
 const router = express.Router();
@@ -4345,5 +4349,57 @@ router.get('/chatbot/historial',
  *         description: Chatbot temporalmente no disponible
  */
 router.get('/chatbot/health', ChatbotController.healthCheck);
+router.get('/:firma_id/documento-actual', FirmaDigitalController.obtenerDocumentoActual);
 
+// Ruta para verificar integridad
+router.get('/:firma_id/verificar-integridad', async (req, res) => {
+    try {
+        const { firma_id } = req.params;
+        
+        const integridadValida = await WordService.verificarIntegridadCompleta(firma_id);
+        const esIntegridadValida = Boolean(integridadValida);
+
+        res.json({
+            success: true,
+            data: {
+                firma_id: firma_id,
+                integridad_valida: esIntegridadValida,
+                mensaje: esIntegridadValida
+            }
+        });
+    } catch (error) {
+        console.error('Error verificando integridad:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error verificando integridad'
+        });
+    }
+});
+
+// Rutas para transferencias bancarias
+router.get('/contactos-bancarios/solicitante/:solicitante_id', ContactosBancariosController.obtenerContactosPorSolicitante);
+router.get('/contactos-bancarios/buscar',  ContactosBancariosController.buscarContactosPorDNI);
+router.get('/contactos-bancarios/mis-contactos',  ContactosBancariosController.obtenerMisContactos);
+router.post('/contactos-bancarios',  ContactosBancariosController.crearContacto);
+router.get('/transferencias/habilitacion/:solicitud_id', 
+  AuthMiddleware.proteger, 
+  AuthMiddleware.autorizar('operador'), 
+  TransferenciasBancariasController.verificarHabilitacionTransferencia
+);
+
+router.post('/transferencias', 
+  AuthMiddleware.proteger, 
+  AuthMiddleware.autorizar('operador'), 
+  TransferenciasBancariasController.crearTransferencia
+);
+
+router.get('/transferencias/comprobante/:transferencia_id', 
+  AuthMiddleware.proteger, 
+  TransferenciasBancariasController.obtenerComprobante
+);
+
+router.get('/transferencias/historial', 
+  AuthMiddleware.proteger, 
+  TransferenciasBancariasController.obtenerHistorial
+);
 module.exports = router;

@@ -85,8 +85,6 @@ const VisorWordFirma: React.FC<VisorWordFirmaProps> = ({
     const [posicionFirma, setPosicionFirma] = useState<PosicionFirma | null>(null);
     const [editorFirmaAbierto, setEditorFirmaAbierto] = useState(false);
     const [zoom, setZoom] = useState(1);
-    const [historialFirmas, setHistorialFirmas] = useState<Firma[]>([]);
-    const [pasoHistorial, setPasoHistorial] = useState(-1);
     const [contenidoReal, setContenidoReal] = useState<string>('');
     const [cargando, setCargando] = useState(false);
     const [error, setError] = useState<string>('');
@@ -96,6 +94,7 @@ const VisorWordFirma: React.FC<VisorWordFirmaProps> = ({
     const documentoRef = useRef<HTMLDivElement>(null);
     const dragOffset = useRef({ x: 0, y: 0 });
     const isDragging = useRef(false);
+    const contadorFirmas = useRef(0); // Contador para claves únicas
 
     // Cargar contenido real del contrato
     useEffect(() => {
@@ -270,17 +269,17 @@ Fecha: ${new Date().toLocaleDateString()}
     const handleFirmaGuardada = (firmaData: any) => {
         if (!posicionFirma) return;
 
+        // Generar ID único usando contador y timestamp
+        contadorFirmas.current += 1;
+        const firmaIdUnico = `firma-${contadorFirmas.current}-${Date.now()}`;
+
         const nuevaFirma: Firma = {
             ...firmaData,
             posicion: posicionFirma,
-            id: Date.now().toString(),
+            id: firmaIdUnico, // ID único garantizado
             fecha: new Date().toISOString(),
             tamaño: { width: 150, height: 80 }
         };
-
-        const nuevoHistorial = [...historialFirmas.slice(0, pasoHistorial + 1), nuevaFirma];
-        setHistorialFirmas(nuevoHistorial);
-        setPasoHistorial(nuevoHistorial.length - 1);
 
         setFirmas(prev => [...prev, nuevaFirma]);
         setPosicionFirma(null);
@@ -341,16 +340,6 @@ Fecha: ${new Date().toLocaleDateString()}
         isDragging.current = false;
         document.removeEventListener('mousemove', handleGlobalMouseMove);
         document.removeEventListener('mouseup', handleGlobalMouseUp);
-
-        // Actualizar historial
-        if (firmaSeleccionada) {
-            const firmaActual = firmas.find(f => f.id === firmaSeleccionada);
-            if (firmaActual) {
-                const nuevoHistorial = [...historialFirmas.slice(0, pasoHistorial + 1), firmaActual];
-                setHistorialFirmas(nuevoHistorial);
-                setPasoHistorial(nuevoHistorial.length - 1);
-            }
-        }
     };
 
     const eliminarFirma = (firmaId: string) => {
@@ -360,19 +349,6 @@ Fecha: ${new Date().toLocaleDateString()}
         }
     };
 
-    const handleDeshacer = () => {
-        if (pasoHistorial > 0) {
-            setPasoHistorial(prev => prev - 1);
-            setFirmas(historialFirmas.slice(0, pasoHistorial));
-        }
-    };
-
-    const handleRehacer = () => {
-        if (pasoHistorial < historialFirmas.length - 1) {
-            setPasoHistorial(prev => prev + 1);
-            setFirmas(historialFirmas.slice(0, pasoHistorial + 2));
-        }
-    };
 const handleGuardarDocumento = async () => {
     try {
         setCargando(true);
@@ -401,36 +377,39 @@ const handleGuardarDocumento = async () => {
         // Determinar el tipo de firma basado en el rol del usuario
         const tipoFirma = session.user?.rol === 'solicitante' ? 'solicitante' : 'operador';
 
-        // Crear objeto firma_data . con la estructura que espera el backend
+        // . NUEVA ESTRUCTURA PARA FIRMA ACUMULATIVA
         const firma_data = {
-            firmaTexto: session.user?.name || session.user?.email || 'Usuario',
+            nombreFirmante: session.user?.name || session.user?.email || 'Usuario',
             ubicacion: ubicacion,
-            tipoFirma: 'texto' // o 'dibujo' según corresponda
-        };
-
-        const documentoFirmado = {
-            firmas: firmas,
-            posicion_firma: firmas[0]?.posicion,
-            tipo_firma: tipoFirma,
             fechaFirma: new Date().toISOString(),
-            firmaId: firmaId,
-            firma_data: firma_data // INCLUIR firma_data aquí
+            tipoFirma: 'texto', // o 'dibujo' según corresponda
+            firmaTexto: session.user?.name || 'Firma',
+            firmaImagen: firmas.find(f => f.tipoFirma === 'dibujo')?.firmaImagen,
+            ipFirmante: '', // Se completa en el backend
+            userAgent: navigator.userAgent,
+            hashDocumento: infoFirma?.hash_original
         };
 
-        console.log('📝 Enviando documento firmado al servidor...', {
+        console.log('📝 Enviando firma acumulativa al servidor...', {
             tipo_firma: tipoFirma,
             tiene_firma_data: !!firma_data,
             firmas_count: firmas.length
         });
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+        // . LLAMAR AL NUEVO ENDPOINT MEJORADO
         const response = await fetch(`${API_URL}/firmas/procesar-firma-word/${firmaId}`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${session.accessToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(documentoFirmado)
+            body: JSON.stringify({
+                firma_data: firma_data,
+                tipo_firma: tipoFirma
+                // . NO enviar documento_modificado - el backend lo genera automáticamente
+            })
         });
 
         console.log('📡 Respuesta del servidor:', response.status);
@@ -450,15 +429,20 @@ const handleGuardarDocumento = async () => {
         }
 
         const result = await response.json();
-        console.log('✅ Resultado de firma:', result);
+        console.log('. Resultado de firma acumulativa:', result);
         
         if (result.success) {
-            onFirmaCompletada(result.data);
+            // . MANEJAR RESPUESTA MEJORADA
+            onFirmaCompletada({
+                ...result.data,
+                es_firma_completa: result.data.integridad_valida,
+                estado: result.data.estado
+            });
         } else {
             throw new Error(result.message || 'Error en la respuesta del servidor');
         }
     } catch (error: any) {
-        console.error('❌ Error guardando documento:', error);
+        console.error('. Error guardando documento:', error);
         setError(error.message || 'Error al guardar el documento');
     } finally {
         setCargando(false);
@@ -471,12 +455,11 @@ const handleGuardarDocumento = async () => {
 
     const limpiarTodasLasFirmas = () => {
         setFirmas([]);
-        setHistorialFirmas([]);
-        setPasoHistorial(-1);
         setFirmaSeleccionada(null);
+        contadorFirmas.current = 0; // Resetear contador
     };
 
-    // COMPONENTE DE FIRMA ARRASTRABLE .
+    // COMPONENTE DE FIRMA ARRASTRABLE MEJORADO
     const FirmaArrastrable = ({ firma }: { firma: Firma }) => {
         const isSelected = firmaSeleccionada === firma.id;
 
@@ -534,6 +517,7 @@ const handleGuardarDocumento = async () => {
                         </Typography>
                     </Box>
                     
+                    {/* SOLO MOSTRAR BOTÓN ELIMINAR CUANDO ESTÁ SELECCIONADA */}
                     {isSelected && (
                         <IconButton
                             size="small"
@@ -612,7 +596,7 @@ const handleGuardarDocumento = async () => {
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Barra de herramientas */}
+            {/* Barra de herramientas SIMPLIFICADA */}
             <AppBar position="static" color="default" elevation={1}>
                 <Toolbar variant="dense">
                     <Typography variant="h6" sx={{ flexGrow: 1 }}>
@@ -625,13 +609,7 @@ const handleGuardarDocumento = async () => {
                         </Typography>
                     )}
                     
-                    <IconButton onClick={handleDeshacer} disabled={pasoHistorial <= 0}>
-                        <Undo />
-                    </IconButton>
-                    
-                    <IconButton onClick={handleRehacer} disabled={pasoHistorial >= historialFirmas.length - 1}>
-                        <Redo />
-                    </IconButton>
+                    {/* ELIMINADOS: Botones de Deshacer/Rehacer */}
                     
                     <IconButton onClick={disminuirZoom}>
                         <ZoomOut />
@@ -721,76 +699,75 @@ const handleGuardarDocumento = async () => {
                     </Alert>
                 )}
 
-               // En el componente de renderizado, modifica esta parte:
-<Box sx={{ 
-    p: 4, 
-    fontFamily: 'Times New Roman, serif', 
-    fontSize: '12pt', 
-    lineHeight: 1.6, // Mejor interlineado
-    position: 'relative',
-    minHeight: '100%',
-    transform: `scale(${zoom})`,
-    transformOrigin: 'top left',
-    width: `${100 / zoom}%`,
-    height: `${100 / zoom}%`,
-    whiteSpace: 'pre-line' // ← CRÍTICO: preservar saltos de línea
-}}>
-    {contenidoReal.split('\n').map((linea, index) => {
-        // Determinar el estilo según el contenido
-        let estilo = {};
-        
-        if (linea.includes('CONTRATO DE AUTORIZACIÓN')) {
-            estilo = { 
-                fontWeight: 'bold', 
-                fontSize: '1.3rem', 
-                textAlign: 'center',
-                marginBottom: '1rem'
-            };
-        } else if (linea.match(/^[A-Z]+:/) && !linea.includes('_')) {
-            // Títulos de cláusulas (PRIMERA:, SEGUNDA:, etc.)
-            estilo = { 
-                fontWeight: 'bold', 
-                marginTop: '1rem',
-                marginBottom: '0.5rem'
-            };
-        } else if (linea.match(/^\d+\./)) {
-            // Elementos de lista numerados
-            estilo = { 
-                marginLeft: '2rem',
-                textIndent: '-1rem',
-                marginBottom: '0.25rem'
-            };
-        } else if (linea.trim() === '') {
-            // Líneas vacías
-            return <br key={index} />;
-        } else if (linea.includes('_________________________')) {
-            // Líneas de firma
-            estilo = { 
-                textAlign: 'center',
-                marginTop: '2rem'
-            };
-        }
+                <Box sx={{ 
+                    p: 4, 
+                    fontFamily: 'Times New Roman, serif', 
+                    fontSize: '12pt', 
+                    lineHeight: 1.6,
+                    position: 'relative',
+                    minHeight: '100%',
+                    transform: `scale(${zoom})`,
+                    transformOrigin: 'top left',
+                    width: `${100 / zoom}%`,
+                    height: `${100 / zoom}%`,
+                    whiteSpace: 'pre-line'
+                }}>
+                    {contenidoReal.split('\n').map((linea, index) => {
+                        // Determinar el estilo según el contenido
+                        let estilo = {};
+                        
+                        if (linea.includes('CONTRATO DE AUTORIZACIÓN')) {
+                            estilo = { 
+                                fontWeight: 'bold', 
+                                fontSize: '1.3rem', 
+                                textAlign: 'center',
+                                marginBottom: '1rem'
+                            };
+                        } else if (linea.match(/^[A-Z]+:/) && !linea.includes('_')) {
+                            // Títulos de cláusulas (PRIMERA:, SEGUNDA:, etc.)
+                            estilo = { 
+                                fontWeight: 'bold', 
+                                marginTop: '1rem',
+                                marginBottom: '0.5rem'
+                            };
+                        } else if (linea.match(/^\d+\./)) {
+                            // Elementos de lista numerados
+                            estilo = { 
+                                marginLeft: '2rem',
+                                textIndent: '-1rem',
+                                marginBottom: '0.25rem'
+                            };
+                        } else if (linea.trim() === '') {
+                            // Líneas vacías
+                            return <br key={`linea-${index}`} />;
+                        } else if (linea.includes('_________________________')) {
+                            // Líneas de firma
+                            estilo = { 
+                                textAlign: 'center',
+                                marginTop: '2rem'
+                            };
+                        }
 
-        return (
-            <Typography 
-                key={index} 
-                variant="body1" 
-                sx={{ 
-                    mb: linea.trim() ? 0.5 : 0.25,
-                    ...estilo,
-                    fontFamily: 'inherit'
-                }}
-            >
-                {linea}
-            </Typography>
-        );
-    })}
+                        return (
+                            <Typography 
+                                key={`linea-${index}`} 
+                                variant="body1" 
+                                sx={{ 
+                                    mb: linea.trim() ? 0.5 : 0.25,
+                                    ...estilo,
+                                    fontFamily: 'inherit'
+                                }}
+                            >
+                                {linea}
+                            </Typography>
+                        );
+                    })}
 
-    {/* Mostrar firmas arrastrables */}
-    {firmas.map((firma) => (
-        <FirmaArrastrable key={firma.id} firma={firma} />
-    ))}
-</Box>
+                    {/* Mostrar firmas arrastrables con claves únicas */}
+                    {firmas.map((firma) => (
+                        <FirmaArrastrable key={firma.id} firma={firma} />
+                    ))}
+                </Box>
             </Paper>
 
             {/* Instrucciones */}

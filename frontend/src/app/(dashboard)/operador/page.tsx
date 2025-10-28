@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import React, { useState, useEffect } from 'react';
 import { getSession } from 'next-auth/react';
+import { useToast } from '@/components/ui/use-toast';
 import BotonIniciarFirma from '@/components/BotonIniciarFirma';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -28,17 +29,17 @@ import {
 import { Documento, RevisionData, SolicitudOperador } from '@/types/operador';
 import RevisionModal from '@/components/operador/RevisionModal';
 import './operador-styles.css';
+import { HabilitacionTransferencia } from '@/types/transferencias';
 
-interface BotonIniciarFirmaProps {
-  solicitudId: string;
-  onFirmaIniciada: (data: any) => void;
-}
+// ... (las interfaces y imports anteriores se mantienen igual)
 
 export default function OperadorDashboard() {
   const router = useRouter();
   const params = useParams();
   
   const [solicitudes, setSolicitudes] = useState<SolicitudOperador[]>([]);
+  const [habilitaciones, setHabilitaciones] = useState<{[key: string]: HabilitacionTransferencia}>({});
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [filtros, setFiltros] = useState({
     estado: '',
@@ -48,10 +49,60 @@ export default function OperadorDashboard() {
     numero_solicitud: '',
     dni: ''
   });
+  
+  // Estados para las métricas
+  const [metricas, setMetricas] = useState({
+    totalSolicitudes: 0,
+    aprobadas: 0,
+    enRevision: 0,
+    montoAprobado: 0
+  });
+
   const solicitudId = params?.id as string;
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<RevisionData | null>(null);
   const [modalRevision, setModalRevision] = useState(false);
   const [revisionData, setRevisionData] = useState<RevisionData | null>(null);
+
+  // Función para calcular métricas basadas en las solicitudes
+  const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
+    const totalSolicitudes = solicitudesData.length;
+    
+    const aprobadas = solicitudesData.filter(s => s.estado === 'aprobado').length;
+    
+    const enRevision = solicitudesData.filter(s => 
+      s.estado === 'en_revision' || s.estado === 'pendiente_info'
+    ).length;
+    
+    const montoAprobado = solicitudesData
+      .filter(s => s.estado === 'aprobado')
+      .reduce((total, solicitud) => {
+        // Convertir a número y sumar
+        const monto = typeof solicitud.monto === 'number' ? solicitud.monto : parseFloat(solicitud.monto) || 0;
+        return total + monto;
+      }, 0);
+
+    setMetricas({
+      totalSolicitudes,
+      aprobadas,
+      enRevision,
+      montoAprobado
+    });
+  };
+
+  // Actualizar métricas cuando cambien las solicitudes
+  useEffect(() => {
+    if (solicitudes.length > 0) {
+      calcularMetricas(solicitudes);
+    } else {
+      // Resetear métricas si no hay solicitudes
+      setMetricas({
+        totalSolicitudes: 0,
+        aprobadas: 0,
+        enRevision: 0,
+        montoAprobado: 0
+      });
+    }
+  }, [solicitudes]);
 
   // Función para refrescar datos después de validar
   const handleDocumentoActualizado = async () => {
@@ -102,6 +153,47 @@ export default function OperadorDashboard() {
       callbackUrl: '/login',
       redirect: true 
     });
+  };
+
+  // Verificar habilitación para cada solicitud
+  useEffect(() => {
+    const verificarHabilitaciones = async () => {
+      const nuevasHabilitaciones: {[key: string]: HabilitacionTransferencia} = {};
+      const session = await getSession();
+
+      for (const solicitud of solicitudes) {
+        if (solicitud.estado === 'aprobado') {
+          try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitud.id}`, {
+              headers: {
+                'Authorization': `Bearer ${session?.accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+              nuevasHabilitaciones[solicitud.id] = data.data;
+            }
+          } catch (error) {
+            console.error('Error verificando habilitación:', error);
+          }
+        }
+      }
+      
+      setHabilitaciones(nuevasHabilitaciones);
+    };
+
+    if (solicitudes.length > 0) {
+      verificarHabilitaciones();
+    }
+  }, [solicitudes]);
+
+  const handleTransferir = (solicitudId: string) => {
+    // Navegar a la página de transferencia
+    window.location.href = `/operador/transferencias/nueva?solicitud_id=${solicitudId}`;
   };
 
   const cargarDashboard = async () => {
@@ -191,6 +283,16 @@ export default function OperadorDashboard() {
     return colores[riesgo] || 'default';
   };
 
+  // Función para formatear el monto en formato de moneda
+  const formatearMonto = (monto: number) => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(monto);
+  };
+
   return (
     <Box className="operador-dashboard">
       {/* Encabezado con diseño UX */}
@@ -203,17 +305,18 @@ export default function OperadorDashboard() {
         </Typography>
       </Box>
 
-      {/* Métricas con diseño UX */}
+      {/* Métricas con diseño UX - AHORA DINÁMICAS */}
       <Grid container spacing={3} className="metrics-grid">
         <Grid size={{ xs: 12, md: 3}}>
-        
           <Card className="metric-card">
             <CardContent>
               <Box className="metric-header">
                 <span>Total solicitudes</span>
-<DescriptionIcon />
+                <DescriptionIcon />
               </Box>
-              <Typography variant="h4" className="metric-value">15</Typography>
+              <Typography variant="h4" className="metric-value">
+                {metricas.totalSolicitudes}
+              </Typography>
               <Typography className="metric-subtext">Solicitudes registradas</Typography>
             </CardContent>
           </Card>
@@ -223,9 +326,11 @@ export default function OperadorDashboard() {
             <CardContent>
               <Box className="metric-header">
                 <span>Aprobadas</span>
-  <CheckCircleIcon style={{color: 'var(--color-status-success)'}} />
+                <CheckCircleIcon style={{color: 'var(--color-status-success)'}} />
               </Box>
-              <Typography variant="h4" className="metric-value" style={{color: 'var(--color-status-success)'}}>8</Typography>
+              <Typography variant="h4" className="metric-value" style={{color: 'var(--color-status-success)'}}>
+                {metricas.aprobadas}
+              </Typography>
               <Typography className="metric-subtext">Créditos aprobados</Typography>
             </CardContent>
           </Card>
@@ -235,9 +340,11 @@ export default function OperadorDashboard() {
             <CardContent>
               <Box className="metric-header">
                 <span>En revisión</span>
-<ScheduleIcon style={{ color: 'var(--color-status-warning)' }} />
+                <ScheduleIcon style={{ color: 'var(--color-status-warning)' }} />
               </Box>
-              <Typography variant="h4" className="metric-value" style={{color: 'var(--color-status-warning)'}}>5</Typography>
+              <Typography variant="h4" className="metric-value" style={{color: 'var(--color-status-warning)'}}>
+                {metricas.enRevision}
+              </Typography>
               <Typography className="metric-subtext">Pendientes de evaluar</Typography>
             </CardContent>
           </Card>
@@ -247,20 +354,22 @@ export default function OperadorDashboard() {
             <CardContent>
               <Box className="metric-header">
                 <span>Monto aprobado</span>
-  <AttachMoneyIcon />
+                <AttachMoneyIcon />
               </Box>
-              <Typography variant="h4" className="metric-value">$ 36.140.000</Typography>
+              <Typography variant="h4" className="metric-value">
+                {formatearMonto(metricas.montoAprobado)}
+              </Typography>
               <Typography className="metric-subtext">Capital desembolsado</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Filtros combinados */}
+      {/* El resto del código se mantiene igual... */}
       <Card className="content-box filters-box">
         <Typography variant="h6" gutterBottom>Filtros y búsqueda</Typography>
         <Grid container spacing={2} className="filter-grid">
-        <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <FormControl fullWidth size="small">
               <InputLabel>Estado</InputLabel>
               <Select
@@ -275,7 +384,7 @@ export default function OperadorDashboard() {
               </Select>
             </FormControl>
           </Grid>
-        <Grid size={{ xs: 12, md: 3}}>
+          <Grid size={{ xs: 12, md: 3}}>
             <FormControl fullWidth size="small">
               <InputLabel>Nivel Riesgo</InputLabel>
               <Select
@@ -290,7 +399,7 @@ export default function OperadorDashboard() {
               </Select>
             </FormControl>
           </Grid>
-        <Grid size={{ xs: 12, md: 3}}>
+          <Grid size={{ xs: 12, md: 3}}>
             <TextField
               fullWidth
               type="date"
@@ -301,7 +410,7 @@ export default function OperadorDashboard() {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-        <Grid size={{ xs: 12, md: 3}}>
+          <Grid size={{ xs: 12, md: 3}}>
             <TextField
               fullWidth
               type="date"
@@ -312,7 +421,7 @@ export default function OperadorDashboard() {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-        <Grid size={{ xs: 12, md: 6}}>
+          <Grid size={{ xs: 12, md: 6}}>
             <TextField
               fullWidth
               size="small"
@@ -322,7 +431,7 @@ export default function OperadorDashboard() {
               onChange={(e) => setFiltros({...filtros, numero_solicitud: e.target.value})}
             />
           </Grid>
-        <Grid size={{ xs: 12, md: 6}}>
+          <Grid size={{ xs: 12, md: 6}}>
             <TextField
               fullWidth
               size="small"
@@ -358,7 +467,6 @@ export default function OperadorDashboard() {
           >
             Limpiar
           </Button>
-
         </Box>
       </Card>
 
@@ -420,7 +528,7 @@ export default function OperadorDashboard() {
                       </td>
                       <td>
                         <Button
-  startIcon={<VisibilityIcon />}
+                          startIcon={<VisibilityIcon />}
                           onClick={() => handleIniciarRevision(solicitud.id)}
                           size="small"
                           variant="contained"
@@ -433,6 +541,26 @@ export default function OperadorDashboard() {
                             console.log('Firma digital iniciada:', data);
                           }} 
                         />
+                        {habilitaciones[solicitud.id]?.habilitado ? (
+                          <Button 
+                            onClick={() => handleTransferir(solicitud.id)}
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            style={{ marginLeft: '8px', backgroundColor: '#16a34a' }}
+                          >
+                            HACER TRANSFERENCIA
+                          </Button>
+                        ) : (
+                          <Button 
+                            disabled 
+                            variant="outlined" 
+                            size="small"
+                            style={{ marginLeft: '8px' }}
+                          >
+                            {habilitaciones[solicitud.id]?.motivo || 'Verificando...'}
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -440,11 +568,11 @@ export default function OperadorDashboard() {
               </table>
             </Box>
 
+
             {/* Vista cards para mobile */}
             <Grid container spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
               {solicitudes.map((solicitud) => (
-                     <Grid size={{ xs: 12}}
- key={solicitud.id}>
+                <Grid size={{ xs: 12}} key={solicitud.id}>
                   <Card variant="outlined" className="solicitud-card-mobile">
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -475,18 +603,17 @@ export default function OperadorDashboard() {
                       </Box>
 
                       <Grid container spacing={2} alignItems="center">
-        <Grid size={{ xs: 6}}>
+                        <Grid size={{ xs: 6}}>
                           <Typography variant="subtitle2">Monto</Typography>
                           <Typography>${solicitud.monto.toLocaleString()}</Typography>
                         </Grid>
-        <Grid size={{ xs: 6}}>
+                        <Grid size={{ xs: 6}}>
                           <Typography variant="subtitle2">Fecha</Typography>
                           <Typography>
                             {new Date(solicitud.created_at).toLocaleDateString()}
                           </Typography>
                         </Grid>
                         <Grid size={{ xs: 12, md: 2 }}>
-
                           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                             <Button 
                               variant="contained"
