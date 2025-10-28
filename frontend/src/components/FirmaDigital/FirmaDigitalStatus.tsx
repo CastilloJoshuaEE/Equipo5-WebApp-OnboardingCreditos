@@ -81,6 +81,45 @@ const FirmaDigitalStatus: React.FC<FirmaDigitalStatusProps> = ({ firmaId, solici
         }
     };
 
+const verificarIntegridadCompleta = async () => {
+    try {
+        const session = await getSession();
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+        const response = await fetch(`${API_URL}/firmas/${firmaId}/verificar-integridad`, {
+            headers: { 
+                Authorization: `Bearer ${session?.accessToken}`, 
+                'Content-Type': 'application/json' 
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Actualizar el estado local con la integridad
+            setFirmaData(prev => prev ? {
+                ...prev,
+                firma: {
+                    ...prev.firma,
+                    integridad_valida: result.data.integridad_valida
+                }
+            } : null);
+            
+            return result.data.integridad_valida;
+        }
+        return false;
+    } catch (err) {
+        console.error('Error verificando integridad:', err);
+        return false;
+    }
+};
+
+// Llamar esta función cuando se cargue el estado
+useEffect(() => {
+    if (firmaData?.firma && !firmaData.firma.integridad_valida) {
+        verificarIntegridadCompleta();
+    }
+}, [firmaData]);
     const getEstadoConfig = (estado: string) => {
         const configs: { [key: string]: { color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'; text: string; icon: React.ReactNode } } = {
             'pendiente': { 

@@ -201,65 +201,79 @@ const FirmaContratoPage = () => {
       setLoading(false);
     }
   };
-
-  const handleFirmarDocumento = async (documentoFirmado: DocumentoFirmado) => {
+const handleFirmarDocumento = async (documentoFirmado: DocumentoFirmado) => {
     try {
-      if (!session) {
-        setError('No se pudo verificar la sesión del usuario');
-        return;
-      }
+        if (!session) {
+            setError('No se pudo verificar la sesión del usuario');
+            return;
+        }
 
-      // Obtener ubicación aproximada
-      let ubicacion = 'Ubicación no disponible';
-      try {
-        const response = await fetch('https://ipapi.co/json/');
-        const locationData = await response.json();
-        ubicacion = `${locationData.city}, ${locationData.region}, ${locationData.country_name}`;
-      } catch (geoError) {
-        console.warn('No se pudo obtener la ubicación:', geoError);
-      }
+        // Obtener ubicación aproximada
+        let ubicacion = 'Ubicación no disponible';
+        try {
+            const response = await fetch('https://ipapi.co/json/');
+            const locationData = await response.json();
+            ubicacion = `${locationData.city}, ${locationData.region}, ${locationData.country_name}`;
+        } catch (geoError) {
+            console.warn('No se pudo obtener la ubicación:', geoError);
+        }
 
-      // Determinar el tipo de firma basado en el rol del usuario
-      const tipoFirma = session.user?.rol === 'solicitante' ? 'solicitante' : 'operador';
+        // Determinar el tipo de firma basado en el rol del usuario
+        const tipoFirma = session.user?.rol === 'solicitante' ? 'solicitante' : 'operador';
 
-      const firmaData = {
-        firmaTexto: session.user?.email || 'Usuario',
-        ubicacion: ubicacion,
-        tipoFirma: 'texto'
-      };
-      
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        // . NUEVA ESTRUCTURA PARA FIRMA ACUMULATIVA
+        const firmaData = {
+            nombreFirmante: session.user?.name || session.user?.email || 'Usuario',
+            ubicacion: ubicacion,
+            fechaFirma: new Date().toISOString(),
+            tipoFirma: 'texto',
+            firmaTexto: session.user?.name || 'Firma',
+            ipFirmante: '', // Se completa en el backend
+            userAgent: navigator.userAgent,
+            hashDocumento: infoFirma?.hash_original
+        };
+        
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-      console.log('📝 Enviando firma...', { tipoFirma, firma_id });
+        console.log('📝 Enviando firma acumulativa...', { tipoFirma, firma_id });
 
-      const response = await fetch(`${API_URL}/firmas/procesar-firma-word/${firma_id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.accessToken}`
-        },
-        body: JSON.stringify({
-          firma_data: firmaData,
-          tipo_firma: tipoFirma,
-          documento_modificado: documentoFirmado
-        }),
-      });
+        // . USAR EL NUEVO ENDPOINT
+        const response = await fetch(`${API_URL}/firmas/procesar-firma-word/${firma_id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.accessToken}`
+            },
+            body: JSON.stringify({
+                firma_data: firmaData,
+                tipo_firma: tipoFirma
+            }),
+        });
 
-      const result = await response.json();
-      console.log('📄 Resultado de firma:', result);
+        const result = await response.json();
+        console.log('📄 Resultado de firma acumulativa:', result);
 
-      if (result.success) {
-        setFirmaCompletada(true);
-        setPasoActual(2);
-      } else {
-        setError(result.message);
-      }
+        if (result.success) {
+            setFirmaCompletada(true);
+            setPasoActual(2);
+            
+            // . MOSTRAR MENSAJE SEGÚN INTEGRIDAD
+            if (result.data.integridad_valida) {
+                setError(''); // Limpiar errores
+                // Mostrar mensaje de éxito completo
+            } else {
+                // Mostrar mensaje de éxito parcial
+                setError('📝 Firma procesada exitosamente - Esperando contrafirma');
+                setTimeout(() => setError(''), 5000);
+            }
+        } else {
+            setError(result.message);
+        }
     } catch (error) {
-      console.error('. Error procesando firma:', error);
-      setError('Error procesando firma');
+        console.error('. Error procesando firma:', error);
+        setError('Error procesando firma');
     }
-  };
-
+};
   const handleDescargarOriginal = async () => {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';

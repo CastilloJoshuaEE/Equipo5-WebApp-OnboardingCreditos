@@ -16,6 +16,8 @@ import {
   CircularProgress,
   Container
 } from '@mui/material';
+import { getSession } from 'next-auth/react';
+
 import {
   Dashboard as DashboardIcon,
   CreditCard as CreditCardIcon,
@@ -40,6 +42,8 @@ interface NotificacionConDetalle extends Notificacion {
 
 export default function NotificacionesPage() {
   const router = useRouter();
+  const [rolUsuario, setRolUsuario] = useState<string>('');
+
   const [notificaciones, setNotificaciones] = useState<NotificacionConDetalle[]>([]);
   const [notificacionSeleccionada, setNotificacionSeleccionada] = useState<NotificacionConDetalle | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -60,7 +64,21 @@ export default function NotificacionesPage() {
   useEffect(() => {
     cargarNotificaciones();
   }, []);
+useEffect(() => {
+  const obtenerRolUsuario = async () => {
+    try {
 
+      const session = await getSession(); 
+      if (session?.user?.rol) {
+        setRolUsuario(session.user.rol);
+      }
+    } catch (error) {
+      console.error('Error obteniendo rol del usuario:', error);
+    }
+  };
+
+  obtenerRolUsuario();
+}, []);
   const cargarNotificaciones = async (paginaActual: number = 1) => {
     try {
       setCargando(true);
@@ -194,7 +212,7 @@ export default function NotificacionesPage() {
     const iconos: { [key: string]: JSX.Element } = {
       cambio_estado: <Box component="span">🔄</Box>,
       nueva_solicitud: <Box component="span">📋</Box>,
-      documento_validado: <Box component="span">✅</Box>,
+      documento_validado: <Box component="span">.</Box>,
       informacion_solicitada: <Box component="span">❓</Box>,
       sistema: <Box component="span">ℹ️</Box>,
     };
@@ -507,18 +525,29 @@ export default function NotificacionesPage() {
                           </Box>
 
                           <Box className="notification-actions">
-                            {notificacion.solicitud_id && (
-                              <Button 
-                                variant="outlined" 
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Prevenir que se active el click del card
-                                  window.location.href = `/solicitante/solicitudes/${notificacion.solicitud_id}`;
-                                }}
-                              >
-                                Ver detalles solicitud
-                              </Button>
-                            )}
+{notificacion.solicitud_id && (
+  <Button 
+    variant="outlined" 
+    size="small"
+    onClick={(e) => {
+      e.stopPropagation();
+      
+      // Lógica condicional basada en el rol
+      if (rolUsuario === 'solicitante') {
+        // Si es solicitante, va a la página de detalles de solicitud
+        window.location.href = `/solicitante/solicitudes/${notificacion.solicitud_id}`;
+      } else if (rolUsuario === 'operador') {
+        // Si es operador, va al dashboard donde puede ver todas las solicitudes
+        window.location.href = `/operador`;
+      } else {
+        // Rol por defecto o desconocido
+        window.location.href = `/solicitante/solicitudes/${notificacion.solicitud_id}`;
+      }
+    }}
+  >
+    {rolUsuario === 'operador' ? 'Ir al dashboard' : 'Ver detalles solicitud'}
+  </Button>
+)}
                           </Box>
                         </CardContent>
                       </Card>
