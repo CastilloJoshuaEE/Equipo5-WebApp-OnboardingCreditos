@@ -1,37 +1,68 @@
+// frontend/src/components/ui/SesionExpiradaModal.tsx
 'use client';
 
 import React from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from '@mui/material';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Typography,
+  Box
+} from '@mui/material';
+import { Warning } from '@mui/icons-material';
 import { signOut } from 'next-auth/react';
 
 interface SesionExpiradaModalProps {
   open: boolean;
-  onClose?: () => void;
 }
 
-const SesionExpiradaModal: React.FC<SesionExpiradaModalProps> = ({ open, onClose }) => {
+export default function SesionExpiradaModal({ open }: SesionExpiradaModalProps) {
   const handleCerrarSesion = async () => {
-    // Cierra sesión de NextAuth completamente
-    await signOut({ callbackUrl: '/login' });
+    await signOut({ 
+      callbackUrl: '/login',
+      redirect: true 
+    });
   };
 
   return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogTitle sx={{ fontWeight: 'bold', color: 'error.main' }}>
-        Sesión vencida
+    <Dialog 
+      open={open} 
+      maxWidth="sm" 
+      fullWidth
+      disableEscapeKeyDown
+      BackdropProps={{
+        style: {
+          backgroundColor: 'rgba(0,0,0,0.8)'
+        }
+      }}
+    >
+      <DialogTitle>
+        <Box display="flex" alignItems="center" gap={1}>
+          <Warning color="error" />
+          <Typography variant="h6" color="error">
+            Sesión Expirada
+          </Typography>
+        </Box>
       </DialogTitle>
+      
       <DialogContent>
         <Typography>
-          Tu sesión ha expirado por seguridad. Por favor, inicia sesión nuevamente.
+          Tu sesión ha expirado por seguridad. Por favor, inicia sesión nuevamente para continuar.
         </Typography>
       </DialogContent>
+      
       <DialogActions>
-        <Button onClick={handleCerrarSesion} color="primary" variant="contained">
-          Iniciar sesión nuevamente
+        <Button 
+          variant="contained" 
+          color="primary"
+          onClick={handleCerrarSesion}
+          fullWidth
+        >
+          Iniciar Sesión
         </Button>
       </DialogActions>
     </Dialog>
   );
-};
-
-export default SesionExpiradaModal;
+}

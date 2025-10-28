@@ -16,6 +16,7 @@ import { Close, MarkEmailRead } from '@mui/icons-material';
 import { Notificacion } from '@/services/notificaciones.service';
 import notificacionesService from '@/services/notificaciones.service';
 import { getSession } from 'next-auth/react';
+import Image from 'next/image';
 
 interface NotificacionesModalProps {
   abierto: boolean;
@@ -112,7 +113,13 @@ export function NotificacionesModal({
           </Box>
         ) : notificaciones.length === 0 ? (
           <Box textAlign="center" py={4}>
-            <Typography variant="h4" gutterBottom>🎉</Typography>
+            <Image 
+              src="/ilustraciones/nohayNotificacion.png" 
+              alt="Sin notificaciones pendientes"
+              width={400}
+              height={400}
+              style={{ margin: '0 auto 16px' }}
+            />
             <Typography color="text.secondary">
               No tienes notificaciones pendientes
             </Typography>
@@ -169,7 +176,7 @@ export function NotificacionesModal({
                       <Button
                         variant="text"
                         size="small"
-  onClick={() => marcarComoLeida(notificacion.id)}
+                        onClick={() => marcarComoLeida(notificacion.id)}
                       >
                         Marcar como leída
                       </Button>

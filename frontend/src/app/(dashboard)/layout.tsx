@@ -65,15 +65,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleVerPerfil = () => router.push('/usuario/perfil');
 
   const handleIrDashboard = () => {
-    if (!session?.user?.rol) return router.push('/');
-    const userRole = session.user.rol.toLowerCase();
-    router.push(`/${userRole}`);
+        router.push('/');
+
   };
 
   const SidebarContent = () => (
     <aside className="sidebar">
       <nav className="sidebar-nav">
         <ul>
+
           {session.user.rol === 'operador' ? (
             <>
 <li>
@@ -84,6 +84,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 <li>
   <a href="/usuario/perfil" className="nav-link">
     <PersonIcon sx={{ mr: 1 }} /> Perfil
+  </a>
+</li>
+
+<li>
+  <a href="/notificaciones" className="nav-link">
+    <NotificationsIcon sx={{ mr: 1 }} /> Notificaciones
   </a>
 </li>
 <li>
@@ -99,14 +105,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </>
           ) : (
             <>
+
               <li>
   <a href="/solicitante" className="nav-link">
     <DashboardIcon sx={{ mr: 1 }} /> Panel solicitante
-  </a>
-</li>
-<li>
-  <a href="/solicitante/solicitudes/nueva" className="nav-link">
-    <CreditCardIcon sx={{ mr: 1 }} /> Solicitud crédito
   </a>
 </li>
 <li>
@@ -118,6 +120,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   <a href="/notificaciones" className="nav-link">
     <NotificationsIcon sx={{ mr: 1 }} /> Notificaciones
   </a>
+</li>
+                      <li>
+            <Button 
+              variant="outlined" 
+              color="error"
+              onClick={handleLogout}
+              sx={{ ml: 'auto' }}
+            >
+              Salir
+            </Button>
 </li>
             </>
           )}
@@ -177,6 +189,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   width={120}
                   height={40}
                   priority
+                  
                   onClick={handleIrDashboard}
                   style={{
                     cursor: 'pointer',
