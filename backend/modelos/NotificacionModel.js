@@ -1,4 +1,3 @@
-// models/NotificacionModel.js
 const { supabase } = require('../config/conexion');
 const { supabaseAdmin } = require('../config/supabaseAdmin');
 

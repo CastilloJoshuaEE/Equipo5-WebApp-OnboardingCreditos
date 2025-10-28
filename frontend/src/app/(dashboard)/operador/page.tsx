@@ -270,7 +270,6 @@ export default function OperadorDashboard() {
               >
                 <MenuItem value="">Todos los estados</MenuItem>
                 <MenuItem value="en_revision">En revisión</MenuItem>
-                <MenuItem value="pendiente_info">Pendiente Info</MenuItem>
                 <MenuItem value="aprobado">Aprobado</MenuItem>
                 <MenuItem value="rechazado">Rechazado</MenuItem>
               </Select>

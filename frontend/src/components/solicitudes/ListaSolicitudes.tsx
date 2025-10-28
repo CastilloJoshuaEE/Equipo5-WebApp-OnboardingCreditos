@@ -26,8 +26,10 @@ interface Solicitud {
   created_at: string;
   fecha_envio?: string;
 }
-
-export default function ListaSolicitudes() {
+interface ListaSolicitudesProps {
+  onUpdate: () => Promise<void>;
+}
+export default function ListaSolicitudes({ onUpdate }: ListaSolicitudesProps) {
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

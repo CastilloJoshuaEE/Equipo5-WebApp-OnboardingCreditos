@@ -42,8 +42,10 @@ type FormData = {
   moneda: 'ARS' | 'USD';
   proposito: string;
 };
-
-export default function SolicitudCreditoForm() {
+interface SolicitudCreditoFormProps {
+  onSuccess: () => void;
+}
+export default function SolicitudCreditoForm({ onSuccess }: SolicitudCreditoFormProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
