@@ -15,16 +15,13 @@ import {
   AppBar,
   Toolbar,
   Button,
+  Typography,
 } from '@mui/material';
 import { Menu, Person } from '@mui/icons-material';
 import { NotificacionesBell } from '@/components/notificaciones/NotificacionesBell';
+import { DynamicNavigation } from '@/components/layout/DynamicNavigation';
 import Image from 'next/image';
 import './dashboard-styles.css';
-import DesktopWindowsIcon from '@mui/icons-material/DesktopWindows';
-import PersonIcon from '@mui/icons-material/Person';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import CreditCardIcon from '@mui/icons-material/CreditCard';
-import NotificationsIcon from '@mui/icons-material/Notifications';
 
 // Importa tu tema MUI
 import theme from '@/styles/theme';
@@ -40,12 +37,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const handleLogout = async () => {
     await signOut({ 
       callbackUrl: '/login',
       redirect: true 
     });
   };
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
@@ -63,77 +62,45 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   if (!session) return null;
 
   const handleVerPerfil = () => router.push('/usuario/perfil');
-
-  const handleIrDashboard = () => {
-        router.push('/');
-
-  };
+  const handleIrDashboard = () => router.push('/');
 
   const SidebarContent = () => (
     <aside className="sidebar">
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            fontSize: '1.1rem',
+            fontWeight: '600',
+            color: 'primary.main'
+          }}
+        >
+          {session.user.rol === 'operador' ? 'Panel de Operador' : 'Mi Espacio'}
+        </Typography>
+        <Typography 
+          variant="body2" 
+          color="text.secondary"
+          sx={{ mt: 0.5 }}
+        >
+          {session.user.name || session.user.email}
+        </Typography>
+      </Box>
+      
       <nav className="sidebar-nav">
-        <ul>
-
-          {session.user.rol === 'operador' ? (
-            <>
-<li>
-  <a href="/operador" className="nav-link">
-    <DesktopWindowsIcon sx={{ mr: 1 }} /> Panel operador
-  </a>
-</li>
-<li>
-  <a href="/usuario/perfil" className="nav-link">
-    <PersonIcon sx={{ mr: 1 }} /> Perfil
-  </a>
-</li>
-
-<li>
-  <a href="/notificaciones" className="nav-link">
-    <NotificationsIcon sx={{ mr: 1 }} /> Notificaciones
-  </a>
-</li>
-<li>
-            <Button 
-              variant="outlined" 
-              color="error"
-              onClick={handleLogout}
-              sx={{ ml: 'auto' }}
-            >
-              Salir
-            </Button>
-</li>
-            </>
-          ) : (
-            <>
-
-              <li>
-  <a href="/solicitante" className="nav-link">
-    <DashboardIcon sx={{ mr: 1 }} /> Panel solicitante
-  </a>
-</li>
-<li>
-  <a href="/usuario/perfil" className="nav-link">
-    <PersonIcon sx={{ mr: 1 }} /> Perfil
-  </a>
-</li>
-<li>
-  <a href="/notificaciones" className="nav-link">
-    <NotificationsIcon sx={{ mr: 1 }} /> Notificaciones
-  </a>
-</li>
-                      <li>
-            <Button 
-              variant="outlined" 
-              color="error"
-              onClick={handleLogout}
-              sx={{ ml: 'auto' }}
-            >
-              Salir
-            </Button>
-</li>
-            </>
-          )}
-        </ul>
+        
+        <DynamicNavigation onNavigate={() => isMobile && setSidebarOpen(false)} />
+        
+        {/* Botón de salir */}
+        <Box sx={{ p: 2, mt: 'auto' }}>
+          <Button 
+            variant="outlined" 
+            color="error"
+            onClick={handleLogout}
+            fullWidth
+            size="small"
+          >
+Salir          </Button>
+        </Box>
       </nav>
     </aside>
   );
@@ -155,8 +122,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             sx={{
               display: { xs: 'block', md: 'none' },
               '& .MuiDrawer-paper': {
-                width: 250,
+                width: 280,
                 backgroundColor: 'white',
+                display: 'flex',
+                flexDirection: 'column',
               },
             }}
           >
@@ -189,7 +158,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   width={120}
                   height={40}
                   priority
-                  
                   onClick={handleIrDashboard}
                   style={{
                     cursor: 'pointer',

@@ -5,11 +5,11 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { 
-  Box, 
-  Button, 
-  TextField, 
-  Typography, 
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
   Alert,
   Dialog,
   DialogTitle,
@@ -17,7 +17,9 @@ import {
   DialogActions,
   Stack,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  Backdrop,
+  CircularProgress,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { loginSchema } from '@/schemas/auth.schema';
@@ -76,22 +78,21 @@ export default function LoginForm() {
 
       console.log('Resultado del signIn:', result);
 
-if (result?.error) {
-  console.error('Error en signIn:', result.error);
+      if (result?.error) {
+        console.error('Error en signIn:', result.error);
 
-  // Mostrar alerta si el backend devolvió mensajes específicos
-  if (result.error.includes('bloqueada')) {
-    alert(`. ${result.error}`);
-  } else if (result.error.includes('intentos')) {
-    alert(`. ${result.error}`);
-  } else {
-    alert('. Credenciales inválidas. Por favor verifica tu email y contraseña.');
-  }
+        // Mostrar alerta si el backend devolvió mensajes específicos
+        if (result.error.includes('bloqueada')) {
+          alert(`. ${result.error}`);
+        } else if (result.error.includes('intentos')) {
+          alert(`. ${result.error}`);
+        } else {
+          alert('. Credenciales inválidas. Por favor verifica tu email y contraseña.');
+        }
 
-  setError(result.error);
-  return;
-}
-
+        setError(result.error);
+        return;
+      }
 
       // Login exitoso - obtener información del usuario para determinar el rol
       console.log('Login exitoso, obteniendo información del usuario...');
@@ -232,6 +233,21 @@ if (result?.error) {
 
   return (
     <>
+      {/* Backdrop overlay que cubre la pantalla mientras isLoading = true */}
+      <Backdrop
+        open={isLoading}
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 1200,
+          color: '#fff',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        <CircularProgress />
+        <Typography variant="body1">Iniciando sesión...</Typography>
+      </Backdrop>
+
       <Box
         sx={{
           backgroundColor: '#FFFFFF',
@@ -530,7 +546,7 @@ if (result?.error) {
             <Alert severity={recuperarMessage.includes('enviado') ? 'success' : 'error'} sx={{ mb: 2 }}>
               {recuperarMessage}
             </Alert>
-          )}
+          )} 
 
           <TextField
             label="Email de la cuenta"

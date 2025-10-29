@@ -322,7 +322,7 @@ class FirmaDigitalController {
 
         // 3. VERIFICAR CRÍTICAMENTE QUE EL CONTRATO TIENE DOCUMENTO
         if (!contratoFinal.ruta_documento) {
-            console.log('. ⚠️ Contrato sin documento, generando Word...');
+            console.log('. . Contrato sin documento, generando Word...');
             try {
                 // Generar Word del contrato con datos completos
                 await ContratoController.generarWordContrato(contratoFinal.id, solicitud);
@@ -1177,8 +1177,10 @@ static async descargarDocumentoFirmado(req, res) {
         }
 
         // VERIFICACIÓN MEJORADA: Permitir descarga en más estados
-        const estadosPermitidos = ['firmado_completo', 'firmado_solicitante', 'firmado_operador', 'pendiente'];
-        
+const estadosPermitidos = [
+  'borrador', 'enviado', 'en_revision', 'pendiente_info', 
+  'pendiente_firmas', 'aprobado', 'rechazado', 'cerrada'
+];        
         if (!estadosPermitidos.includes(firma.estado)) {
             console.log('. Estado no permitido para descarga:', firma.estado);
             return res.status(400).json({
@@ -1453,7 +1455,7 @@ signatureRequestId);
             const data = response.data; 
             const estado = data.status?.toLowerCase() || 'unknown'; 
              
-            console.log('📊 Estado de firma:', {  
+            console.log('. Estado de firma:', {  
                 signatureRequestId,  
                 estado, 
                 completado: estado === 'completed' 

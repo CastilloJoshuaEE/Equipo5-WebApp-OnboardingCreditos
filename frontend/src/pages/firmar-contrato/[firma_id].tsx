@@ -623,18 +623,12 @@ const handleDescargarFirmado = async (firmaId: string) => {
               </Typography>
               
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-<Button
-  variant="contained"
-  startIcon={<Download />}
-  onClick={() => handleDescargarFirmado(firma_id as string)}
->
-  Descargar Contrato Firmado
-</Button>
+
 <Button
     variant="outlined"
     onClick={() => handleVerContratoFirmado(firma_id as string)}
 >
-    Ver Contrato Firmado
+    Descargar Contrato Firmado
 </Button>
                 <Button
                   variant="outlined"

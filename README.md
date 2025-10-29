@@ -45,3 +45,10 @@ La plataforma incluirá paneles para operadores con filtros y tareas.
 - Pre-evaluación de riesgo basada en reglas simples o IA opcional.
 - Integración con sistemas de contabilidad de las PYMES.
 - Chat de soporte (bot o humano) para dudas.
+### Enlaces del Proyecto
+
+Frontend (Next.js desplegado en Render):
+🔗 https://equipo5-webapp-onboardingcreditos-orxk.onrender.com
+
+Backend (API REST desplegada en Render):
+🔗 https://equipo5-webapp-onboardingcreditos-backend.onrender.com/api

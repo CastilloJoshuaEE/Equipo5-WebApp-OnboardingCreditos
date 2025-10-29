@@ -376,23 +376,6 @@ const handleAprobar = async () => {
 
             <Divider sx={{ my: 2 }} />
 
-            {/* Acción secundaria - Comentarios */}
-            <Box sx={{ textAlign: 'center' }}>
-                <Button 
-                    variant="outlined"
-                    size="large"
-                    startIcon={<Comment />}
-                    onClick={() => setDialogoComentario(true)}
-                    disabled={enviando || loading}
-                >
-                    Enviar Comentarios al Solicitante
-                </Button>
-                
-                <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
-                    Puede enviar comentarios adicionales al solicitante sin tomar una decisión final
-                </Typography>
-            </Box>
-
             {/* Diálogo para comentarios */}
             <Dialog 
                 open={dialogoComentario} 

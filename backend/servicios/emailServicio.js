@@ -24,6 +24,23 @@ const enviarEmailBienvenida = async (email, nombre, rol) => {
     };
   }
 };
+// En emailServicio.js - Agregar método para enviar emails con adjuntos
+const enviarEmail = async (destinatario, asunto, contenido, adjuntos = []) => {
+    try {
+        // Usando Brevo API para enviar emails con adjuntos
+        const resultado = await brevoAPIService.enviarEmailConAdjuntos(
+            destinatario, 
+            asunto, 
+            contenido, 
+            adjuntos
+        );
+        
+        return resultado;
+    } catch (error) {
+        console.error('Error enviando email con adjuntos:', error);
+        return { success: false, error: error.message };
+    }
+}
 const enviarEmailConfirmacionCuenta = async (email, nombre, userId) => {
   try {
     console.log(`. [CONFIRMACIÓN] Enviando email de confirmación a: ${email}`);
@@ -53,6 +70,7 @@ const verificarServicioEmail = async () => {
 };
 
 module.exports = {
+  enviarEmail,
   enviarEmailBienvenida,
   enviarEmailConfirmacionCuenta,
   verificarServicioEmail,

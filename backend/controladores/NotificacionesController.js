@@ -137,7 +137,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
         if (notifError) {
             console.error('Error creando notificación de firma para solicitante:', notifError);
         } else {
-            console.log('📧 Notificación de firma enviada al solicitante:', solicitanteId);
+            console.log('. Notificación de firma enviada al solicitante:', solicitanteId);
         }
     } catch (error) {
         console.error('Error en crearNotificacionFirmaSolicitante:', error);
@@ -241,7 +241,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
                   .from('notificaciones')
                   .insert(notificaciones);
   
-              console.log('📧 Notificaciones de firma creadas para ambos firmantes');
+              console.log('. Notificaciones de firma creadas para ambos firmantes');
           } catch (error) {
               console.error('Error creando notificaciones de firma:', error);
           }
@@ -359,7 +359,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
                     .from('notificaciones')
                     .insert(notificaciones);
 
-                console.log('📧 Notificaciones de firma completada enviadas');
+                console.log('. Notificaciones de firma completada enviadas');
             }
         } catch (error) {
             console.error('Error notificando firma completada:', error);

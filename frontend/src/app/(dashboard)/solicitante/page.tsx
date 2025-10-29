@@ -215,7 +215,52 @@ export default function DashboardSolicitante() {
       cargarEstadisticas();
     }
   }, [session, showSessionExpired]);
+// Agregar este useEffect después de los otros useEffects
+useEffect(() => {
+  const verificarOperadorAsignado = async () => {
+    try {
+      const session = await getSession();
+      if (!session?.accessToken) return;
 
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      
+      // Obtener notificaciones no leídas
+      const response = await fetch(`${API_URL}/notificaciones?leida=false&tipo=operador_asignado`, {
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const notificacionesOperador = result.data || [];
+
+        // Mostrar alert para cada notificación de operador asignado
+        notificacionesOperador.forEach((notif: any) => {
+          if (notif.datos_adicionales?.operador_nombre) {
+            alert(`✅ Se ha asignado el operador ${notif.datos_adicionales.operador_nombre} a tu solicitud. \n\nPuedes comunicarte con él para cualquier consulta sobre tu solicitud de crédito.`);
+            
+            // Marcar como leída después de mostrar el alert
+            fetch(`${API_URL}/notificaciones/${notif.id}/leer`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${session.accessToken}`,
+              },
+            });
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error verificando operador asignado:', error);
+    }
+  };
+
+  // Verificar cada 10 segundos si hay operador asignado
+  const interval = setInterval(verificarOperadorAsignado, 10000);
+  verificarOperadorAsignado(); // Verificar inmediatamente
+
+  return () => clearInterval(interval);
+}, [session]);
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };

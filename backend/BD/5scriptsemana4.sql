@@ -1,7 +1,6 @@
 -- TABLA PARA CONTACTOS BANCARIOS
 CREATE TABLE contactos_bancarios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    solicitante_id UUID NOT NULL REFERENCES solicitantes(id) ON DELETE CASCADE,
     nombre_banco VARCHAR(100) NOT NULL DEFAULT 'Pichincha',
     numero_cuenta VARCHAR(50) NOT NULL,
     tipo_cuenta VARCHAR(20) NOT NULL DEFAULT 'ahorros' CHECK (tipo_cuenta IN ('ahorros', 'corriente')),
@@ -13,7 +12,7 @@ CREATE TABLE contactos_bancarios (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     
     -- Restricción única para evitar cuentas duplicadas
-    UNIQUE(solicitante_id, numero_cuenta)
+    UNIQUE( numero_cuenta)
 );
 
 -- TABLA PARA TRANSFERENCIAS BANCARIAS
@@ -54,7 +53,6 @@ CREATE TABLE transferencias_bancarias (
 );
 
 -- ÍNDICES
-CREATE INDEX idx_contactos_bancarios_solicitante ON contactos_bancarios(solicitante_id);
 CREATE INDEX idx_contactos_bancarios_estado ON contactos_bancarios(estado);
 CREATE INDEX idx_transferencias_solicitud ON transferencias_bancarias(solicitud_id);
 CREATE INDEX idx_transferencias_estado ON transferencias_bancarias(estado);
@@ -65,16 +63,6 @@ CREATE INDEX idx_transferencias_fecha ON transferencias_bancarias(created_at DES
 ALTER TABLE contactos_bancarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transferencias_bancarias ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "contactos_acceso_propio" ON contactos_bancarios
-    FOR ALL USING (
-        auth.uid()::text = solicitante_id::text OR
-        EXISTS (
-            SELECT 1 FROM solicitudes_credito sc 
-            WHERE sc.id IN (SELECT solicitud_id FROM transferencias_bancarias WHERE contacto_bancario_id = contactos_bancarios.id)
-            AND sc.operador_id::text = auth.uid()::text
-        )
-    );
-
 CREATE POLICY "transferencias_acceso" ON transferencias_bancarias
     FOR ALL USING (
         EXISTS (
@@ -83,3 +71,102 @@ CREATE POLICY "transferencias_acceso" ON transferencias_bancarias
             AND (sc.solicitante_id::text = auth.uid()::text OR sc.operador_id::text = auth.uid()::text)
         )
     );
+
+-- Agregar esta función a la base de datos
+CREATE OR REPLACE FUNCTION actualizar_estado_firma_completa()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.fecha_firma_solicitante IS NOT NULL AND NEW.fecha_firma_operador IS NOT NULL THEN
+        NEW.estado = 'firmado_completo';
+        NEW.integridad_valida = true;
+        NEW.fecha_firma_completa = NOW();
+    ELSIF NEW.fecha_firma_solicitante IS NOT NULL THEN
+        NEW.estado = 'firmado_solicitante';
+    ELSIF NEW.fecha_firma_operador IS NOT NULL THEN
+        NEW.estado = 'firmado_operador';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Crear el trigger
+CREATE TRIGGER trigger_actualizar_estado_firma
+    BEFORE UPDATE ON firmas_digitales
+    FOR EACH ROW
+    EXECUTE FUNCTION actualizar_estado_firma_completa();
+
+
+
+
+
+-- Política para permitir a operadores ver todos los contactos
+CREATE POLICY "Operadores pueden ver contactos" ON contactos_bancarios
+    FOR SELECT USING (
+        auth.uid() IN (
+            SELECT id FROM usuarios 
+            WHERE rol = 'operador' AND cuenta_activa = true
+        )
+    );
+
+-- Política para permitir a operadores insertar contactos
+CREATE POLICY "Operadores pueden insertar contactos" ON contactos_bancarios
+    FOR INSERT WITH CHECK (
+        auth.uid() IN (
+            SELECT id FROM usuarios 
+            WHERE rol = 'operador' AND cuenta_activa = true
+        )
+    );
+
+-- Política para permitir a operadores actualizar contactos
+CREATE POLICY "Operadores pueden actualizar contactos" ON contactos_bancarios
+    FOR UPDATE USING (
+        auth.uid() IN (
+            SELECT id FROM usuarios 
+            WHERE rol = 'operador' AND cuenta_activa = true
+        )
+    );
+
+-- Política para permitir a operadores eliminar contactos
+CREATE POLICY "Operadores pueden eliminar contactos" ON contactos_bancarios
+    FOR DELETE USING (
+        auth.uid() IN (
+            SELECT id FROM usuarios 
+            WHERE rol = 'operador' AND cuenta_activa = true
+        )
+    );
+
+ALTER TABLE contactos_bancarios 
+ADD COLUMN IF NOT EXISTS solicitante_id UUID REFERENCES solicitantes(id);
+
+-- Crear índice para búsquedas eficientes
+CREATE INDEX IF NOT EXISTS idx_contactos_solicitante ON contactos_bancarios(solicitante_id);
+
+
+
+ALTER TABLE solicitudes_credito 
+DROP CONSTRAINT IF EXISTS solicitudes_credito_estado_check;
+
+ALTER TABLE solicitudes_credito 
+ADD CONSTRAINT solicitudes_credito_estado_check 
+CHECK (estado IN (
+  'borrador', 'enviado', 'en_revision', 'pendiente_info', 
+  'pendiente_firmas', 'aprobado', 'rechazado', 'cerrada'
+));
+
+
+-- Actualizar contratos cuando se completa la transferencia
+CREATE OR REPLACE FUNCTION marcar_solicitud_como_cerrada(p_solicitud_id UUID)
+RETURNS void AS $$
+BEGIN
+    UPDATE solicitudes_credito 
+    SET estado = 'cerrada',
+        updated_at = NOW()
+    WHERE id = p_solicitud_id;
+    
+    -- También actualizar el contrato
+    UPDATE contratos 
+    SET estado = 'cerrado',
+        updated_at = NOW()
+    WHERE solicitud_id = p_solicitud_id;
+END;
+$$ LANGUAGE plpgsql;

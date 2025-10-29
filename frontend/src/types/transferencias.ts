@@ -3,6 +3,8 @@ export interface HabilitacionTransferencia {
   motivo?: string;
   fecha_firma_completa?: string;
   transferencia_existente?: any;
+  tiene_firma_solicitante?: boolean;
+  tiene_firma_operador?: boolean;
 }
 
 export interface ContactoBancario {
@@ -11,6 +13,9 @@ export interface ContactoBancario {
   nombre_banco: string;
   tipo_cuenta: string;
   moneda: string;
-  solicitante_nombre: string;
-  solicitante_dni: string;
+  email_contacto?: string;
+  telefono_contacto?: string;
+  estado?: string;
+  created_at?: string;
+  updated_at?: string;
 }

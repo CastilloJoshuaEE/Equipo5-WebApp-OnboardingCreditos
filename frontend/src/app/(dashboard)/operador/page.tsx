@@ -31,12 +31,12 @@ import RevisionModal from '@/components/operador/RevisionModal';
 import './operador-styles.css';
 import { HabilitacionTransferencia } from '@/types/transferencias';
 
-// ... (las interfaces y imports anteriores se mantienen igual)
 
 export default function OperadorDashboard() {
   const router = useRouter();
   const params = useParams();
-  
+  const [procesandoForzar, setProcesandoForzar] = useState<{[key:string]: boolean}>({});
+
   const [solicitudes, setSolicitudes] = useState<SolicitudOperador[]>([]);
   const [habilitaciones, setHabilitaciones] = useState<{[key: string]: HabilitacionTransferencia}>({});
   const { toast } = useToast();
@@ -88,7 +88,7 @@ export default function OperadorDashboard() {
       montoAprobado
     });
   };
-
+ 
   // Actualizar métricas cuando cambien las solicitudes
   useEffect(() => {
     if (solicitudes.length > 0) {
@@ -155,41 +155,285 @@ export default function OperadorDashboard() {
     });
   };
 
-  // Verificar habilitación para cada solicitud
-  useEffect(() => {
-    const verificarHabilitaciones = async () => {
-      const nuevasHabilitaciones: {[key: string]: HabilitacionTransferencia} = {};
-      const session = await getSession();
+const verificarFirmasDigitales = async () => {
+  const session = await getSession();
+  const nuevasFirmas: {[key: string]: any} = {};
 
-      for (const solicitud of solicitudes) {
-        if (solicitud.estado === 'aprobado') {
-          try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-            const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitud.id}`, {
-              headers: {
-                'Authorization': `Bearer ${session?.accessToken}`,
-                'Content-Type': 'application/json'
-              }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-              nuevasHabilitaciones[solicitud.id] = data.data;
-            }
-          } catch (error) {
-            console.error('Error verificando habilitación:', error);
+  for (const solicitud of solicitudes) {
+    if (solicitud.estado === 'aprobado') {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+        // Verificar si existe proceso de firma
+        const response = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'Content-Type': 'application/json'
           }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          nuevasFirmas[solicitud.id] = data.data;
+          
+          console.log(`📋 Estado firma digital para ${solicitud.id}:`, {
+            existe_firma: data.data.existe,
+            estado: data.data.firma_existente?.estado
+          });
+        } else {
+          console.error(`Error verificando firma para ${solicitud.id}:`, response.status);
+        }
+      } catch (error) {
+        console.error('Error verificando firma digital:', error);
+      }
+    }
+  }
+  
+  return nuevasFirmas;
+};
+const verificarTodasLasFirmas = async () => {
+  const session = await getSession();
+  if (!session?.accessToken) {
+    toast({
+      title: "Error de autenticación",
+      description: "No se pudo verificar la sesión",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  const firmasVerificadas: {[key: string]: any} = {};
+
+  try {
+    for (const solicitud of solicitudes) {
+      if (solicitud.estado === 'aprobado') {
+        try {
+          const response = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
+            headers: {
+              'Authorization': `Bearer ${session.accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            firmasVerificadas[solicitud.id] = data.data;
+            
+            console.log(`📋 Estado firma para ${solicitud.numero_solicitud}:`, {
+              existe: data.data.existe,
+              estado: data.data.firma_existente?.estado
+            });
+          }
+        } catch (error) {
+          console.error(`Error verificando firma ${solicitud.id}:`, error);
         }
       }
-      
-      setHabilitaciones(nuevasHabilitaciones);
-    };
-
-    if (solicitudes.length > 0) {
-      verificarHabilitaciones();
     }
-  }, [solicitudes]);
+
+    // Mostrar resumen
+    const firmasCompletas = Object.values(firmasVerificadas).filter(
+      (f: any) => f.firma_existente?.estado === 'firmado_completo'
+    ).length;
+    
+    const firmasPendientes = Object.values(firmasVerificadas).filter(
+      (f: any) => f.firma_existente && f.firma_existente.estado !== 'firmado_completo'
+    ).length;
+
+    toast({
+      title: "Verificación de firmas completada",
+      description: `Firmas completas: ${firmasCompletas}, Pendientes: ${firmasPendientes}`,
+      variant: "default",
+    });
+
+  } catch (error) {
+    console.error('Error verificando firmas:', error);
+    toast({
+      title: "Error",
+      description: "Error verificando firmas digitales",
+      variant: "destructive",
+    });
+  }
+};
+const verificarHabilitaciones = async () => {
+  const nuevasHabilitaciones: {[key: string]: HabilitacionTransferencia} = {};
+  const session = await getSession();
+
+  for (const solicitud of solicitudes) {
+    if (solicitud.estado === 'aprobado') {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+        // SOLO verificar habilitación, NO forzar actualización aquí
+        const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitud.id}`, {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          nuevasHabilitaciones[solicitud.id] = data.data;
+          
+          console.log(`. Estado transferencia para ${solicitud.id}:`, {
+            habilitado: data.data.habilitado,
+            motivo: data.data.motivo,
+            estado_firma: data.data.estado_firma
+          });
+        } else {
+          console.error(`Error verificando habilitación para ${solicitud.id}:`, response.status);
+        }
+      } catch (error) {
+        console.error('Error verificando habilitación:', error);
+      }
+    }
+  }
+  
+  setHabilitaciones(nuevasHabilitaciones);
+};
+const handleForzarVerificacion = async () => {
+  const session = await getSession();
+  if (!session?.accessToken) {
+    toast({
+      title: "Error de autenticación",
+      description: "No se pudo verificar la sesión",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  const nuevosProcesos: { [key: string]: boolean } = {};
+  const nuevasHabilitaciones: { [key: string]: HabilitacionTransferencia } = {};
+  const nuevasFirmas: { [key: string]: any } = {};
+
+  try {
+    // Iteramos todas las solicitudes aprobadas
+    for (const solicitud of solicitudes) {
+      if (solicitud.estado === 'aprobado') {
+        nuevosProcesos[solicitud.id] = true;
+        setProcesandoForzar({ ...nuevosProcesos });
+
+        try {
+          console.log(`🔄 Forzando verificación para solicitud: ${solicitud.id}`);
+          
+          // PRIMERO: Verificar y forzar actualización de firma digital si es necesario
+          let procesoFirmaExiste = false;
+          
+          // Verificar si existe proceso de firma
+          const firmaResponse = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
+            headers: {
+              'Authorization': `Bearer ${session.accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (firmaResponse.ok) {
+            const firmaData = await firmaResponse.json();
+            procesoFirmaExiste = firmaData.data.existe;
+            nuevasFirmas[solicitud.id] = firmaData.data;
+            
+            console.log(`📋 Proceso de firma existe para ${solicitud.id}:`, procesoFirmaExiste);
+            
+            // Si no existe proceso de firma, intentar iniciarlo
+            if (!procesoFirmaExiste) {
+              console.log(`🔄 Iniciando proceso de firma para ${solicitud.id}`);
+              
+              const iniciarFirmaResponse = await fetch(`${API_URL}/firmas/iniciar-proceso/${solicitud.id}`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${session.accessToken}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ forzar_reinicio: true })
+              });
+              
+              if (iniciarFirmaResponse.ok) {
+                console.log(`. Proceso de firma iniciado para ${solicitud.id}`);
+                // Actualizar el estado de la firma
+                const nuevaVerificacion = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
+                  headers: {
+                    'Authorization': `Bearer ${session.accessToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                });
+                if (nuevaVerificacion.ok) {
+                  const nuevaData = await nuevaVerificacion.json();
+                  nuevasFirmas[solicitud.id] = nuevaData.data;
+                }
+              } else {
+                console.warn(`. No se pudo iniciar proceso de firma para ${solicitud.id}`);
+              }
+            }
+          }
+
+          // SEGUNDO: Forzar actualización de transferencia (como lo hacías antes)
+          const res = await fetch(`${API_URL}/transferencias/forzar-actualizacion/${solicitud.id}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            const errorMessage = errorData.message || `Error ${res.status}`;
+            console.error(`. Error forzando verificación ${solicitud.id}:`, errorMessage);
+
+            toast({
+              title: "Error",
+              description: `Error en solicitud ${solicitud.numero_solicitud}: ${errorMessage}`,
+              variant: "destructive",
+            });
+            continue;
+          }
+
+          const data = await res.json();
+          console.log(`. Forzado con éxito para ${solicitud.id}`, data);
+
+          nuevasHabilitaciones[solicitud.id] = data.data;
+
+          toast({
+            title: "Verificación forzada",
+            description: `Solicitud ${solicitud.numero_solicitud} actualizada correctamente.`,
+            variant: "default",
+          });
+
+        } catch (error) {
+          console.error(`Error forzando verificación de ${solicitud.id}:`, error);
+        } finally {
+          nuevosProcesos[solicitud.id] = false;
+          setProcesandoForzar({ ...nuevosProcesos });
+        }
+      }
+    }
+
+    // Actualizar estados
+    setHabilitaciones(prev => ({
+      ...prev,
+      ...nuevasHabilitaciones,
+    }));
+
+    // También puedes guardar el estado de las firmas si lo necesitas
+    console.log('. Resumen de firmas verificadas:', nuevasFirmas);
+
+  } catch (error) {
+    console.error('Error general en handleForzarVerificacion:', error);
+    toast({
+      title: "Error de conexión",
+      description: "No se pudo conectar con el servidor",
+      variant: "destructive",
+    });
+  }
+};
+// Agregar intervalo de verificación automática
+useEffect(() => {
+    if (solicitudes.length > 0) {
+        verificarHabilitaciones(); // Verificación inicial
+    }
+}, [solicitudes]);
 
   const handleTransferir = (solicitudId: string) => {
     // Navegar a la página de transferencia
@@ -269,7 +513,8 @@ export default function OperadorDashboard() {
       'en_revision': 'warning',
       'pendiente_info': 'info',
       'aprobado': 'success',
-      'rechazado': 'error'
+      'rechazado': 'error',
+      'cerrada': 'default'
     };
     return colores[estado] || 'default';
   };
@@ -381,6 +626,8 @@ export default function OperadorDashboard() {
                 <MenuItem value="en_revision">En revisión</MenuItem>
                 <MenuItem value="aprobado">Aprobado</MenuItem>
                 <MenuItem value="rechazado">Rechazado</MenuItem>
+                <MenuItem value="cerrada">Cerrada</MenuItem>
+
               </Select>
             </FormControl>
           </Grid>
@@ -431,18 +678,18 @@ export default function OperadorDashboard() {
               onChange={(e) => setFiltros({...filtros, numero_solicitud: e.target.value})}
             />
           </Grid>
-          <Grid size={{ xs: 12, md: 6}}>
-            <TextField
-              fullWidth
-              size="small"
-              label="DNI Solicitante"
-              placeholder="Buscar por DNI"
-              value={filtros.dni}
-              onChange={(e) => setFiltros({...filtros, dni: e.target.value})}
-            />
-          </Grid>
+
         </Grid>
         <Box className="action-buttons">
+
+<Button 
+  onClick={verificarTodasLasFirmas}
+  variant="outlined"
+  color="primary"
+  style={{ marginLeft: '8px' }}
+>
+  Verificar estado de las firmas de los documentos
+</Button>
           <Button 
             variant="contained" 
             className="btn-primary"
@@ -467,6 +714,7 @@ export default function OperadorDashboard() {
           >
             Limpiar
           </Button>
+          
         </Box>
       </Card>
 
@@ -526,42 +774,51 @@ export default function OperadorDashboard() {
                           size="small"
                         />
                       </td>
-                      <td>
-                        <Button
-                          startIcon={<VisibilityIcon />}
-                          onClick={() => handleIniciarRevision(solicitud.id)}
-                          size="small"
-                          variant="contained"
-                        >
-                          Revisar
-                        </Button>
-                        <BotonIniciarFirma 
-                          solicitudId={solicitud.id} 
-                          onFirmaIniciada={(data) => {
-                            console.log('Firma digital iniciada:', data);
-                          }} 
-                        />
-                        {habilitaciones[solicitud.id]?.habilitado ? (
-                          <Button 
-                            onClick={() => handleTransferir(solicitud.id)}
-                            variant="contained"
-                            color="success"
-                            size="small"
-                            style={{ marginLeft: '8px', backgroundColor: '#16a34a' }}
-                          >
-                            HACER TRANSFERENCIA
-                          </Button>
-                        ) : (
-                          <Button 
-                            disabled 
-                            variant="outlined" 
-                            size="small"
-                            style={{ marginLeft: '8px' }}
-                          >
-                            {habilitaciones[solicitud.id]?.motivo || 'Verificando...'}
-                          </Button>
-                        )}
-                      </td>
+<td>
+  <Button
+    startIcon={<VisibilityIcon />}
+    onClick={() => handleIniciarRevision(solicitud.id)}
+    size="small"
+    variant="contained"
+  >
+    Revisar
+  </Button>
+  <BotonIniciarFirma 
+    solicitudId={solicitud.id} 
+    onFirmaIniciada={(data) => {
+      console.log('Firma digital iniciada:', data);
+    }} 
+  />
+{habilitaciones[solicitud.id]?.habilitado ? (
+  <Button 
+    onClick={() => handleTransferir(solicitud.id)}
+    variant="contained"
+    color="success"
+    size="small"
+    style={{ marginLeft: '8px', backgroundColor: '#16a34a' }}
+  >
+    HACER TRANSFERENCIA
+  </Button>
+) : (
+  <Button 
+    disabled 
+    variant="outlined" 
+    size="small"
+    style={{ marginLeft: '8px' }}
+    title={habilitaciones[solicitud.id]?.motivo || 'Esperando firmas'}
+  >
+    {habilitaciones[solicitud.id]?.tiene_firma_solicitante && !habilitaciones[solicitud.id]?.tiene_firma_operador 
+      ? 'Falta firma operador' 
+      : !habilitaciones[solicitud.id]?.tiene_firma_solicitante && habilitaciones[solicitud.id]?.tiene_firma_operador 
+      ? 'Falta firma solicitante'
+      : 'Pendiente de firmas'}
+  </Button>
+)}
+
+
+
+</td>
+
                     </tr>
                   ))}
                 </tbody>
