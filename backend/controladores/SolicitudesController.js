@@ -63,7 +63,6 @@ class SolicitudesController {
       });
     }
   }
-
 static async enviarSolicitud(req, res) {
   try {
     const { solicitud_id } = req.params;
@@ -94,12 +93,55 @@ static async enviarSolicitud(req, res) {
 
     console.log(`Operador asignado: ${operadorAsignado}`);
 
+    // Obtener información completa del operador (incluyendo nombre)
+    const { data: operadorInfo, error: operadorError } = await supabase
+      .from('operadores')
+      .select(`
+        id,
+        usuarios!inner(nombre_completo, email)
+      `)
+      .eq('id', operadorAsignado)
+      .single();
+
+    if (operadorError) {
+      console.error('Error obteniendo información del operador:', operadorError);
+    }
+
+    // Crear notificación para el solicitante con información del operador
+    const { data: notificacion, error: notifError } = await supabase
+      .from('notificaciones')
+      .insert({
+        usuario_id: solicitud.solicitante_id,
+        solicitud_id: solicitud_id,
+        tipo: 'operador_asignado',
+        titulo: 'Operador asignado',
+        mensaje: operadorInfo 
+          ? `Se ha asignado el operador ${operadorInfo.usuarios.nombre_completo} a tu solicitud. Puedes contactarlo en: ${operadorInfo.usuarios.email}`
+          : 'Se ha asignado un operador a tu solicitud',
+        datos_adicionales: operadorInfo ? {
+          operador_id: operadorInfo.id,
+          operador_nombre: operadorInfo.usuarios.nombre_completo,
+          operador_email: operadorInfo.usuarios.email
+        } : null
+      })
+      .select()
+      .single();
+
+    if (notifError) {
+      console.error('Error creando notificación:', notifError);
+    }
+
     res.json({
       success: true,
       message: 'Solicitud enviada exitosamente para revisión',
       data: {
         ...solicitud,
-        operador_asignado: operadorAsignado
+        operador_asignado: operadorAsignado,
+        operador_info: operadorInfo ? {
+          id: operadorInfo.id,
+          nombre: operadorInfo.usuarios.nombre_completo,
+          email: operadorInfo.usuarios.email
+        } : null
       }
     });
 

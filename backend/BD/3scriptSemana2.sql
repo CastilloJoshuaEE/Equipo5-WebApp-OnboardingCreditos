@@ -241,6 +241,7 @@ CREATE TRIGGER trigger_iniciar_revision_operador
 BEFORE UPDATE ON solicitudes_credito
 FOR EACH ROW
 EXECUTE FUNCTION trigger_iniciar_revision_operador();
+
 CREATE OR REPLACE FUNCTION asignar_operador_automatico(p_solicitud_id UUID)
 RETURNS UUID AS $$
 DECLARE
@@ -248,29 +249,32 @@ DECLARE
     operadores_carga RECORD;
     solicitud_numero TEXT;
     solicitante_nombre TEXT;
+    operador_nombre TEXT;
 BEGIN
     -- Obtener información de la solicitud
     SELECT numero_solicitud, solicitante_id INTO solicitud_numero, solicitante_nombre
     FROM solicitudes_credito WHERE id = p_solicitud_id;
 
     -- Buscar operador con menos solicitudes en revisión/pendientes
-    SELECT op.id, COUNT(sc.id) as carga
-    INTO operador_asignado
+    SELECT op.id, u.nombre_completo, COUNT(sc.id) as carga
+    INTO operador_asignado, operador_nombre
     FROM operadores op
+    INNER JOIN usuarios u ON u.id = op.id
     LEFT JOIN solicitudes_credito sc ON sc.operador_id = op.id 
         AND sc.estado IN ('en_revision', 'pendiente_info')
     WHERE op.nivel = 'analista'
-        AND op.id IN (SELECT id FROM usuarios WHERE cuenta_activa = true)
-    GROUP BY op.id
+        AND u.cuenta_activa = true
+    GROUP BY op.id, u.nombre_completo
     ORDER BY COUNT(sc.id) ASC, RANDOM()
     LIMIT 1;
 
     -- Si no hay operadores disponibles, asignar a cualquier analista activo
     IF operador_asignado IS NULL THEN
-        SELECT id INTO operador_asignado
-        FROM operadores
-        WHERE nivel = 'analista'
-        AND id IN (SELECT id FROM usuarios WHERE cuenta_activa = true)
+        SELECT op.id, u.nombre_completo INTO operador_asignado, operador_nombre
+        FROM operadores op
+        INNER JOIN usuarios u ON u.id = op.id
+        WHERE op.nivel = 'analista'
+        AND u.cuenta_activa = true
         ORDER BY RANDOM()
         LIMIT 1;
     END IF;
@@ -289,21 +293,26 @@ BEGIN
         p_solicitud_id,
         'nueva_solicitud',
         'Nueva solicitud asignada',
-        'Buenas tardes, tienes una nueva solicitud de crédito para revisar. Número: ' || solicitud_numero,
+        'Hola, tienes una nueva solicitud de crédito para revisar. Número: ' || solicitud_numero,
         false,
         NOW()
     );
 
-    -- También notificar al solicitante
-    INSERT INTO notificaciones(usuario_id, solicitud_id, tipo, titulo, mensaje, leida, created_at)
+    -- También notificar al solicitante CON INFORMACIÓN DEL OPERADOR
+    INSERT INTO notificaciones(usuario_id, solicitud_id, tipo, titulo, mensaje, leida, created_at, datos_adicionales)
     VALUES (
         (SELECT solicitante_id FROM solicitudes_credito WHERE id = p_solicitud_id),
         p_solicitud_id,
-        'cambio_estado',
-        'Solicitud en revisión',
-        'Tu solicitud ha sido enviada y está siendo revisada por nuestro equipo.',
+        'operador_asignado',
+        'Operador asignado a tu solicitud',
+        'Se ha asignado el operador ' || operador_nombre || ' a tu solicitud. Te contactaremos pronto.',
         false,
-        NOW()
+        NOW(),
+        json_build_object(
+            'operador_id', operador_asignado,
+            'operador_nombre', operador_nombre,
+            'tipo_alerta', 'operador_asignado'
+        )
     );
 
     RETURN operador_asignado;

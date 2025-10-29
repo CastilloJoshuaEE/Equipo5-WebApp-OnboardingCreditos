@@ -75,7 +75,7 @@ class AuthController {
 
         return res.status(429).json({
           success: false,
-          message: 'Cuenta temporalmente bloqueada por múltiples intentos fallidos. Intente nuevamente en 15 minutos o use la opción de "Recuperar cuenta".'
+          message: 'Cuenta temporalmente bloqueada por múltiples intentos fallidos. Intente nuevamente en 15 minutos o use la opción de "Recuperar cuenta" u "Olvidaste tu contraseña".'
         });
       }
 

@@ -968,6 +968,453 @@ static async obtenerHistorialEvaluaciones(req, res) {
         });
     }
 }
+ /**
+     * Obtener documentos de contrato para una solicitud
+     */
+    static async obtenerDocumentosContrato(req, res) {
+        try {
+            const { solicitud_id } = req.params;
+            const usuario = req.usuario;
+
+            console.log(`📄 Obteniendo documentos de contrato para solicitud: ${solicitud_id}`);
+
+            // Verificar permisos según rol
+            let query = supabase
+                .from('contratos')
+                .select(`
+                    *,
+                    firmas_digitales(
+                        id,
+                        estado,
+                        fecha_firma_completa,
+                        url_documento_firmado,
+                        ruta_documento
+                    )
+                `)
+                .eq('solicitud_id', solicitud_id);
+
+            // Si es solicitante, verificar que sea el dueño de la solicitud
+            if (usuario.rol === 'solicitante') {
+                const { data: solicitud } = await supabase
+                    .from('solicitudes_credito')
+                    .select('solicitante_id')
+                    .eq('id', solicitud_id)
+                    .single();
+
+                if (!solicitud || solicitud.solicitante_id !== usuario.id) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'No tienes permisos para acceder a estos documentos'
+                    });
+                }
+            }
+
+            const { data: contrato, error } = await query.single();
+
+            if (error || !contrato) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Contrato no encontrado'
+                });
+            }
+
+            res.json({
+                success: true,
+                data: {
+                    contrato: {
+                        id: contrato.id,
+                        numero_contrato: contrato.numero_contrato,
+                        estado: contrato.estado,
+                        ruta_documento: contrato.ruta_documento,
+                        fecha_creacion: contrato.created_at
+                    },
+                    firma: contrato.firmas_digitales?.[0] || null
+                }
+            });
+
+        } catch (error) {
+            console.error('Error obteniendo documentos de contrato:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener documentos del contrato'
+            });
+        }
+    }
+
+    /**
+     * Obtener comprobantes de transferencia
+     */
+    static async obtenerComprobantesTransferencia(req, res) {
+        try {
+            const { solicitud_id } = req.params;
+            const usuario = req.usuario;
+
+            console.log(`💰 Obteniendo comprobantes para solicitud: ${solicitud_id}`);
+
+            // Verificar permisos
+            let query = supabase
+                .from('transferencias_bancarias')
+                .select(`
+                    *,
+                    contactos_bancarios(
+                        nombre_banco,
+                        numero_cuenta,
+                        tipo_cuenta
+                    )
+                `)
+                .eq('solicitud_id', solicitud_id)
+                .order('created_at', { ascending: false });
+
+            // Verificar propiedad para solicitantes
+            if (usuario.rol === 'solicitante') {
+                const { data: solicitud } = await supabase
+                    .from('solicitudes_credito')
+                    .select('solicitante_id')
+                    .eq('id', solicitud_id)
+                    .single();
+
+                if (!solicitud || solicitud.solicitante_id !== usuario.id) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'No tienes permisos para acceder a estos comprobantes'
+                    });
+                }
+            }
+
+            const { data: transferencias, error } = await query;
+
+            if (error) {
+                throw error;
+            }
+
+            res.json({
+                success: true,
+                data: transferencias || []
+            });
+
+        } catch (error) {
+            console.error('Error obteniendo comprobantes:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener comprobantes de transferencia'
+            });
+        }
+    }
+
+    /**
+     * Descargar documento de contrato
+     */
+    static async descargarContrato(req, res) {
+        try {
+            const { contrato_id } = req.params;
+            const usuario = req.usuario;
+
+            console.log(`📥 Descargando contrato: ${contrato_id}`);
+
+            // Obtener información del contrato
+            const { data: contrato, error: contratoError } = await supabase
+                .from('contratos')
+                .select(`
+                    *,
+                    solicitudes_credito(
+                        solicitante_id,
+                        operador_id
+                    )
+                `)
+                .eq('id', contrato_id)
+                .single();
+
+            if (contratoError || !contrato) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Contrato no encontrado'
+                });
+            }
+
+            // Verificar permisos
+            const solicitud = contrato.solicitudes_credito;
+            if (usuario.rol === 'solicitante' && solicitud.solicitante_id !== usuario.id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No tienes permisos para descargar este contrato'
+                });
+            }
+
+            if (usuario.rol === 'operador' && solicitud.operador_id !== usuario.id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No tienes permisos para descargar este contrato'
+                });
+            }
+
+            // Determinar qué documento descargar (original o firmado)
+            let rutaDescarga = contrato.ruta_documento;
+
+            // Si existe firma digital con documento firmado, usar ese
+            if (contrato.firma_digital_id) {
+                const { data: firma } = await supabase
+                    .from('firmas_digitales')
+                    .select('url_documento_firmado, ruta_documento')
+                    .eq('id', contrato.firma_digital_id)
+                    .single();
+
+                if (firma && (firma.url_documento_firmado || firma.ruta_documento)) {
+                    rutaDescarga = firma.url_documento_firmado || firma.ruta_documento;
+                }
+            }
+
+            if (!rutaDescarga) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Documento del contrato no disponible'
+                });
+            }
+
+            // Descargar archivo
+            const { data: fileData, error: downloadError } = await supabase.storage
+                .from('kyc-documents')
+                .download(rutaDescarga);
+
+            if (downloadError) {
+                console.error('Error descargando contrato:', downloadError);
+                return res.status(404).json({
+                    success: false,
+                    message: 'Error al descargar el documento'
+                });
+            }
+
+            const arrayBuffer = await fileData.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+
+            // Determinar tipo de archivo y nombre
+            const esWord = rutaDescarga.toLowerCase().endsWith('.docx');
+            const contentType = esWord 
+                ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                : 'application/pdf';
+            
+            const extension = esWord ? 'docx' : 'pdf';
+            const nombreArchivo = `contrato-${contrato.numero_contrato}.${extension}`;
+
+            // Configurar headers para descarga
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
+            res.setHeader('Content-Length', buffer.length);
+            res.setHeader('Cache-Control', 'no-cache');
+
+            console.log(`✅ Contrato descargado: ${nombreArchivo}`);
+            res.send(buffer);
+
+        } catch (error) {
+            console.error('Error descargando contrato:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error interno al descargar contrato'
+            });
+        }
+    }
+
+    /**
+     * Descargar comprobante de transferencia
+     */
+    static async descargarComprobante(req, res) {
+        try {
+            const { transferencia_id } = req.params;
+            const usuario = req.usuario;
+
+            console.log(`📥 Descargando comprobante: ${transferencia_id}`);
+
+            // Obtener información de la transferencia
+            const { data: transferencia, error: transferenciaError } = await supabase
+                .from('transferencias_bancarias')
+                .select(`
+                    *,
+                    solicitudes_credito(
+                        solicitante_id,
+                        operador_id
+                    )
+                `)
+                .eq('id', transferencia_id)
+                .single();
+
+            if (transferenciaError || !transferencia) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Transferencia no encontrada'
+                });
+            }
+
+            // Verificar permisos
+            const solicitud = transferencia.solicitudes_credito;
+            if (usuario.rol === 'solicitante' && solicitud.solicitante_id !== usuario.id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No tienes permisos para descargar este comprobante'
+                });
+            }
+
+            if (usuario.rol === 'operador' && solicitud.operador_id !== usuario.id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No tienes permisos para descargar este comprobante'
+                });
+            }
+
+            if (!transferencia.ruta_comprobante) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Comprobante no disponible para esta transferencia'
+                });
+            }
+
+            // Descargar archivo
+            const { data: fileData, error: downloadError } = await supabase.storage
+                .from('kyc-documents')
+                .download(transferencia.ruta_comprobante);
+
+            if (downloadError) {
+                console.error('Error descargando comprobante:', downloadError);
+                return res.status(404).json({
+                    success: false,
+                    message: 'Error al descargar el comprobante'
+                });
+            }
+
+            const arrayBuffer = await fileData.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+
+            const nombreArchivo = `comprobante-${transferencia.numero_comprobante}.pdf`;
+
+            // Configurar headers para descarga
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
+            res.setHeader('Content-Length', buffer.length);
+            res.setHeader('Cache-Control', 'no-cache');
+
+            console.log(`✅ Comprobante descargado: ${nombreArchivo}`);
+            res.send(buffer);
+
+        } catch (error) {
+            console.error('Error descargando comprobante:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error interno al descargar comprobante'
+            });
+        }
+    }
+
+    /**
+     * Vista previa de documento (sin descarga)
+     */
+    static async verDocumento(req, res) {
+        try {
+            const { tipo, id } = req.params;
+            const usuario = req.usuario;
+
+            console.log(`👁️ Vista previa de documento: ${tipo} - ${id}`);
+
+            let rutaDocumento;
+            let nombreDocumento;
+
+            if (tipo === 'contrato') {
+                const { data: contrato } = await supabase
+                    .from('contratos')
+                    .select(`
+                        *,
+                        solicitudes_credito(
+                            solicitante_id,
+                            operador_id
+                        )
+                    `)
+                    .eq('id', id)
+                    .single();
+
+                if (!contrato) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Contrato no encontrado'
+                    });
+                }
+
+                // Verificar permisos
+                const solicitud = contrato.solicitudes_credito;
+                if (usuario.rol === 'solicitante' && solicitud.solicitante_id !== usuario.id) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'No tienes permisos para ver este documento'
+                    });
+                }
+
+                rutaDocumento = contrato.ruta_documento;
+                nombreDocumento = `contrato-${contrato.numero_contrato}`;
+
+            } else if (tipo === 'comprobante') {
+                const { data: transferencia } = await supabase
+                    .from('transferencias_bancarias')
+                    .select(`
+                        *,
+                        solicitudes_credito(
+                            solicitante_id,
+                            operador_id
+                        )
+                    `)
+                    .eq('id', id)
+                    .single();
+
+                if (!transferencia) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Transferencia no encontrada'
+                    });
+                }
+
+                // Verificar permisos
+                const solicitud = transferencia.solicitudes_credito;
+                if (usuario.rol === 'solicitante' && solicitud.solicitante_id !== usuario.id) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'No tienes permisos para ver este documento'
+                    });
+                }
+
+                rutaDocumento = transferencia.ruta_comprobante;
+                nombreDocumento = `comprobante-${transferencia.numero_comprobante}`;
+
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tipo de documento no válido'
+                });
+            }
+
+            if (!rutaDocumento) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Documento no disponible'
+                });
+            }
+
+            // Obtener URL pública para vista previa
+            const { data: urlData } = supabase.storage
+                .from('kyc-documents')
+                .getPublicUrl(rutaDocumento);
+
+            res.json({
+                success: true,
+                data: {
+                    url: urlData.publicUrl,
+                    nombre: nombreDocumento,
+                    tipo: tipo
+                }
+            });
+
+        } catch (error) {
+            console.error('Error en vista previa de documento:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al cargar el documento'
+            });
+        }
+    }
 }
 
 module.exports = DocumentoController;

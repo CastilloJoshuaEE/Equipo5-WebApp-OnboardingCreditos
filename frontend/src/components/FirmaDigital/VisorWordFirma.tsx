@@ -626,18 +626,7 @@ const handleGuardarDocumento = async () => {
                     <IconButton onClick={resetZoom}>
                         <FitScreen />
                     </IconButton>
-                    
-                    {firmas.length > 0 && (
-                        <Button
-                            variant="outlined"
-                            startIcon={<Clear />}
-                            onClick={limpiarTodasLasFirmas}
-                            sx={{ ml: 1 }}
-                            color="error"
-                        >
-                            Limpiar Todas
-                        </Button>
-                    )}
+                
                     
                     {modoFirma && (
                         <Button

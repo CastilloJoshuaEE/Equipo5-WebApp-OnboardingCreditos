@@ -41,6 +41,7 @@ interface Documento {
   validado_en?: string;
   comentarios?: string;
   informacion_extraida?: any;
+  updated_at?: string;
 }
 
 interface GestionDocumentosProps {
@@ -406,102 +407,145 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
           No hay documentos subidos para esta solicitud.
         </Alert>
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell><strong>Tipo de Documento</strong></TableCell>
-                <TableCell><strong>Nombre del Archivo</strong></TableCell>
-                <TableCell><strong>Tamaño</strong></TableCell>
-                <TableCell><strong>Estado</strong></TableCell>
-                <TableCell><strong>Fecha de Subida</strong></TableCell>
-                <TableCell><strong>Acciones</strong></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {documentos.map((documento) => (
-                <TableRow key={documento.id}>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {getTipoDocumentoLabel(documento.tipo)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" noWrap title={documento.nombre_archivo}>
-                      {documento.nombre_archivo}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {formatFileSize(documento.tamanio_bytes)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={documento.estado} 
-                      color={getEstadoColor(documento.estado)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {new Date(documento.created_at).toLocaleDateString('es-ES')}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {new Date(documento.created_at).toLocaleTimeString('es-ES')}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box display="flex" gap={1}>
-                      <Tooltip title="Ver documento">
-                        <IconButton
-                          size="small"
-                          onClick={() => verDocumento(documento)}
-                          color="primary"
-                        >
-                          <Visibility />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Descargar documento">
-                        <IconButton
-                          size="small"
-                          onClick={() => descargarDocumento(documento)}
-                          color="secondary"
-                        >
-                          <Download />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Actualizar documento">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            const input = document.getElementById(`file-input-${documento.tipo}`) as HTMLInputElement;
-                            if (input) input.click();
-                          }}
-                          color="primary"
-                        >
-                          <Edit />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar documento">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setDocumentoAEliminar(documento);
-                            setDialogOpen(true);
-                          }}
-                          color="error"
-                        >
-                          <Delete />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+       <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 3 }}>
+  <Table>
+    <TableHead>
+      <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+        <TableCell><strong>Tipo</strong></TableCell>
+        <TableCell><strong>Nombre del Archivo</strong></TableCell>
+        <TableCell><strong>Tamaño</strong></TableCell>
+        <TableCell><strong>Estado</strong></TableCell>
+        <TableCell><strong>Fecha de Subida</strong></TableCell>
+        <TableCell><strong>Fecha de Actualización</strong></TableCell>
+        <TableCell><strong>Comentarios</strong></TableCell>
+        <TableCell align="center"><strong>Acciones</strong></TableCell>
+      </TableRow>
+    </TableHead>
+
+    <TableBody>
+      {documentos.map((documento) => (
+        <TableRow 
+          key={documento.id}
+          hover
+          sx={{ 
+            '&:nth-of-type(odd)': { backgroundColor: '#fafafa' },
+            transition: 'background-color 0.2s ease-in-out'
+          }}
+        >
+          <TableCell>
+            <Typography variant="body2" fontWeight={500}>
+              {getTipoDocumentoLabel(documento.tipo)}
+            </Typography>
+          </TableCell>
+
+          <TableCell>
+            <Tooltip title={documento.nombre_archivo}>
+              <Typography 
+                variant="body2" 
+                noWrap 
+                sx={{ maxWidth: 220, textOverflow: 'ellipsis', overflow: 'hidden' }}
+              >
+                {documento.nombre_archivo}
+              </Typography>
+            </Tooltip>
+          </TableCell>
+
+          <TableCell>
+            <Typography variant="body2">
+              {formatFileSize(documento.tamanio_bytes)}
+            </Typography>
+          </TableCell>
+
+          <TableCell>
+            <Chip 
+              label={documento.estado}
+              color={getEstadoColor(documento.estado)}
+              size="small"
+              sx={{ fontWeight: 'bold' }}
+            />
+          </TableCell>
+
+          <TableCell>
+            <Typography variant="body2">
+              {new Date(documento.created_at).toLocaleDateString('es-ES')}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {new Date(documento.created_at).toLocaleTimeString('es-ES')}
+            </Typography>
+          </TableCell>
+
+          <TableCell>
+            <Typography variant="body2">
+              {documento.updated_at 
+                ? new Date(documento.updated_at).toLocaleDateString('es-ES')
+                : '—'}
+            </Typography>
+            {documento.updated_at && (
+              <Typography variant="caption" color="text.secondary">
+                {new Date(documento.updated_at).toLocaleTimeString('es-ES')}
+              </Typography>
+            )}
+          </TableCell>
+
+          <TableCell>
+            <Tooltip title={documento.comentarios || 'Sin comentarios'}>
+              <Typography
+                variant="body2"
+                sx={{
+                  maxWidth: 200,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  cursor: documento.comentarios ? 'pointer' : 'default',
+                }}
+              >
+                {documento.comentarios || '—'}
+              </Typography>
+            </Tooltip>
+          </TableCell>
+
+          <TableCell align="center">
+            <Box display="flex" justifyContent="center" gap={1}>
+              <Tooltip title="Ver documento">
+                <IconButton
+                  size="small"
+                  color="primary"
+                  onClick={() => verDocumento(documento)}
+                >
+                  <Visibility fontSize="small" />
+                </IconButton>
+              </Tooltip>
+
+              <Tooltip title="Descargar documento">
+                <IconButton
+                  size="small"
+                  color="secondary"
+                  onClick={() => descargarDocumento(documento)}
+                >
+                  <Download fontSize="small" />
+                </IconButton>
+              </Tooltip>
+
+              <Tooltip title="Actualizar documento">
+                <IconButton
+                  size="small"
+                  color="info"
+                  onClick={() => {
+                    const input = document.getElementById(`file-input-${documento.tipo}`) as HTMLInputElement;
+                    if (input) input.click();
+                  }}
+                >
+                  <Edit fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+</TableContainer>
+
       )}
 
       {/* Dialog de Confirmación para Eliminar */}

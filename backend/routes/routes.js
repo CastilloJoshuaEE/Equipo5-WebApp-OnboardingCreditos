@@ -59,6 +59,40 @@ const allowedTypes = [
 /**
  * @swagger
  * components:
+ *   responses:
+ *     NoAutorizado:
+ *       description: No autorizado - Token inválido o expirado
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Error'
+ *           example:
+ *             success: false
+ *             message: "No autorizado"
+ *             error: "Token inválido o expirado"
+ * 
+ *     Prohibido:
+ *       description: Acceso prohibido - Sin permisos suficientes
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Error'
+ *           example:
+ *             success: false
+ *             message: "Acceso prohibido"
+ *             error: "No tiene permisos para realizar esta acción"
+ * 
+ *     ErrorServidor:
+ *       description: Error interno del servidor
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Error'
+ *           example:
+ *             success: false
+ *             message: "Error interno del servidor"
+ *             error: "Ha ocurrido un error inesperado"
+ * 
  *   schemas:
  *     SuccessResponse:
  *       type: object
@@ -3692,7 +3726,7 @@ router.get('/firmas/diagnostico-descarga/:firma_id',
         try {
             const { firma_id } = req.params;
             
-            console.log('. 🔍 DIAGNÓSTICO de descarga para:', firma_id);
+            console.log('. . DIAGNÓSTICO de descarga para:', firma_id);
             
             // Obtener información completa de la firma
             const { data: firma, error: firmaError } = await supabase
@@ -4349,9 +4383,457 @@ router.get('/chatbot/historial',
  *         description: Chatbot temporalmente no disponible
  */
 router.get('/chatbot/health', ChatbotController.healthCheck);
-router.get('/:firma_id/documento-actual', FirmaDigitalController.obtenerDocumentoActual);
 
-// Ruta para verificar integridad
+// ==================== RUTAS DE CONTACTOS BANCARIOS ====================
+
+
+/**
+ * @swagger
+ * /api/contactos-bancarios/buscar:
+ *   get:
+ *     summary: Buscar contactos por numero de cuenta
+ *     tags: [Contactos Bancarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: numero de cuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Contactos encontrados exitosamente
+ */
+router.get('/contactos-bancarios/buscar', 
+  AuthMiddleware.proteger, 
+  ContactosBancariosController.buscarContactosPorNumeroCuenta
+);
+
+router.get('/contactos-bancarios', 
+  AuthMiddleware.proteger, 
+  ContactosBancariosController.obtenerTodosContactos
+);
+router.get('/contactos-bancarios/mis-contactos', 
+  AuthMiddleware.proteger, 
+  ContactosBancariosController.obtenerContactosOperador
+);
+/**
+ * @swagger
+ * /api/contactos-bancarios/{id}:
+ *   put:
+ *     summary: Editar contacto bancario existente
+ *     tags: [Contactos Bancarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               numero_cuenta:
+ *                 type: string
+ *               tipo_cuenta:
+ *                 type: string
+ *                 enum: [ahorros, corriente]
+ *               moneda:
+ *                 type: string
+ *                 enum: [USD, ARS]
+ *               nombre_banco:
+ *                 type: string
+ *               email_contacto:
+ *                 type: string
+ *                 format: email
+ *               telefono_contacto:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Contacto actualizado exitosamente
+ */
+router.put('/contactos-bancarios/:id', 
+  AuthMiddleware.proteger, 
+  AuthMiddleware.autorizar('operador'),
+  ContactosBancariosController.editarContacto
+);
+
+/**
+ * @swagger
+ * /api/contactos-bancarios/{id}:
+ *   delete:
+ *     summary: Eliminar contacto bancario
+ *     tags: [Contactos Bancarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Contacto eliminado exitosamente
+ */
+router.delete('/contactos-bancarios/:id', 
+  AuthMiddleware.proteger, 
+  AuthMiddleware.autorizar('operador'),
+  ContactosBancariosController.eliminarContacto
+);
+
+
+/**
+ * @swagger
+ * /api/contactos-bancarios:
+ *   post:
+ *     summary: Crear nuevo contacto bancario
+ *     tags: [Contactos Bancarios]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - solicitante_id
+ *               - numero_cuenta
+ *             properties:
+ *               solicitante_id:
+ *                 type: string
+ *                 format: uuid
+ *               numero_cuenta:
+ *                 type: string
+ *               tipo_cuenta:
+ *                 type: string
+ *                 enum: [ahorros, corriente]
+ *               moneda:
+ *                 type: string
+ *                 enum: [USD, ARS]
+ *               nombre_banco:
+ *                 type: string
+ *               email_contacto:
+ *                 type: string
+ *                 format: email
+ *               telefono_contacto:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Contacto creado exitosamente
+ */
+router.post('/contactos-bancarios', 
+  AuthMiddleware.proteger, 
+  ContactosBancariosController.crearContacto
+);
+router.get('/transferencias/habilitacion/:solicitud_id', 
+  AuthMiddleware.proteger, 
+  AuthMiddleware.autorizar('operador'), 
+  TransferenciasBancariasController.verificarHabilitacionTransferencia
+);
+
+router.post('/transferencias', 
+  AuthMiddleware.proteger, 
+  AuthMiddleware.autorizar('operador'), 
+  TransferenciasBancariasController.crearTransferencia
+);
+
+router.get('/transferencias/comprobante/:transferencia_id', 
+  AuthMiddleware.proteger, 
+  TransferenciasBancariasController.obtenerComprobante
+);
+
+router.get('/transferencias/historial', 
+  AuthMiddleware.proteger, 
+  TransferenciasBancariasController.obtenerHistorial
+);
+/**
+ * @swagger
+ * /api/transferencias/forzar-actualizacion/{solicitud_id}:
+ *   post:
+ *     summary: Forzar actualización de estado de firma
+ *     tags: [Transferencias]
+ *     description: Fuerza la actualización del estado de firma y verifica habilitación de transferencia
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Actualización forzada exitosamente
+ */
+router.post('/transferencias/forzar-actualizacion/:solicitud_id', 
+    AuthMiddleware.proteger, 
+    AuthMiddleware.autorizar('operador'), 
+    TransferenciasBancariasController.forzarActualizacionEstado
+);
+
+/**
+ * @swagger
+ * /api/transferencias/verificar-firma/{solicitud_id}:
+ *   get:
+ *     summary: Verificar estado de firma específico
+ *     tags: [Transferencias]
+ *     description: Verifica el estado específico de la firma digital para una solicitud
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Estado de firma obtenido
+ */
+router.get('/transferencias/verificar-firma/:solicitud_id', 
+    AuthMiddleware.proteger, 
+    AuthMiddleware.autorizar('operador'), 
+    async (req, res) => {
+        try {
+            const { solicitud_id } = req.params;
+            
+            const { data: firma } = await supabase
+                .from('firmas_digitales')
+                .select('*')
+                .eq('solicitud_id', solicitud_id)
+                .single();
+
+            res.json({
+                success: true,
+                data: {
+                    firma: firma,
+                    puede_transferir: firma?.estado === 'firmado_completo' || firma?.integridad_valida === true
+                }
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: 'Error verificando firma'
+            });
+        }
+    }
+);
+// Agregar estas rutas a tu archivo de rutas
+router.get('/solicitudes/:solicitud_id/contrato/documentos', AuthMiddleware.proteger, DocumentoController.obtenerDocumentosContrato);
+router.get('/solicitudes/:solicitud_id/comprobantes', AuthMiddleware.proteger, DocumentoController.obtenerComprobantesTransferencia);
+router.get('/contratos/:contrato_id/descargar', AuthMiddleware.proteger, DocumentoController.descargarContrato);
+router.get('/transferencias/:transferencia_id/comprobante/descargar', AuthMiddleware.proteger, DocumentoController.descargarComprobante);
+router.get('/documentos/:tipo/:id/ver', AuthMiddleware.proteger, DocumentoController.verDocumento);
+/**
+ * @swagger
+ * /api/solicitudes/mis-solicitudes-con-documentos:
+ *   get:
+ *     summary: Obtener mis solicitudes con documentos disponibles
+ *     tags: [Solicitudes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de solicitudes con documentos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ */
+router.get('/solicitudes/mis-solicitudes-con-documentos', 
+  AuthMiddleware.proteger, 
+  async (req, res) => {
+    try {
+      const usuario_id = req.usuario.id;
+      const usuario_rol = req.usuario.rol;
+      
+      console.log(`📋 Obteniendo solicitudes con documentos para: ${usuario_id} (${usuario_rol})`);
+
+      let solicitudes;
+
+      if (usuario_rol === 'solicitante') {
+        // Para solicitantes: obtener solo sus solicitudes aprobadas
+        const { data, error } = await supabase
+          .from('solicitudes_credito')
+          .select(`
+            *,
+            contratos(*, firmas_digitales(*)),
+            transferencias_bancarias(*),
+            solicitantes: solicitantes!solicitante_id(
+              usuarios(nombre_completo, email)
+            )
+          `)
+          .eq('solicitante_id', usuario_id)
+          .eq('estado', 'aprobado')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        solicitudes = data;
+
+      } else if (usuario_rol === 'operador') {
+        // Para operadores: obtener todas las solicitudes aprobadas que tienen documentos
+        const { data, error } = await supabase
+          .from('solicitudes_credito')
+          .select(`
+            *,
+            contratos(*, firmas_digitales(*)),
+            transferencias_bancarias(*),
+            solicitantes: solicitantes!solicitante_id(
+              usuarios(nombre_completo, email)
+            ),
+            operadores: operadores!operador_id(
+              usuarios(nombre_completo, email)
+            )
+          `)
+          .eq('estado', 'aprobado')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        solicitudes = data;
+      } else {
+        return res.status(403).json({
+          success: false,
+          message: 'Rol no autorizado'
+        });
+      }
+
+      console.log(`✅ Encontradas ${solicitudes?.length || 0} solicitudes con documentos`);
+
+      res.json({
+        success: true,
+        data: solicitudes || []
+      });
+
+    } catch (error) {
+      console.error('❌ Error obteniendo solicitudes con documentos:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al obtener solicitudes con documentos',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/operador/todos-los-documentos:
+ *   get:
+ *     summary: Obtener todos los documentos del sistema (Operadores)
+ *     tags: [Operador]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de todos los documentos
+ */
+router.get('/operador/todos-los-documentos', 
+  AuthMiddleware.proteger,
+  AuthMiddleware.autorizar('operador'),
+  async (req, res) => {
+    try {
+      // Obtener contratos
+      const { data: contratos, error: errorContratos } = await supabase
+        .from('contratos')
+        .select(`
+          *,
+          solicitudes_credito(
+            numero_solicitud,
+            monto,
+            moneda,
+            solicitantes: solicitantes!solicitante_id(
+              usuarios(nombre_completo)
+            )
+          ),
+          firmas_digitales(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      // Obtener transferencias
+      const { data: transferencias, error: errorTransferencias } = await supabase
+        .from('transferencias_bancarias')
+        .select(`
+          *,
+          solicitudes_credito(
+            numero_solicitud,
+            monto,
+            moneda,
+            solicitantes: solicitantes!solicitante_id(
+              usuarios(nombre_completo)
+            )
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (errorContratos || errorTransferencias) {
+        throw errorContratos || errorTransferencias;
+      }
+
+      // Combinar y formatear datos
+      const documentos = [
+        ...contratos.map(c => ({
+          ...c,
+          tipo: 'contrato',
+          solicitante_nombre: c.solicitudes_credito?.solicitantes?.usuarios?.nombre_completo
+        })),
+        ...transferencias.map(t => ({
+          ...t,
+          tipo: 'comprobante',
+          solicitante_nombre: t.solicitudes_credito?.solicitantes?.usuarios?.nombre_completo
+        }))
+      ];
+
+      res.json({
+        success: true,
+        data: documentos
+      });
+    } catch (error) {
+      console.error('Error obteniendo todos los documentos:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al obtener documentos'
+      });
+    }
+  }
+);
+/**
+ * @swagger
+ * /api/{firma_id}/documento-actual:
+ *   get:
+ *     summary: Obtener documento actual para firma
+ *     tags: [Firmas Digitales]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/:firma_id/documento-actual', FirmaDigitalController.obtenerDocumentoActual);
+/**
+ * @swagger
+ * /api/{firma_id}/verificar-integridad:
+ *   get:
+ *     summary: Verificar integridad de documento firmado
+ *     tags: [Firmas Digitales]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.get('/:firma_id/verificar-integridad', async (req, res) => {
     try {
         const { firma_id } = req.params;
@@ -4376,30 +4858,4 @@ router.get('/:firma_id/verificar-integridad', async (req, res) => {
     }
 });
 
-// Rutas para transferencias bancarias
-router.get('/contactos-bancarios/solicitante/:solicitante_id', ContactosBancariosController.obtenerContactosPorSolicitante);
-router.get('/contactos-bancarios/buscar',  ContactosBancariosController.buscarContactosPorDNI);
-router.get('/contactos-bancarios/mis-contactos',  ContactosBancariosController.obtenerMisContactos);
-router.post('/contactos-bancarios',  ContactosBancariosController.crearContacto);
-router.get('/transferencias/habilitacion/:solicitud_id', 
-  AuthMiddleware.proteger, 
-  AuthMiddleware.autorizar('operador'), 
-  TransferenciasBancariasController.verificarHabilitacionTransferencia
-);
-
-router.post('/transferencias', 
-  AuthMiddleware.proteger, 
-  AuthMiddleware.autorizar('operador'), 
-  TransferenciasBancariasController.crearTransferencia
-);
-
-router.get('/transferencias/comprobante/:transferencia_id', 
-  AuthMiddleware.proteger, 
-  TransferenciasBancariasController.obtenerComprobante
-);
-
-router.get('/transferencias/historial', 
-  AuthMiddleware.proteger, 
-  TransferenciasBancariasController.obtenerHistorial
-);
 module.exports = router;
