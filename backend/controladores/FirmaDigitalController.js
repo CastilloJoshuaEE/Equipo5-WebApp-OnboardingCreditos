@@ -780,188 +780,201 @@ static async obtenerInfoFirma(req, res) {
   /**
      * Procesar firma del documento - VERSIÓN . CON FIRMA ACUMULATIVA
      */
-    static async procesarFirma(req, res) {
-        try {
-            const { firma_id } = req.params;
-            const { 
-                firma_data, 
-                tipo_firma
-            } = req.body;
-            
-            const usuario_id = req.usuario.id;
-            const ip_address = req.ip;
-            const user_agent = req.get('User-Agent');
+   static async procesarFirma(req, res) {
+    try {
+        const { firma_id } = req.params;
+        const { 
+            firma_data, 
+            tipo_firma
+        } = req.body;
+        
+        const usuario_id = req.usuario.id;
+        const ip_address = req.ip;
+        const user_agent = req.get('User-Agent');
 
-            console.log('. Procesando firma Word . para:', firma_id);
-            console.log('. Datos recibidos:', {
-                tipo_firma: tipo_firma,
-                tiene_firma_data: !!firma_data
-            });
+        console.log('. Procesando firma Word . para:', firma_id);
+        console.log('. Datos recibidos:', {
+            tipo_firma: tipo_firma,
+            tiene_firma_data: !!firma_data
+        });
 
-            // Validaciones
-            if (!firma_data || !tipo_firma) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Datos de firma y tipo son requeridos'
-                });
-            }
-
-            // Obtener información actual de la firma
-            const { data: firma, error: firmaError } = await supabase
-                .from('firmas_digitales')
-                .select(`
-                    *,
-                    contratos (
-                        ruta_documento,
-                        id
-                    )
-                `)
-                .eq('id', firma_id)
-                .single();
-
-            if (firmaError || !firma) {
-                console.error('. Error obteniendo firma:', firmaError);
-                return res.status(404).json({
-                    success: false,
-                    message: 'Proceso de firma no encontrado'
-                });
-            }
-
-            // Preparar datos de firma
-            const datosFirma = {
-                nombreFirmante: req.usuario.nombre_completo,
-                fechaFirma: new Date().toISOString(),
-                ubicacion: firma_data.ubicacion || 'Ubicación no disponible',
-                firmaTexto: firma_data.firmaTexto,
-                firmaImagen: firma_data.firmaImagen,
-                tipoFirma: firma_data.tipoFirma,
-                hashDocumento: firma.hash_documento_original,
-                ipFirmante: ip_address,
-                userAgent: user_agent
-            };
-
-            // . USAR EL NUEVO MÉTODO DE FIRMA ACUMULATIVA
-            const firmaResult = await WordService.procesarFirmaAcumulativa(
-                firma_id, 
-                datosFirma, 
-                tipo_firma
-            );
-
-            if (!firmaResult.success) {
-                throw new Error('Error procesando firma: ' + firmaResult.error);
-            }
-
-const integridadValida = await WordService.verificarIntegridadCompleta(firma_id);
-
-// Asegurar que sea boolean
-const esIntegridadValida = Boolean(integridadValida);
-
-// Actualizar base de datos
-const updateData = {
-    hash_documento_firmado: firmaResult.hash,
-    integridad_valida: esIntegridadValida, // . Ahora siempre será boolean
-    
-    estado: esIntegridadValida ? 'firmado_completo' : `firmado_${tipo_firma}`,
-    fecha_firma_completa: esIntegridadValida ? new Date().toISOString() : null,
-    updated_at: new Date().toISOString(),
-    url_documento_firmado: firmaResult.ruta
-};
-
-            // Configurar según tipo de firma
-            if (tipo_firma === 'solicitante') {
-                updateData.fecha_firma_solicitante = new Date().toISOString();
-                updateData.ip_firmante = ip_address;
-                updateData.user_agent_firmante = user_agent;
-                updateData.ubicacion_firmante = datosFirma.ubicacion;
-            } else if (tipo_firma === 'operador') {
-                updateData.fecha_firma_operador = new Date().toISOString();
-            }
-
-            const { error: updateError } = await supabase
-                .from('firmas_digitales')
-                .update(updateData)
-                .eq('id', firma_id);
-
-            if (updateError) {
-                throw updateError;
-            }
-
-            // Actualizar contrato
-            await supabase
-                .from('contratos')
-                .update({
-                    estado: updateData.estado,
-                    updated_at: new Date().toISOString(),
-                    ...(tipo_firma === 'solicitante' && { 
-                        fecha_firma_solicitante: new Date().toISOString() 
-                    }),
-                    ...(tipo_firma === 'operador' && { 
-                        fecha_firma_operador: new Date().toISOString() 
-                    }),
-                    ...(integridadValida && { 
-                        fecha_firma_completa: new Date().toISOString(),
-                        estado: 'vigente'
-                    })
-                })
-                .eq('id', firma.contrato_id);
-
-            // Registrar auditoría
-            await supabase
-                .from('auditoria_firmas')
-                .insert({
-                    firma_id: firma_id,
-                    usuario_id: usuario_id,
-                    accion: 'firma_documento_acumulativa',
-                    descripcion: `Documento firmado por ${tipo_firma} usando firma acumulativa. Integridad: ${integridadValida ? 'COMPLETA' : 'PARCIAL'}`,
-                    estado_anterior: firma.estado,
-                    estado_nuevo: updateData.estado,
-                    ip_address: ip_address,
-                    user_agent: user_agent,
-                    created_at: new Date().toISOString()
-                });
-
-            // Procesar según el tipo de firma
-            if (tipo_firma === 'solicitante') {
-                await FirmaDigitalController.procesarFirmaSolicitante(firma_id, firma);
-            } else if (tipo_firma === 'operador') {
-                await FirmaDigitalController.procesarFirmaOperador(firma_id, firma);
-            }
-
-            // Si la integridad es completa, notificar a todas las partes
-            if (integridadValida) {
-                await FirmaDigitalController.marcarFirmaCompleta(firma_id, firma);
-            }
-
-            console.log('. . Firma acumulativa procesada exitosamente:', { 
-                firma_id, 
-                tipo_firma, 
-                integridad_completa: integridadValida,
-                nuevo_estado: updateData.estado
-            });
-
-            res.json({
-                success: true,
-                message: integridadValida ? 
-                    '. CONTRATO COMPLETAMENTE FIRMADO - Integridad válida' : 
-                    '📝 Firma procesada exitosamente - Esperando contrafirma',
-                data: {
-                    firma_id: firma_id,
-                    estado: updateData.estado,
-                    integridad_valida: integridadValida,
-                    url_descarga: firmaResult.ruta,
-                    hash_firmado: firmaResult.hash,
-                    es_firma_completa: integridadValida
-                }
-            });
-
-        } catch (error) {
-            console.error('. . Error procesando firma acumulativa:', error);
-            res.status(500).json({
+        // Validaciones
+        if (!firma_data || !tipo_firma) {
+            return res.status(400).json({
                 success: false,
-                message: 'Error procesando firma: ' + error.message
+                message: 'Datos de firma y tipo son requeridos'
             });
         }
+
+        // Obtener información actual de la firma para verificar estado
+        const { data: firmaActual, error: firmaError } = await supabase
+            .from('firmas_digitales')
+            .select(`
+                *,
+                contratos (
+                    ruta_documento,
+                    id
+                )
+            `)
+            .eq('id', firma_id)
+            .single();
+
+        if (firmaError || !firmaActual) {
+            console.error('. Error obteniendo firma:', firmaError);
+            return res.status(404).json({
+                success: false,
+                message: 'Proceso de firma no encontrado'
+            });
+        }
+
+        // Preparar datos de firma
+        const datosFirma = {
+            nombreFirmante: req.usuario.nombre_completo,
+            fechaFirma: new Date().toISOString(),
+            ubicacion: firma_data.ubicacion || 'Ubicación no disponible',
+            firmaTexto: firma_data.firmaTexto,
+            firmaImagen: firma_data.firmaImagen,
+            tipoFirma: firma_data.tipoFirma,
+            hashDocumento: firmaActual.hash_documento_original,
+            ipFirmante: ip_address,
+            userAgent: user_agent
+        };
+
+        // Procesar firma acumulativa
+        const firmaResult = await WordService.procesarFirmaAcumulativa(
+            firma_id, 
+            datosFirma, 
+            tipo_firma
+        );
+
+        if (!firmaResult.success) {
+            throw new Error('Error procesando firma: ' + firmaResult.error);
+        }
+
+        // Verificar integridad completa (ambas firmas presentes)
+        const integridadValida = await WordService.verificarIntegridadCompleta(firma_id);
+        const esIntegridadValida = Boolean(integridadValida);
+
+        // Determinar nuevo estado
+        let nuevoEstado;
+        if (esIntegridadValida) {
+            nuevoEstado = 'firmado_completo';
+        } else if (tipo_firma === 'solicitante') {
+            nuevoEstado = 'firmado_solicitante';
+        } else if (tipo_firma === 'operador') {
+            nuevoEstado = 'firmado_operador';
+        }
+
+        // Actualizar base de datos
+        const updateData = {
+            hash_documento_firmado: firmaResult.hash,
+            integridad_valida: esIntegridadValida,
+            estado: nuevoEstado,
+            fecha_firma_completa: esIntegridadValida ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString(),
+            url_documento_firmado: firmaResult.ruta
+        };
+
+        // Configurar según tipo de firma
+        if (tipo_firma === 'solicitante') {
+            updateData.fecha_firma_solicitante = new Date().toISOString();
+            updateData.ip_firmante = ip_address;
+            updateData.user_agent_firmante = user_agent;
+            updateData.ubicacion_firmante = datosFirma.ubicacion;
+        } else if (tipo_firma === 'operador') {
+            updateData.fecha_firma_operador = new Date().toISOString();
+        }
+
+        const { error: updateError } = await supabase
+            .from('firmas_digitales')
+            .update(updateData)
+            .eq('id', firma_id);
+
+        if (updateError) {
+            throw updateError;
+        }
+
+        // Actualizar contrato
+        await supabase
+            .from('contratos')
+            .update({
+                estado: updateData.estado,
+                updated_at: new Date().toISOString(),
+                ...(tipo_firma === 'solicitante' && { 
+                    fecha_firma_solicitante: new Date().toISOString() 
+                }),
+                ...(tipo_firma === 'operador' && { 
+                    fecha_firma_operador: new Date().toISOString() 
+                }),
+                ...(esIntegridadValida && { 
+                    fecha_firma_completa: new Date().toISOString(),
+                    estado: 'vigente'
+                })
+            })
+            .eq('id', firmaActual.contrato_id);
+
+        // Registrar auditoría
+        await supabase
+            .from('auditoria_firmas')
+            .insert({
+                firma_id: firma_id,
+                usuario_id: usuario_id,
+                accion: 'firma_documento_acumulativa',
+                descripcion: `Documento firmado por ${tipo_firma}. Estado: ${nuevoEstado}. Integridad: ${esIntegridadValida ? 'COMPLETA' : 'PARCIAL'}`,
+                estado_anterior: firmaActual.estado,
+                estado_nuevo: nuevoEstado,
+                ip_address: ip_address,
+                user_agent: user_agent,
+                created_at: new Date().toISOString()
+            });
+
+        // Procesar según el tipo de firma
+        if (tipo_firma === 'solicitante') {
+            await FirmaDigitalController.procesarFirmaSolicitante(firma_id, firmaActual);
+        } else if (tipo_firma === 'operador') {
+            await FirmaDigitalController.procesarFirmaOperador(firma_id, firmaActual);
+        }
+
+        // Si la integridad es completa, notificar a todas las partes
+        if (esIntegridadValida) {
+            await FirmaDigitalController.marcarFirmaCompleta(firma_id, firmaActual);
+        }
+
+        console.log('. . Firma acumulativa procesada exitosamente:', { 
+            firma_id, 
+            tipo_firma, 
+            integridad_completa: esIntegridadValida,
+            nuevo_estado: nuevoEstado
+        });
+
+        res.json({
+            success: true,
+            message: esIntegridadValida ? 
+                '. CONTRATO COMPLETAMENTE FIRMADO - Integridad válida' : 
+                '📝 Firma procesada exitosamente - Esperando contrafirma',
+            data: {
+                firma_id: firma_id,
+                estado: nuevoEstado,
+                integridad_valida: esIntegridadValida,
+                url_descarga: firmaResult.ruta,
+                hash_firmado: firmaResult.hash,
+                es_firma_completa: esIntegridadValida,
+                // Información adicional sobre las firmas presentes
+                firmas_presentes: {
+                    solicitante: tipo_firma === 'solicitante' || !!firmaActual.fecha_firma_solicitante,
+                    operador: tipo_firma === 'operador' || !!firmaActual.fecha_firma_operador
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('. . Error procesando firma acumulativa:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error procesando firma: ' + error.message
+        });
     }
+}
 
     /**
      * Obtener información del documento actual para firma

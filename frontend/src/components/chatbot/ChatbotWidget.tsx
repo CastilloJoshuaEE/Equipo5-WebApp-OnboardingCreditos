@@ -175,12 +175,18 @@ export default function ChatbotWidget() {
     <Box className="chatbot-container">
       {/* Botón flotante */}
       {!abierto && (
-        <IconButton
-          onClick={() => setAbierto(true)}
-          className="floating-chat-button"
-        >
-          <HelpOutline />
-        </IconButton>
+<IconButton
+  onClick={() => setAbierto(true)}
+  className="floating-chat-button"
+  sx={{
+    '& .MuiSvgIcon-root': {
+      color: 'white !important',
+      fontSize: '28px'
+    }
+  }}
+>
+  <SmartToy />
+</IconButton>
       )}
 
       {/* Chatbox */}
