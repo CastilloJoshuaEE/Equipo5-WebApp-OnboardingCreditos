@@ -1,10 +1,9 @@
-// frontend/src/app/(dashboard)/layout.tsx
 'use client';
 import { signOut } from 'next-auth/react';
 import { useTheme } from '@mui/material/styles';
 import { ThemeProvider, CssBaseline } from "@mui/material";
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   Box,
@@ -16,6 +15,7 @@ import {
   Toolbar,
   Button,
   Typography,
+  Backdrop
 } from '@mui/material';
 import { Menu, Person } from '@mui/icons-material';
 import { NotificacionesBell } from '@/components/notificaciones/NotificacionesBell';
@@ -33,23 +33,45 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loadingOverlay, setLoadingOverlay] = useState(false); // nuevo
 
-  const handleLogout = async () => {
-    await signOut({ 
+const handleLogout = async () => {
+  try {
+    // Mostrar overlay antes de cerrar sesión
+    setLoadingOverlay(true);
+
+    // Pequeño delay opcional para que se note visualmente el overlay (150ms)
+    await new Promise((res) => setTimeout(res, 150));
+
+    await signOut({
       callbackUrl: '/login',
-      redirect: true 
+      redirect: true,
     });
-  };
+  } catch (error) {
+    console.error('Error al cerrar sesión:', error);
+    setLoadingOverlay(false);
+  }
+};
+
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
     }
   }, [status, router]);
+
+  // Cuando cambia la ruta, ocultamos el overlay (navegación completada)
+  useEffect(() => {
+    if (loadingOverlay) {
+      setLoadingOverlay(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   if (status === 'loading') {
     return (
@@ -61,8 +83,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   if (!session) return null;
 
-  const handleVerPerfil = () => router.push('/usuario/perfil');
-  const handleIrDashboard = () => router.push('/');
+  // Navegación con overlay: activar overlay, luego push
+  const navigateWithOverlay = (path: string) => {
+    setLoadingOverlay(true);
+    // Cerrar sidebar en mobile
+    if (isMobile) setSidebarOpen(false);
+    router.push(path);
+  };
+
+  const handleVerPerfil = () => navigateWithOverlay('/usuario/perfil');
+  const handleIrDashboard = () => navigateWithOverlay('/');
 
   const SidebarContent = () => (
     <aside className="sidebar">
@@ -88,7 +118,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       
       <nav className="sidebar-nav">
         
-        <DynamicNavigation onNavigate={() => isMobile && setSidebarOpen(false)} />
+        <DynamicNavigation 
+          navigationHandler={navigateWithOverlay} 
+          onNavigate={() => { if (isMobile) setSidebarOpen(false); }} 
+        />
         
         {/* Botón de salir */}
         <Box sx={{ p: 2, mt: 'auto' }}>
@@ -99,7 +132,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             fullWidth
             size="small"
           >
-Salir          </Button>
+            Salir
+          </Button>
         </Box>
       </nav>
     </aside>
@@ -132,6 +166,17 @@ Salir          </Button>
             <SidebarContent />
           </Drawer>
         )}
+
+        {/* Overlay global para navegación */}
+        <Backdrop
+          sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 2 }}
+          open={loadingOverlay}
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <CircularProgress color="inherit" />
+            <Typography variant="h6">Cargando, por favor espere...</Typography>
+          </Box>
+        </Backdrop>
 
         {/* Contenido principal */}
         <Box flexGrow={1} sx={{ minHeight: '100vh', backgroundColor: '#fafafa' }}>
@@ -181,7 +226,7 @@ Salir          </Button>
                   Mi Perfil
                 </Button>
 
-                <NotificacionesBell />
+                <NotificacionesBell /* Si NotificacionesBell hace navegación, idealmente pasarle navigationHandler */ />
               </Box>
             </Toolbar>
           </AppBar>

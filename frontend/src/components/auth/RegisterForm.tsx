@@ -17,19 +17,24 @@ import {
   Checkbox,
   Fade,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  Backdrop,
+  CircularProgress
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { registerSchema, RegisterInput } from '@/schemas/auth.schema';
 import { UserRole } from '@/types/auth.types';
 
 export default function RegisterForm() {
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
+
   const [error, setError] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const formRef = useRef<HTMLDivElement>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false); // 👈 nuevo estado para redirecciones
 
   const {
     register,
@@ -72,6 +77,11 @@ export default function RegisterForm() {
 
   const block2 = getBlock2Content();
 const onSubmit = async (data: RegisterInput) => {
+      if (!acceptedTerms) {
+      setError('Debes aceptar los Términos y Condiciones antes de continuar.');
+      return;
+    }
+
     try {
         setError('');
         setIsSubmitting(true);
@@ -102,7 +112,9 @@ const onSubmit = async (data: RegisterInput) => {
         console.log('Registro exitoso:', responseData);
         
         alert('Registro exitoso. Revisá tu email para confirmar tu cuenta.');
-        router.push('/login');
+             setIsRedirecting(true);
+
+      setTimeout(() => router.push('/login'), 1000);
         
     } catch (error) {
         console.error('Error completo en registro:', error);
@@ -130,6 +142,11 @@ useEffect(() => {
         special: /[@$!%*?&]/.test(password)
     });
 }, [watch('password')]);
+  const handleRedirect = (path: string) => {
+    setIsRedirecting(true);
+    setTimeout(() => router.push(path), 1000);
+  };
+
   return (
     
     <Box
@@ -143,6 +160,20 @@ useEffect(() => {
         p: 2,
       }}
     >
+            {/* Overlay de carga global */}
+      <Backdrop
+        sx={{
+          color: '#fff',
+          zIndex: (theme) => theme.zIndex.drawer + 2,
+          backdropFilter: 'blur(2px)',
+        }}
+        open={isSubmitting}
+      >
+        <Box display="flex" alignItems="center" gap={2}>
+          <CircularProgress color="inherit" />
+          <Typography variant="h6">Procesando registro, por favor espere...</Typography>
+        </Box>
+      </Backdrop>
       {/* Contenido principal */}
       <Box
         sx={{
@@ -350,10 +381,16 @@ useEffect(() => {
           )}
 
           {/* Términos y Condiciones */}
-          <FormControlLabel
-            control={<Checkbox required />}
-            label="Al registrarse, acepta nuestros Términos y Condiciones y nuestra política de Privacidad"
-            sx={{ fontSize: '0.85rem', mt: 2 }}
+ <FormControlLabel
+            control={
+              <Checkbox
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="Al registrarse, acepta nuestros Términos y Condiciones y nuestra Política de Privacidad"
+            sx={{ mt: 2 }}
           />
 
           {/* Botón de Registro */}
@@ -383,10 +420,10 @@ useEffect(() => {
           {/* Enlace a Login */}
           <Typography sx={{ textAlign: 'center', fontSize: '0.875rem', color: '#9ba39c', mt: 1 }}>
             ¿Ya tenés una cuenta?{' '}
-            <Box 
-              component="span" 
-              sx={{ color: '#da68f2', cursor: 'pointer' }} 
-              onClick={() => router.push('/login')}
+            <Box
+              component="span"
+              sx={{ color: '#da68f2', cursor: 'pointer' }}
+              onClick={() => handleRedirect('/login')}
             >
               Iniciar Sesión
             </Box>
@@ -436,31 +473,12 @@ useEffect(() => {
           color: '#6b6b6b',
           '&:hover': { textDecoration: 'underline' },
         }}
-        onClick={() => router.push('/')}
+        onClick={() => handleRedirect('/')}
       >
         &larr; Volver al inicio
       </Typography>
       <Box sx={{ mt: 1, mb: 2 }}>
-    <Typography variant="caption" color="textSecondary">
-        Requisitos de contraseña:
-    </Typography>
-    <Box sx={{ display: 'flex', flexDirection: 'column', ml: 2 }}>
-        <Typography variant="caption" color={passwordRequirements.length ? 'success.main' : 'textSecondary'}>
-            ✓ Mínimo 8 caracteres
-        </Typography>
-        <Typography variant="caption" color={passwordRequirements.lowercase ? 'success.main' : 'textSecondary'}>
-            ✓ Una letra minúscula
-        </Typography>
-        <Typography variant="caption" color={passwordRequirements.uppercase ? 'success.main' : 'textSecondary'}>
-            ✓ Una letra mayúscula
-        </Typography>
-        <Typography variant="caption" color={passwordRequirements.number ? 'success.main' : 'textSecondary'}>
-            ✓ Un número
-        </Typography>
-        <Typography variant="caption" color={passwordRequirements.special ? 'success.main' : 'textSecondary'}>
-            ✓ Un carácter especial (@$!%*?&)
-        </Typography>
-    </Box>
+    
 </Box>
     </Box>
     

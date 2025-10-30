@@ -24,7 +24,9 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction
+  ListItemSecondaryAction,
+  Backdrop,
+  CircularProgress
 } from '@mui/material';
 import { Delete, CloudUpload, Description } from '@mui/icons-material';
 import { solicitudCreditoSchema, type SolicitudCreditoInput } from '@/schemas/solicitud.schema';
@@ -52,6 +54,7 @@ export default function SolicitudCreditoForm({ onSuccess }: SolicitudCreditoForm
   const [documentos, setDocumentos] = useState<DocumentoConTipo[]>([]);
   const [solicitudId, setSolicitudId] = useState<string | null>(null);
   const { data: session } = useSession();
+  const [loadingOverlay, setLoadingOverlay] = useState(false); // 🟢 NUEVO
 
   const {
     register,
@@ -266,7 +269,7 @@ const renderListaDocumentos = () => (
     try {
       setError('');
       setSuccess('');
-
+ setLoadingOverlay(true); 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       const session = await getSession();
 
@@ -327,6 +330,9 @@ formData.append('tipo', obtenerTipoDocumento(documento.file.name));
     } catch (error) {
       console.error('Error en solicitud:', error);
       setError(error instanceof Error ? error.message : 'Error al procesar la solicitud');
+    }
+    finally {
+      setLoadingOverlay(false); // 🟢 Ocultar overlay al finalizar
     }
   };
 
@@ -626,7 +632,17 @@ formData.append('tipo', obtenerTipoDocumento(documento.file.name));
     }
   };
 
-  return (
+  return (<>
+      {/* 🟢 Overlay de carga global */}
+      <Backdrop
+        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={loadingOverlay}
+      >
+        <CircularProgress color="inherit" />
+        <Typography variant="h6" sx={{ ml: 2 }}>
+          Enviando solicitud, por favor espere...
+        </Typography>
+      </Backdrop>
     <Box component="form" onSubmit={handleSubmit(onSubmit)}>
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
         {steps.map((label) => (
@@ -717,5 +733,6 @@ formData.append('tipo', obtenerTipoDocumento(documento.file.name));
         </Box>
       </Box>
     </Box>
+      </>
   );
 }

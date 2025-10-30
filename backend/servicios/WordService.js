@@ -9,11 +9,11 @@ class WordService {
     /**
      * Procesar firma acumulativa - usa el último documento firmado
      */
-    static async procesarFirmaAcumulativa(firma_id, datosFirma, tipo) {
+   static async procesarFirmaAcumulativa(firma_id, datosFirma, tipo) {
     try {
         console.log('. 🔄 Procesando firma acumulativa CORREGIDA para:', firma_id);
 
-        // 1. Obtener información COMPLETA de la firma
+        // 1. Obtener información COMPLETA de la firma con estado actual
         const { data: firma, error: firmaError } = await supabase
             .from('firmas_digitales')
             .select(`
@@ -54,25 +54,41 @@ class WordService {
         // 4. EXTRAER contenido EXISTENTE y EVITAR duplicación
         const contenidoExistente = await WordService.extraerContenidoSinFirmasDuplicadas(bufferActual);
         
-        // 5. GENERAR NUEVA SECCIÓN DE FIRMAS (solo una vez)
-        const seccionFirmasActualizada = await WordService.generarSeccionFirmasActualizada(firma_id, datosFirma, tipo);
+        // 5. OBTENER INFORMACIÓN ACTUALIZADA DE AMBAS FIRMAS
+        const { data: firmaActualizada } = await supabase
+            .from('firmas_digitales')
+            .select('fecha_firma_solicitante, fecha_firma_operador')
+            .eq('id', firma_id)
+            .single();
 
-        // 6. COMBINAR contenido existente con nueva sección de firmas
+        // 6. GENERAR NUEVA SECCIÓN DE FIRMAS con información actualizada
+        const seccionFirmasActualizada = await WordService.generarSeccionFirmasActualizada(
+            firma_id, 
+            datosFirma, 
+            tipo
+        );
+
+        // 7. COMBINAR contenido existente con nueva sección de firmas
         const documentoFinal = await WordService.combinarContenidoYFirmas(
             contenidoExistente, 
             seccionFirmasActualizada
         );
 
-        // 7. Generar hash del documento final
+        // 8. Generar hash del documento final
         const nuevoHash = WordService.generarHashDocumento(documentoFinal, {
             fechaFirma: datosFirma.fechaFirma,
             firmante: datosFirma.nombreFirmante,
             tipoFirma: tipo,
-            firmaAnterior: firma.hash_documento_firmado
+            firmaAnterior: firma.hash_documento_firmado,
+            // Incluir información de ambas firmas en el hash
+            firmas: {
+                solicitante: firmaActualizada?.fecha_firma_solicitante,
+                operador: firmaActualizada?.fecha_firma_operador
+            }
         });
 
-        // 8. Subir nuevo documento firmado
-        const nombreArchivoFirmado = `contrato-firmado-${firma_id}.docx`;
+        // 9. Subir nuevo documento firmado
+        const nombreArchivoFirmado = `contrato-firmado-${firma_id}-${Date.now()}.docx`;
         const uploadResult = await WordService.subirDocumento(
             nombreArchivoFirmado,
             documentoFinal,
@@ -81,7 +97,12 @@ class WordService {
                 firmante: datosFirma.nombreFirmante,
                 fecha_firma: datosFirma.fechaFirma,
                 hash_firmado: nuevoHash,
-                tipo_firma: tipo
+                tipo_firma: tipo,
+                // Registrar ambas firmas en metadatos
+                firmas_registradas: {
+                    solicitante: !!firmaActualizada?.fecha_firma_solicitante,
+                    operador: !!firmaActualizada?.fecha_firma_operador
+                }
             }
         );
 
@@ -108,44 +129,48 @@ class WordService {
      * Extraer contenido real del documento Word
      */
    static async extraerContenidoSinFirmasDuplicadas(bufferDocumento) {
-        try {
-            console.log('. Extrayendo contenido sin duplicar firmas...');
-            
-            const result = await mammoth.extractRawText({ 
-                buffer: bufferDocumento,
-                preserveEmptyLines: true
-            });
-            
-            let contenido = result.value;
-            
-            // ELIMINAR secciones de firmas duplicadas
-            // Buscar y eliminar todo desde "--- FIRMAS DIGITALES REGISTRADAS ---" en adelante
-            const indiceFirmas = contenido.indexOf('--- FIRMAS DIGITALES REGISTRADAS ---');
-            
-            if (indiceFirmas !== -1) {
-                // Conservar solo el contenido ANTES de las firmas
-                contenido = contenido.substring(0, indiceFirmas).trim();
-                console.log('. Se eliminaron secciones de firmas duplicadas');
+    try {
+        console.log('. Extrayendo contenido sin duplicar firmas...');
+        
+        const result = await mammoth.extractRawText({ 
+            buffer: bufferDocumento,
+            preserveEmptyLines: true
+        });
+        
+        let contenido = result.value;
+        
+        // ELIMINAR secciones de firmas duplicadas
+        const patronesFirmas = [
+            '--- FIRMAS DIGITALES REGISTRADAS ---',
+            '--- FIRMAS DIGITALES ---',
+            'INFORMACIÓN DE FIRMA DIGITAL',
+            'FIRMADO POR:',
+            '✓ DOCUMENTO FIRMADO DIGITALMENTE'
+        ];
+        
+        for (const patron of patronesFirmas) {
+            const indice = contenido.indexOf(patron);
+            if (indice !== -1) {
+                // Conservar solo el contenido ANTES del patrón
+                contenido = contenido.substring(0, indice).trim();
+                console.log('. Se eliminó sección de firmas con patrón:', patron);
+                break;
             }
-            
-            // También eliminar la sección simple de "--- FIRMAS DIGITALES ---" si existe
-            const indiceFirmasSimple = contenido.indexOf('--- FIRMAS DIGITALES ---');
-            if (indiceFirmasSimple !== -1) {
-                contenido = contenido.substring(0, indiceFirmasSimple).trim();
-                console.log('. Se eliminó sección simple de firmas');
-            }
-            
-            console.log('. Contenido limpiado exitosamente');
-            return contenido;
-            
-        } catch (error) {
-            console.error('. Error extrayendo contenido sin duplicados:', error);
-            // Fallback: devolver contenido sin procesar
-            const result = await mammoth.extractRawText({ buffer: bufferDocumento });
-            return result.value;
         }
+        
+        // LIMPIAR saltos de línea excesivos
+        contenido = contenido.replace(/\n{3,}/g, '\n\n'); // Máximo 2 saltos de línea consecutivos
+        
+        console.log('. Contenido limpiado exitosamente');
+        return contenido;
+        
+    } catch (error) {
+        console.error('. Error extrayendo contenido sin duplicados:', error);
+        // Fallback: devolver contenido sin procesar
+        const result = await mammoth.extractRawText({ buffer: bufferDocumento });
+        return result.value;
     }
-
+}
     /**
      * Generar sección de firmas ACTUALIZADA (solo una vez)
      */
@@ -154,7 +179,7 @@ class WordService {
     try {
         console.log('. Generando sección de firmas actualizada para:', firma_id);
         
-        // Obtener información actual de todas las firmas
+        // Obtener información ACTUAL de la firma con todas las firmas registradas
         const { data: firmaCompleta, error } = await supabase
             .from('firmas_digitales')
             .select(`
@@ -178,14 +203,12 @@ class WordService {
         const solicitante = solicitud?.solicitantes?.usuarios;
         const operador = solicitud?.operadores?.usuarios;
 
-        // Construir sección de firmas única y organizada
-        let seccionFirmas = `
-
---- FIRMAS DIGITALES REGISTRADAS ---
+        // Construir sección de firmas con formato claro
+        let seccionFirmas = `--- FIRMAS DIGITALES REGISTRADAS ---
 
 INFORMACIÓN DE FIRMA DIGITAL`;
 
-        // Agregar firma del SOLICITANTE si existe
+        // AGREGAR FIRMA DEL SOLICITANTE SI EXISTE
         if (firmaCompleta.fecha_firma_solicitante) {
             seccionFirmas += `
 
@@ -197,7 +220,7 @@ HASH DE VALIDACIÓN: ${firmaCompleta.hash_documento_original}
 ✓ DOCUMENTO FIRMADO DIGITALMENTE - VÁLIDO LEGALMENTE`;
         }
 
-        // Agregar firma del OPERADOR si existe
+        // AGREGAR FIRMA DEL OPERADOR SI EXISTE
         if (firmaCompleta.fecha_firma_operador) {
             seccionFirmas += `
 
@@ -209,8 +232,12 @@ HASH DE VALIDACIÓN: ${firmaCompleta.hash_documento_original}
 ✓ DOCUMENTO FIRMADO DIGITALMENTE - VÁLIDO LEGALMENTE`;
         }
 
-        // Agregar firma ACTUAL que se está procesando
-        seccionFirmas += `
+        // AGREGAR FIRMA ACTUAL QUE SE ESTÁ PROCESANDO (si no existe ya)
+        const yaExisteFirma = (tipo === 'solicitante' && firmaCompleta.fecha_firma_solicitante) || 
+                             (tipo === 'operador' && firmaCompleta.fecha_firma_operador);
+        
+        if (!yaExisteFirma) {
+            seccionFirmas += `
 
 FIRMADO POR: ${datosFirma.nombreFirmante}
 FECHA: ${new Date(datosFirma.fechaFirma).toLocaleString()}
@@ -218,19 +245,21 @@ UBICACIÓN: ${datosFirma.ubicacion || 'Ubicación no disponible'}
 HASH DE VALIDACIÓN: ${firmaCompleta.hash_documento_original}
 
 ✓ DOCUMENTO FIRMADO DIGITALMENTE - VÁLIDO LEGALMENTE`;
+        }
 
         console.log('. Sección de firmas generada exitosamente');
         return seccionFirmas;
 
     } catch (error) {
         console.error('. Error generando sección de firmas:', error);
-        // Fallback: sección básica
-        return `
+        // Fallback: sección básica con formato claro
+        return `--- FIRMAS DIGITALES REGISTRADAS ---
 
---- FIRMAS DIGITALES REGISTRADAS ---
+INFORMACIÓN DE FIRMA DIGITAL
 
 FIRMADO POR: ${datosFirma.nombreFirmante}
 FECHA: ${new Date(datosFirma.fechaFirma).toLocaleString()}
+UBICACIÓN: ${datosFirma.ubicacion || 'Ubicación no disponible'}
 HASH DE VALIDACIÓN: ${datosFirma.hashDocumento}
 
 ✓ DOCUMENTO FIRMADO DIGITALMENTE - VÁLIDO LEGALMENTE`;
@@ -240,22 +269,161 @@ HASH DE VALIDACIÓN: ${datosFirma.hashDocumento}
     try {
         console.log('. Combinando contenido y firmas en documento final...');
         
-        // Crear documento con el contenido preservado + una sola sección de firmas
+        // Dividir el contenido en párrafos preservando la estructura
+        const lineas = contenido.split('\n');
+        const parrafosContenido = [];
+        
+        for (const linea of lineas) {
+            if (linea.trim() === '') {
+                // Línea vacía para separación - REDUCIR ESPACIADO
+                parrafosContenido.push(new Paragraph({ 
+                    text: '',
+                    spacing: { after: 80 } // Reducido significativamente
+                }));
+                continue;
+            }
+            
+            // Determinar el formato según el contenido
+            if (linea.includes('CONTRATO DE AUTORIZACIÓN')) {
+                // Título principal
+                parrafosContenido.push(new Paragraph({
+                    text: linea,
+                    heading: HeadingLevel.HEADING_1,
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 200 } // Reducido de 400
+                }));
+            } else if (linea.match(/^[A-ZÁÉÍÓÚÑ\s]+:$/) || linea.match(/^[A-ZÁÉÍÓÚÑ\s]+ [A-ZÁÉÍÓÚÑ\s]+:$/)) {
+                // Encabezados de cláusulas (PRIMERA:, SEGUNDA:, etc.)
+                parrafosContenido.push(new Paragraph({
+                    text: linea,
+                    heading: HeadingLevel.HEADING_2,
+                    spacing: { before: 200, after: 100 } // Reducido significativamente
+                }));
+            } else if (linea.match(/^\d+\./)) {
+                // Elementos de lista numerada
+                parrafosContenido.push(new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: linea,
+                            bold: linea.includes('NEXIA') || linea.includes('SOLICITANTE')
+                        })
+                    ],
+                    spacing: { after: 80 }, // Reducido de 150
+                    indent: { left: 360 } // Reducido de 720 (0.25 pulgadas en lugar de 0.5)
+                }));
+            } else if (linea.includes('Entre:') || linea.includes('se celebra el presente Contrato')) {
+                // Párrafos de introducción
+                parrafosContenido.push(new Paragraph({
+                    text: linea,
+                    alignment: AlignmentType.JUSTIFIED,
+                    spacing: { after: 120 } // Reducido de 200
+                }));
+            } else {
+                // Párrafos normales
+                parrafosContenido.push(new Paragraph({
+                    text: linea,
+                    alignment: AlignmentType.JUSTIFIED,
+                    spacing: { after: 120 } // Reducido de 200
+                }));
+            }
+        }
+
+        // Procesar la sección de firmas
+        const lineasFirmas = seccionFirmas.split('\n');
+        const parrafosFirmas = [];
+        
+        for (const linea of lineasFirmas) {
+            if (linea.trim() === '') {
+                parrafosFirmas.push(new Paragraph({ 
+                    text: '',
+                    spacing: { after: 80 } // Reducido
+                }));
+                continue;
+            }
+            
+            if (linea.includes('--- FIRMAS DIGITALES REGISTRADAS ---')) {
+                parrafosFirmas.push(new Paragraph({
+                    text: linea,
+                    heading: HeadingLevel.HEADING_2,
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 400, after: 200 } // Reducido
+                }));
+            } else if (linea.includes('INFORMACIÓN DE FIRMA DIGITAL')) {
+                parrafosFirmas.push(new Paragraph({
+                    text: linea,
+                    heading: HeadingLevel.HEADING_3,
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 150 } // Reducido
+                }));
+            } else if (linea.includes('FIRMADO POR:')) {
+                parrafosFirmas.push(new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: linea,
+                            bold: true,
+                            size: 22
+                        })
+                    ],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 200, after: 100 } // Reducido
+                }));
+            } else if (linea.includes('FECHA:') || linea.includes('UBICACIÓN:')) {
+                parrafosFirmas.push(new Paragraph({
+                    text: linea,
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 100 } // Reducido
+                }));
+            } else if (linea.includes('HASH DE VALIDACIÓN:')) {
+                parrafosFirmas.push(new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: linea,
+                            style: "SourceCode",
+                            size: 14,
+                            color: "666666"
+                        })
+                    ],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 200 } // Reducido
+                }));
+            } else if (linea.includes('✓ DOCUMENTO FIRMADO DIGITALMENTE')) {
+                parrafosFirmas.push(new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: linea,
+                            bold: true,
+                            color: "008000",
+                            size: 16
+                        })
+                    ],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 200, after: 100 } // Reducido
+                }));
+            } else {
+                parrafosFirmas.push(new Paragraph({
+                    text: linea,
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 100 } // Reducido
+                }));
+            }
+        }
+
+        // Crear documento con estructura organizada y espaciado compacto
         const doc = new Document({
             sections: [{
                 properties: {},
                 children: [
                     // Contenido principal del contrato
+                    ...parrafosContenido,
+                    
+                    // Espacio antes de las firmas (reducido)
                     new Paragraph({
-                        text: contenido,
-                        spacing: { after: 400 }
+                        text: "",
+                        spacing: { before: 400, after: 200 } // Reducido significativamente
                     }),
-
-                    // UNA SOLA sección de firmas al final
-                    new Paragraph({
-                        text: seccionFirmas,
-                        spacing: { before: 800, after: 400 }
-                    })
+                    
+                    // Sección de firmas
+                    ...parrafosFirmas
                 ]
             }]
         });

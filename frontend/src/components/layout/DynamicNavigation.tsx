@@ -8,7 +8,6 @@ import {
   ListItemIcon,
   ListItemText,
   ListItemButton,
-  Chip,
 } from '@mui/material';
 import {
   DesktopWindows,
@@ -16,20 +15,25 @@ import {
   Dashboard,
   Notifications,
   Description,
-  CreditCard,
 } from '@mui/icons-material';
 
 interface DynamicNavigationProps {
   onNavigate?: () => void;
+  navigationHandler?: (path: string) => void; // nuevo: función que maneja navegación con overlay
 }
 
-export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate }) => {
+export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate, navigationHandler }) => {
   const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname() ?? '';
 
   const handleNavigation = (path: string) => {
-    router.push(path);
+    if (navigationHandler) {
+      navigationHandler(path);
+    } else {
+      router.push(path);
+      if (onNavigate) onNavigate();
+    }
     if (onNavigate) onNavigate();
   };
 
@@ -37,16 +41,13 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
 
   if (!session) return null;
 
-  // Mostrar acceso a documentos (puedes ajustar la lógica aquí)
   const shouldShowDocumentAccess = () => {
     if (session.user?.rol === 'operador') return true;
-    // para solicitantes puedes añadir lógica adicional (p. ej. si existen documentos)
     return true;
   };
 
   return (
     <List sx={{ width: '100%' }}>
-      {/* Operador */}
       {session.user?.rol === 'operador' && (
         <>
           <ListItem sx={{ mb: 1, borderRadius: 1 }}>
@@ -87,25 +88,22 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
                   },
                 }}
               >
-
-<ListItemIcon sx={{ minWidth: 40 }}>
-  <Description />
-</ListItemIcon>
-<ListItemText
-  primary="Gestión Documentos"
-  primaryTypographyProps={{
-    fontSize: '0.9rem',
-    fontWeight: isActive('/documentos') ? '600' : '400',
-  }}
-/>
-
+                <ListItemIcon sx={{ minWidth: 40 }}>
+                  <Description />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Gestión Documentos"
+                  primaryTypographyProps={{
+                    fontSize: '0.9rem',
+                    fontWeight: isActive('/documentos') ? '600' : '400',
+                  }}
+                />
               </ListItemButton>
             </ListItem>
           )}
         </>
       )}
 
-      {/* Solicitante */}
       {session.user?.rol === 'solicitante' && (
         <>
           <ListItem sx={{ mb: 1, borderRadius: 1 }}>
@@ -146,26 +144,22 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
                   },
                 }}
               >
-<ListItemIcon sx={{ minWidth: 40 }}>
-  <Description />
-</ListItemIcon>
-
-<ListItemText
-  primary="Mis Documentos"
-  primaryTypographyProps={{
-    fontSize: '0.9rem',
-    fontWeight: isActive('/mis-documentos') ? '600' : '400',
-  }}
-/>
-
-
-          </ListItemButton>
+                <ListItemIcon sx={{ minWidth: 40 }}>
+                  <Description />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Mis Documentos"
+                  primaryTypographyProps={{
+                    fontSize: '0.9rem',
+                    fontWeight: isActive('/mis-documentos') ? '600' : '400',
+                  }}
+                />
+              </ListItemButton>
             </ListItem>
           )}
         </>
       )}
 
-      {/* Elementos comunes */}
       <ListItem sx={{ mb: 1, borderRadius: 1 }}>
         <ListItemButton
           onClick={() => handleNavigation('/usuario/perfil')}
