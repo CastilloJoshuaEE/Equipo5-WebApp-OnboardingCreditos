@@ -1,9 +1,31 @@
 const brevoAPIService = require('./emailBrevoAPIService');
 
 const getFrontendUrl = () => {
+  // URLs posibles en producción
+  const renderFrontend = 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
+  const vercelFrontend = 'https://equipo5-web-app-onboarding-creditos.vercel.app';
+
   if (process.env.NODE_ENV === 'production') {
-    return 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
+    // Si existe una variable FRONTEND_URL personalizada, úsala
+    if (process.env.FRONTEND_URL) {
+      return process.env.FRONTEND_URL;
+    }
+
+    // Si la app se está ejecutando en Render, usa la URL de Render
+    if (process.env.RENDER === 'true' || process.env.RENDER_SERVICE_ID) {
+      return renderFrontend;
+    }
+
+    // Si detecta entorno Vercel, usa la URL de Vercel
+    if (process.env.VERCEL === '1' || process.env.VERCEL_URL) {
+      return vercelFrontend;
+    }
+
+    // Fallback: por defecto usa la de Render
+    return renderFrontend;
   }
+
+  // En desarrollo local
   return process.env.FRONTEND_URL || 'http://localhost:3000';
 };
 
