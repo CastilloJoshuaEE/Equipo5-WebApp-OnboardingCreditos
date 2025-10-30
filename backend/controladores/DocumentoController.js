@@ -971,7 +971,7 @@ static async obtenerHistorialEvaluaciones(req, res) {
  /**
      * Obtener documentos de contrato para una solicitud
      */
-    static async obtenerDocumentosContrato(req, res) {
+  static async obtenerDocumentosContrato(req, res) {
         try {
             const { solicitud_id } = req.params;
             const usuario = req.usuario;
@@ -1041,6 +1041,138 @@ static async obtenerHistorialEvaluaciones(req, res) {
         }
     }
 
+
+static async listarDocumentosStorage(req, res) {
+    try {
+        const { solicitud_id } = req.params;
+        const usuario = req.usuario;
+
+        console.log(`📁 Listando documentos en storage para solicitud: ${solicitud_id}`);
+
+        // Verificar permisos de la solicitud
+        const { data: solicitud } = await supabase
+            .from('solicitudes_credito')
+            .select('solicitante_id, operador_id')
+            .eq('id', solicitud_id)
+            .single();
+
+        if (!solicitud) {
+            return res.status(404).json({
+                success: false,
+                message: 'Solicitud no encontrada'
+            });
+        }
+
+        const tienePermiso = (
+            usuario.rol === 'operador' || 
+            (usuario.rol === 'solicitante' && solicitud.solicitante_id === usuario.id)
+        );
+
+        if (!tienePermiso) {
+            return res.status(403).json({
+                success: false,
+                message: 'No tienes permisos para ver estos documentos'
+            });
+        }
+
+        // Listar todos los documentos relacionados con la solicitud
+        const carpetas = ['contratos', 'contratos-firmados', 'comprobantes-transferencia', 'documentos'];
+        let todosDocumentos = [];
+
+        for (const carpeta of carpetas) {
+            const { data: archivos, error } = await supabase.storage
+                .from('kyc-documents')
+                .list(carpeta, {
+                    limit: 100,
+                    offset: 0,
+                    search: solicitud_id
+                });
+
+            if (!error && archivos) {
+                const documentosConInfo = archivos.map(archivo => ({
+                    nombre: archivo.name,
+                    carpeta: carpeta,
+                    ruta: `${carpeta}/${archivo.name}`,
+                    tamaño: archivo.metadata?.size,
+                    fecha_actualizacion: archivo.updated_at,
+                    tipo: this.obtenerTipoDocumento(archivo.name, carpeta)
+                }));
+                todosDocumentos = todosDocumentos.concat(documentosConInfo);
+            }
+        }
+
+        // También buscar en la raíz
+        const { data: archivosRaiz, error: errorRaiz } = await supabase.storage
+            .from('kyc-documents')
+            .list('', {
+                limit: 100,
+                offset: 0,
+                search: solicitud_id
+            });
+
+        if (!errorRaiz && archivosRaiz) {
+            const documentosRaiz = archivosRaiz
+                .filter(archivo => 
+                    archivo.name.includes(solicitud_id) &&
+                    !archivo.name.startsWith('contratos/') &&
+                    !archivo.name.startsWith('contratos-firmados/') &&
+                    !archivo.name.startsWith('comprobantes-transferencia/') &&
+                    !archivo.name.startsWith('documentos/')
+                )
+                .map(archivo => ({
+                    nombre: archivo.name,
+                    carpeta: 'raiz',
+                    ruta: archivo.name,
+                    tamaño: archivo.metadata?.size,
+                    fecha_actualizacion: archivo.updated_at,
+                    tipo: this.obtenerTipoDocumento(archivo.name, 'raiz')
+                }));
+            
+            todosDocumentos = todosDocumentos.concat(documentosRaiz);
+        }
+
+        // Generar URLs públicas
+        const documentosConUrls = todosDocumentos.map(doc => {
+            const { data: urlData } = supabase.storage
+                .from('kyc-documents')
+                .getPublicUrl(doc.ruta);
+            
+            return {
+                ...doc,
+                url_publica: urlData.publicUrl,
+                puede_descargar: true
+            };
+        });
+
+        res.json({
+            success: true,
+            data: {
+                solicitud_id,
+                total_documentos: documentosConUrls.length,
+                documentos: documentosConUrls
+            }
+        });
+
+    } catch (error) {
+        console.error('. Error listando documentos storage:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al listar documentos'
+        });
+    }
+}
+
+static obtenerTipoDocumento(nombreArchivo, carpeta) {
+    if (nombreArchivo.includes('contrato') || carpeta.includes('contrato')) {
+        return 'contrato';
+    } else if (nombreArchivo.includes('comprobante') || carpeta.includes('comprobante')) {
+        return 'comprobante';
+    } else if (nombreArchivo.includes('firmado')) {
+        return 'documento_firmado';
+    } else {
+        return 'documento';
+    }
+}
     /**
      * Obtener comprobantes de transferencia
      */
@@ -1201,7 +1333,7 @@ static async obtenerHistorialEvaluaciones(req, res) {
             res.setHeader('Content-Length', buffer.length);
             res.setHeader('Cache-Control', 'no-cache');
 
-            console.log(`✅ Contrato descargado: ${nombreArchivo}`);
+            console.log(`. Contrato descargado: ${nombreArchivo}`);
             res.send(buffer);
 
         } catch (error) {
@@ -1290,7 +1422,7 @@ static async obtenerHistorialEvaluaciones(req, res) {
             res.setHeader('Content-Length', buffer.length);
             res.setHeader('Cache-Control', 'no-cache');
 
-            console.log(`✅ Comprobante descargado: ${nombreArchivo}`);
+            console.log(`. Comprobante descargado: ${nombreArchivo}`);
             res.send(buffer);
 
         } catch (error) {
@@ -1415,6 +1547,223 @@ static async obtenerHistorialEvaluaciones(req, res) {
             });
         }
     }
+    /**
+ * Obtener mis solicitudes con documentos disponibles
+ */
+// En backend/controladores/DocumentoController.js
+static async obtenerMisSolicitudesConDocumentos(req, res) {
+    try {
+        const usuario_id = req.usuario.id;
+        const usuario_rol = req.usuario.rol;
+        
+        console.log(`📋 Obteniendo solicitudes con documentos para: ${usuario_id} (${usuario_rol})`);
+
+        let solicitudes;
+
+        if (usuario_rol === 'solicitante') {
+            // Para solicitantes: obtener solo sus solicitudes aprobadas
+            const { data, error } = await supabase
+                .from('solicitudes_credito')
+                .select(`
+                    *,
+                    contratos(*, firmas_digitales(*)),
+                    transferencias_bancarias(*),
+                    solicitantes: solicitantes!solicitante_id(
+                        usuarios(nombre_completo, email)
+                    )
+                `)
+                .eq('solicitante_id', usuario_id)
+                .eq('estado', 'aprobado')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('❌ Error en consulta de solicitante:', error);
+                throw error;
+            }
+            solicitudes = data;
+
+        } else if (usuario_rol === 'operador') {
+            // Para operadores: obtener todas las solicitudes aprobadas que tienen documentos
+            const { data, error } = await supabase
+                .from('solicitudes_credito')
+                .select(`
+                    *,
+                    contratos(*, firmas_digitales(*)),
+                    transferencias_bancarias(*),
+                    solicitantes: solicitantes!solicitante_id(
+                        usuarios(nombre_completo, email)
+                    ),
+                    operadores: operadores!operador_id(
+                        usuarios(nombre_completo, email)
+                    )
+                `)
+                .eq('estado', 'aprobado')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('❌ Error en consulta de operador:', error);
+                throw error;
+            }
+            solicitudes = data;
+        } else {
+            return res.status(403).json({
+                success: false,
+                message: 'Rol no autorizado'
+            });
+        }
+
+        console.log(`✅ Encontradas ${solicitudes?.length || 0} solicitudes con documentos`);
+
+        res.json({
+            success: true,
+            data: solicitudes || []
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo solicitudes con documentos:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener solicitudes con documentos',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+}
+// En backend/controladores/DocumentoController.js
+static async obtenerTodosLosDocumentos(req, res) {
+  try {
+    const usuario = req.usuario;
+    
+    console.log('📋 Obteniendo todos los documentos para operador:', usuario.id);
+
+    // Verificar que sea operador
+    if (usuario.rol !== 'operador') {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo los operadores pueden acceder a todos los documentos'
+      });
+    }
+
+    // CONSULTA MEJORADA: Obtener contratos con información completa
+    const { data: contratos, error: errorContratos } = await supabase
+      .from('contratos')
+      .select(`
+        *,
+        solicitudes_credito!inner(
+          id,
+          numero_solicitud,
+          monto,
+          moneda,
+          estado,
+          solicitante_id,
+          solicitantes!solicitante_id(
+            id,
+            nombre_empresa,
+            usuarios(
+              id,
+              nombre_completo,
+              email,
+              dni
+            )
+          )
+        ),
+        firmas_digitales(
+          id,
+          estado,
+          fecha_firma_completa,
+          url_documento_firmado,
+          ruta_documento
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (errorContratos) {
+      console.error('Error obteniendo contratos:', errorContratos);
+      throw errorContratos;
+    }
+
+    // Obtener transferencias con información completa
+    const { data: transferencias, error: errorTransferencias } = await supabase
+      .from('transferencias_bancarias')
+      .select(`
+        *,
+        solicitudes_credito!inner(
+          id,
+          numero_solicitud,
+          monto,
+          moneda,
+          solicitante_id,
+          solicitantes!solicitante_id(
+            id,
+            nombre_empresa,
+            usuarios(
+              id,
+              nombre_completo,
+              email
+            )
+          )
+        ),
+        contactos_bancarios(
+          nombre_banco,
+          numero_cuenta,
+          tipo_cuenta
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (errorTransferencias) {
+      console.error('Error obteniendo transferencias:', errorTransferencias);
+      throw errorTransferencias;
+    }
+
+    // Formatear respuesta de manera más robusta
+    const documentosFormateados = {
+      contratos: (contratos || []).map(contrato => ({
+        id: contrato.id,
+        tipo: 'contrato',
+        numero_contrato: contrato.numero_contrato,
+        estado: contrato.estado,
+        ruta_documento: contrato.ruta_documento,
+        monto: contrato.monto_aprobado,
+        moneda: contrato.moneda || 'USD',
+        created_at: contrato.created_at,
+        updated_at: contrato.updated_at,
+        numero_solicitud: contrato.solicitudes_credito?.numero_solicitud,
+        solicitante_nombre: contrato.solicitudes_credito?.solicitantes?.usuarios?.nombre_completo,
+        firma_digital: contrato.firmas_digitales?.[0] || null
+      })),
+      transferencias: (transferencias || []).map(transferencia => ({
+        id: transferencia.id,
+        tipo: 'comprobante',
+        numero_comprobante: transferencia.numero_comprobante,
+        estado: transferencia.estado,
+        ruta_comprobante: transferencia.ruta_comprobante,
+        monto: transferencia.monto,
+        moneda: transferencia.moneda,
+        fecha_procesamiento: transferencia.fecha_procesamiento,
+        fecha_completada: transferencia.fecha_completada,
+        banco_destino: transferencia.banco_destino,
+        cuenta_destino: transferencia.cuenta_destino,
+        numero_solicitud: transferencia.solicitudes_credito?.numero_solicitud,
+        solicitante_nombre: transferencia.solicitudes_credito?.solicitantes?.usuarios?.nombre_completo,
+        contacto_bancario: transferencia.contactos_bancarios
+      }))
+    };
+
+    console.log(`. Documentos cargados: ${documentosFormateados.contratos.length} contratos, ${documentosFormateados.transferencias.length} transferencias`);
+
+    res.json({
+      success: true,
+      data: documentosFormateados
+    });
+
+  } catch (error) {
+    console.error('. Error obteniendo todos los documentos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener documentos: ' + error.message
+    });
+  }
+}
 }
 
 module.exports = DocumentoController;

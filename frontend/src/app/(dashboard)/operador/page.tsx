@@ -513,9 +513,7 @@ useEffect(() => {
       'en_revision': 'warning',
       'pendiente_info': 'info',
       'aprobado': 'success',
-      'rechazado': 'error',
-      'cerrada': 'default'
-    };
+      'rechazado': 'error'    };
     return colores[estado] || 'default';
   };
 
@@ -626,7 +624,6 @@ useEffect(() => {
                 <MenuItem value="en_revision">En revisión</MenuItem>
                 <MenuItem value="aprobado">Aprobado</MenuItem>
                 <MenuItem value="rechazado">Rechazado</MenuItem>
-                <MenuItem value="cerrada">Cerrada</MenuItem>
 
               </Select>
             </FormControl>

@@ -1179,7 +1179,7 @@ static async descargarDocumentoFirmado(req, res) {
         // VERIFICACIÓN MEJORADA: Permitir descarga en más estados
 const estadosPermitidos = [
   'borrador', 'enviado', 'en_revision', 'pendiente_info', 
-  'pendiente_firmas', 'aprobado', 'rechazado', 'cerrada'
+  'pendiente_firmas', 'aprobado', 'rechazado'
 ];        
         if (!estadosPermitidos.includes(firma.estado)) {
             console.log('. Estado no permitido para descarga:', firma.estado);

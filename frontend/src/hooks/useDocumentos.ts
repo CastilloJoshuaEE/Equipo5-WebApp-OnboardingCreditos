@@ -111,10 +111,39 @@ export const useDocumentos = () => {
       return false;
     }
   }, []);
+  const obtenerDocumentosStorage = useCallback(async (solicitudId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+        const data = await DocumentosService.obtenerDocumentosStorage(solicitudId);
+        return data;
+    } catch (err: any) {
+        setError(err.response?.data?.message || 'Error al obtener documentos del storage');
+        throw err;
+    } finally {
+        setLoading(false);
+    }
+}, []);
+   const obtenerMisSolicitudesConDocumentos = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const data = await DocumentosService.obtenerMisSolicitudesConDocumentos();
+            return data;
+        } catch (err: any) {
+            setError(err.message || 'Error al cargar solicitudes con documentos');
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+    
 
   return {
     loading,
     error,
+            obtenerMisSolicitudesConDocumentos,
+obtenerDocumentosStorage, 
     obtenerDocumentosContrato,
     obtenerComprobantes,
     descargarContrato,

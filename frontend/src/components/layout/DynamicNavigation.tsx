@@ -87,7 +87,7 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
                   },
                 }}
               >
-{/*
+
 <ListItemIcon sx={{ minWidth: 40 }}>
   <Description />
 </ListItemIcon>
@@ -98,8 +98,7 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
     fontWeight: isActive('/documentos') ? '600' : '400',
   }}
 />
-<Chip label="Nuevo" size="small" color="primary" sx={{ height: 20, fontSize: '0.7rem' }} />
-*/}
+
               </ListItemButton>
             </ListItem>
           )}
@@ -146,7 +145,7 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
                     '&:hover': { backgroundColor: 'primary.light' },
                   },
                 }}
-              >{/*
+              >
 <ListItemIcon sx={{ minWidth: 40 }}>
   <Description />
 </ListItemIcon>
@@ -158,8 +157,7 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
     fontWeight: isActive('/mis-documentos') ? '600' : '400',
   }}
 />
-<Chip label="Nuevo" size="small" color="primary" sx={{ height: 20, fontSize: '0.7rem' }} />
-*/}
+
 
           </ListItemButton>
             </ListItem>

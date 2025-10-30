@@ -310,6 +310,7 @@ const handleFirmarDocumento = async (documentoFirmado: DocumentoFirmado) => {
       alert('Error al descargar el documento');
     }
   };
+  
 const handleVerContratoFirmado = async (firmaId: string) => {
     try {
         const session = await getSession();

@@ -122,6 +122,14 @@ export default function Footer() {
           </div>
         </div>
       </section>
+       {/* Mensaje de advertencia final */}
+      <section className={styles.disclaimerSection}>
+        <p className={styles.disclaimerText}>
+          ⚠️ ESTA PLATAFORMA DE SOLICITUD DE CRÉDITO PARA PYMES ES UN MVP FICTICIO.
+          NO INGRESES NI ENVÍES INFORMACIÓN REAL DE TUS DATOS PERSONALES O DE
+          TRANSFERENCIAS.
+        </p>
+      </section>
     </footer>
   );
 }

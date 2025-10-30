@@ -52,3 +52,42 @@ Frontend (Next.js desplegado en Render):
 
 Backend (API REST desplegada en Render):
 🔗 https://equipo5-webapp-onboardingcreditos-backend.onrender.com/api
+
+### Si deseas usar este programa en local
+Si deseas ejecutar el proyecto en tu entorno local, puedes descargar o clonar este repositorio.
+Luego, instala las dependencias:
+npm install
+Y crea un archivo .env (o .env.local para el frontend) en la raíz del proyecto con las siguientes variables de entorno.
+### Variables de entorno requeridas
+PORT=0000
+SUPABASE_URL="tu_url_supabase_aqui"
+SUPABASE_ANON_KEY="tu_anon_key_aqui"
+SUPABASE_SERVICE_ROLE_KEY="tu_service_role_key_aqui"
+NODE_ENV=development
+JWT_SECRET="tu_jwt_secret_aqui"
+JWT_EXPIRE=30d
+
+EMAIL_FROM_NAME="Sistema de Créditos"
+BREVO_API_KEY="tu_brevo_api_key_aqui"
+EMAIL_SERVICE=brevo-api
+EMAIL_FROM_EMAIL="tu_correo_aqui"
+
+FRONTEND_URL=http://localhost:0000
+BACKEND_URL=http://localhost:0001
+
+ABSTRACT_API_KEY="tu_api_key_aqui"
+DIDIT_API_KEY="tu_api_key_aqui"
+DIDIT_WEBHOOK_SECRET="tu_webhook_secret_aqui"
+DIDIT_WORKFLOW_ID="tu_workflow_id_aqui"
+GEMINI_API_KEY="tu_gemini_api_key_aqui"
+
+# Configuración de firmas digitales
+FIRMA_DIGITAL_EXPIRACION_DIAS=7
+FIRMA_DIGITAL_MAX_REINTENTOS=3
+FIRMA_DIGITAL_TIMEZONE=America/Mexico_City
+
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="tu_nextauth_secret_aqui"
+NEXT_PUBLIC_API_URL="http://localhost:3001/api"
+NEXT_PUBLIC_SUPABASE_URL="tu_url_supabase_aqui"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="tu_anon_key_aqui"

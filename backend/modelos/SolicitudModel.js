@@ -11,32 +11,63 @@ class SolicitudModel {
     if (error) throw new Error(`Error creando solicitud: ${error.message}`);
     return data[0];
   }
-
-  // Obtener solicitud por ID
-  static async findById(id) {
-    const { data, error } = await supabase
+// En backend/modelos/SolicitudModel.js
+static async findById(id) {
+  try {
+    console.log(`🔍 Buscando solicitud con ID: ${id}`);
+    
+    const { data: solicitud, error } = await supabase
       .from('solicitudes_credito')
       .select(`
         *,
-        solicitantes: solicitantes!solicitante_id (
+        solicitantes!solicitante_id (
+          id,
           nombre_empresa,
           representante_legal,
           cuit,
           domicilio,
-          tipo
+          tipo,
+          usuarios!inner(
+            id,
+            nombre_completo,
+            email,
+            dni,
+            telefono
+          )
         ),
-        operadores: operadores!operador_id (
+        operadores!operador_id (
+          id,
           nivel,
-          usuarios: usuarios(nombre_completo)
-        )
+          usuarios!inner(
+            id,
+            nombre_completo,
+            email
+          )
+        ),
+        contratos(*),
+        transferencias_bancarias(*)
       `)
       .eq('id', id)
       .single();
-    
-    if (error) throw new Error('Solicitud no encontrada');
-    return data;
-  }
 
+    if (error) {
+      console.error('. Error en consulta de solicitud:', error);
+      throw new Error('Solicitud no encontrada');
+    }
+
+    if (!solicitud) {
+      console.error('. Solicitud no encontrada con ID:', id);
+      throw new Error('Solicitud no encontrada');
+    }
+
+    console.log('. Solicitud encontrada:', solicitud.id);
+    return solicitud;
+
+  } catch (error) {
+    console.error('. Error en findById:', error);
+    throw new Error('Solicitud no encontrada: ' + error.message);
+  }
+}
   // Obtener solicitudes por solicitante
   static async findBySolicitanteId(solicitanteId) {
     const { data, error } = await supabase

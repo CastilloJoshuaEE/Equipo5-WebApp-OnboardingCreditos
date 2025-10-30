@@ -84,7 +84,6 @@ axiosInstance.interceptors.request.use(
     return Promise.reject(error);
   }
 );
-
 // === RESPONSE INTERCEPTOR ===
 axiosInstance.interceptors.response.use(
   (response) => {
@@ -92,23 +91,18 @@ axiosInstance.interceptors.response.use(
   },
   async (error: AxiosError) => {
     const originalRequest = error.config as any;
-    
+
     // Manejo de error 401 - No autorizado
     if (error.response?.status === 401) {
       console.log('Error 401 - No autorizado');
-      
       if (!originalRequest._retry) {
         originalRequest._retry = true;
-
         try {
           const session = (await getSession()) as ExtendedSession;
-
-          // Intentar refresh del token si tenemos refreshToken
           if (session?.refreshToken) {
             const refreshResponse = await axios.post(`${baseURL}/auth/refresh`, {
               refresh_token: session.refreshToken,
             });
-
             if (refreshResponse.data.success) {
               const newToken = refreshResponse.data.data.access_token;
               originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -119,28 +113,30 @@ axiosInstance.interceptors.response.use(
           console.error('Error al refrescar token:', refreshError);
         }
       }
-
-      // Emitir evento de sesión expirada
       sessionEmitter.emit('expired');
-      
-      // Forzar logout después de un tiempo si no se ha hecho
       setTimeout(async () => {
-        await signOut({ 
-          callbackUrl: '/login',
-          redirect: true 
-        });
+        await signOut({ callbackUrl: '/login', redirect: true });
       }, 2000);
     }
-    
+
     // Manejo de error 403 - Acceso denegado
     if (error.response?.status === 403) {
       console.log('Error 403 - Acceso denegado');
       sessionEmitter.emit('unauthorized');
     }
-    
+
+    // 🚨 NUEVO: Manejar el error "Unexpected token 'T'" o "Too Many Requests"
+    if (
+      error.message?.includes("Unexpected token 'T'") ||
+      error.message?.includes("Too Many Requests")
+    ) {
+      alert(". ESPERE UNOS MINUTOS MIENTRAS EL SERVIDOR SE ACTIVA Y RECARGUE LA PÁGINA...");
+    }
+
     return Promise.reject(error);
   }
 );
+
 
 export default axiosInstance;
 

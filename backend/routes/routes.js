@@ -1645,7 +1645,37 @@ router.get('/solicitudes/mis-solicitudes', AuthMiddleware.proteger, SolicitudesC
  *         description: Solicitud no encontrada
  */
 router.put('/solicitudes/:solicitud_id/enviar', AuthMiddleware.proteger, SolicitudesController.enviarSolicitud);
-
+/**
+ * @swagger
+ * /api/solicitudes/mis-solicitudes-con-documentos:
+ *   get:
+ *     summary: Obtener mis solicitudes con documentos disponibles
+ *     tags: [Solicitudes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de solicitudes con documentos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ */
+router.get('/solicitudes/mis-solicitudes-con-documentos', 
+  AuthMiddleware.proteger, 
+  DocumentoController.obtenerMisSolicitudesConDocumentos
+);
+// En tus rutas
+router.get('/mis-transferencias', 
+ AuthMiddleware.proteger,     TransferenciasBancariasController.obtenerMisTransferencias
+);
 /**
  * @swagger
  * /api/solicitudes/{solicitud_id}:
@@ -3239,7 +3269,70 @@ router.get('/firmas/descargar/:firma_id',
 
     FirmaDigitalController.descargarDocumentoFirmado
 );
+// Agregar esta ruta en el backend si no existe
+router.get('/contratos/:contrato_id/descargar-firmado', 
+  AuthMiddleware.proteger,
+  async (req, res) => {
+    try {
+      const { contrato_id } = req.params;
+      
+      // Obtener información del contrato y firma
+      const { data: contrato, error } = await supabase
+        .from('contratos')
+        .select(`
+          *,
+          firmas_digitales(
+            url_documento_firmado,
+            ruta_documento
+          )
+        `)
+        .eq('id', contrato_id)
+        .single();
 
+      if (error || !contrato) {
+        return res.status(404).json({
+          success: false,
+          message: 'Contrato no encontrado'
+        });
+      }
+
+      const rutaDocumento = contrato.firmas_digitales?.[0]?.url_documento_firmado || 
+                           contrato.firmas_digitales?.[0]?.ruta_documento;
+
+      if (!rutaDocumento) {
+        return res.status(404).json({
+          success: false,
+          message: 'Documento firmado no disponible'
+        });
+      }
+
+      // Descargar archivo
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('kyc-documents')
+        .download(rutaDocumento);
+
+      if (downloadError) {
+        throw downloadError;
+      }
+
+      const arrayBuffer = await fileData.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="contrato-firmado-${contrato.numero_contrato}.docx"`);
+      res.setHeader('Content-Length', buffer.length);
+
+      res.send(buffer);
+
+    } catch (error) {
+      console.error('Error descargando contrato firmado:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al descargar el contrato firmado'
+      });
+    }
+  }
+);
 /**
  * @swagger
  * /api/firmas/estado/{firma_id}:
@@ -4636,103 +4729,7 @@ router.get('/solicitudes/:solicitud_id/comprobantes', AuthMiddleware.proteger, D
 router.get('/contratos/:contrato_id/descargar', AuthMiddleware.proteger, DocumentoController.descargarContrato);
 router.get('/transferencias/:transferencia_id/comprobante/descargar', AuthMiddleware.proteger, DocumentoController.descargarComprobante);
 router.get('/documentos/:tipo/:id/ver', AuthMiddleware.proteger, DocumentoController.verDocumento);
-/**
- * @swagger
- * /api/solicitudes/mis-solicitudes-con-documentos:
- *   get:
- *     summary: Obtener mis solicitudes con documentos disponibles
- *     tags: [Solicitudes]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Lista de solicitudes con documentos
- *         content:
- *           application/json:
- *             schema:
- *               allOf:
- *                 - $ref: '#/components/schemas/SuccessResponse'
- *                 - type: object
- *                   properties:
- *                     data:
- *                       type: array
- *                       items:
- *                         type: object
- */
-router.get('/solicitudes/mis-solicitudes-con-documentos', 
-  AuthMiddleware.proteger, 
-  async (req, res) => {
-    try {
-      const usuario_id = req.usuario.id;
-      const usuario_rol = req.usuario.rol;
-      
-      console.log(`📋 Obteniendo solicitudes con documentos para: ${usuario_id} (${usuario_rol})`);
 
-      let solicitudes;
-
-      if (usuario_rol === 'solicitante') {
-        // Para solicitantes: obtener solo sus solicitudes aprobadas
-        const { data, error } = await supabase
-          .from('solicitudes_credito')
-          .select(`
-            *,
-            contratos(*, firmas_digitales(*)),
-            transferencias_bancarias(*),
-            solicitantes: solicitantes!solicitante_id(
-              usuarios(nombre_completo, email)
-            )
-          `)
-          .eq('solicitante_id', usuario_id)
-          .eq('estado', 'aprobado')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        solicitudes = data;
-
-      } else if (usuario_rol === 'operador') {
-        // Para operadores: obtener todas las solicitudes aprobadas que tienen documentos
-        const { data, error } = await supabase
-          .from('solicitudes_credito')
-          .select(`
-            *,
-            contratos(*, firmas_digitales(*)),
-            transferencias_bancarias(*),
-            solicitantes: solicitantes!solicitante_id(
-              usuarios(nombre_completo, email)
-            ),
-            operadores: operadores!operador_id(
-              usuarios(nombre_completo, email)
-            )
-          `)
-          .eq('estado', 'aprobado')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        solicitudes = data;
-      } else {
-        return res.status(403).json({
-          success: false,
-          message: 'Rol no autorizado'
-        });
-      }
-
-      console.log(`✅ Encontradas ${solicitudes?.length || 0} solicitudes con documentos`);
-
-      res.json({
-        success: true,
-        data: solicitudes || []
-      });
-
-    } catch (error) {
-      console.error('❌ Error obteniendo solicitudes con documentos:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error al obtener solicitudes con documentos',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  }
-);
 
 /**
  * @swagger
@@ -4749,71 +4746,18 @@ router.get('/solicitudes/mis-solicitudes-con-documentos',
 router.get('/operador/todos-los-documentos', 
   AuthMiddleware.proteger,
   AuthMiddleware.autorizar('operador'),
-  async (req, res) => {
-    try {
-      // Obtener contratos
-      const { data: contratos, error: errorContratos } = await supabase
-        .from('contratos')
-        .select(`
-          *,
-          solicitudes_credito(
-            numero_solicitud,
-            monto,
-            moneda,
-            solicitantes: solicitantes!solicitante_id(
-              usuarios(nombre_completo)
-            )
-          ),
-          firmas_digitales(*)
-        `)
-        .order('created_at', { ascending: false });
+  DocumentoController.obtenerTodosLosDocumentos // Asegúrate de que este método existe
+);
+// Nueva ruta para listar documentos del storage
+router.get('/solicitudes/:solicitud_id/documentos-storage', 
+    AuthMiddleware.proteger, 
+    DocumentoController.listarDocumentosStorage
+);
 
-      // Obtener transferencias
-      const { data: transferencias, error: errorTransferencias } = await supabase
-        .from('transferencias_bancarias')
-        .select(`
-          *,
-          solicitudes_credito(
-            numero_solicitud,
-            monto,
-            moneda,
-            solicitantes: solicitantes!solicitante_id(
-              usuarios(nombre_completo)
-            )
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (errorContratos || errorTransferencias) {
-        throw errorContratos || errorTransferencias;
-      }
-
-      // Combinar y formatear datos
-      const documentos = [
-        ...contratos.map(c => ({
-          ...c,
-          tipo: 'contrato',
-          solicitante_nombre: c.solicitudes_credito?.solicitantes?.usuarios?.nombre_completo
-        })),
-        ...transferencias.map(t => ({
-          ...t,
-          tipo: 'comprobante',
-          solicitante_nombre: t.solicitudes_credito?.solicitantes?.usuarios?.nombre_completo
-        }))
-      ];
-
-      res.json({
-        success: true,
-        data: documentos
-      });
-    } catch (error) {
-      console.error('Error obteniendo todos los documentos:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error al obtener documentos'
-      });
-    }
-  }
+// Ruta mejorada para documentos de contrato
+router.get('/solicitudes/:solicitud_id/contrato/documentos-completos', 
+    AuthMiddleware.proteger, 
+    DocumentoController.obtenerDocumentosContrato
 );
 /**
  * @swagger

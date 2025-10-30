@@ -81,18 +81,20 @@ export default function DocumentosOperadorPage() {
     descargarContrato,
     descargarComprobante,
     obtenerVistaPrevia,
+    obtenerDocumentosStorage
   } = useDocumentos();
 
   useEffect(() => {
     cargarTodosLosDocumentos();
   }, []);
 
-  const cargarTodosLosDocumentos = async () => {
-    try {
+ // En frontend/components/DocumentosOperadorPage.jsx - corregir la función cargarTodosLosDocumentos
+const cargarTodosLosDocumentos = async () => {
+  try {
     setLoading(true);
     const session = await getSession();
     if (!session?.accessToken) {
-      console.error('No se encontró token de sesión. Sesión inválida.');
+      console.error('No se encontró token de sesión');
       return;
     }
 
@@ -104,21 +106,48 @@ export default function DocumentosOperadorPage() {
       }
     });
 
+    if (response.ok) {
+      const data = await response.json();
       
-      if (response.ok) {
-        const data = await response.json();
-        setDocumentos(data.data || []);
-      } else {
-        throw new Error('Error al cargar documentos');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar documentos');
-      console.error('Error cargando documentos:', err);
-    } finally {
-      setLoading(false);
+      // Formatear datos para la tabla - CORREGIDO
+      const documentosFormateados = [
+        // Contratos
+...(data.data.contratos || []).map((contrato: any) => ({
+          ...contrato,
+          tipo: 'contrato',
+          solicitante_nombre: contrato.solicitante_nombre || 'N/A',
+          numero_solicitud: contrato.numero_solicitud || 'N/A',
+          // Asegurar que los campos críticos existan
+          estado: contrato.estado || 'desconocido',
+          ruta_documento: contrato.ruta_documento || null
+        })),
+        
+        // Transferencias
+...(data.data.transferencias || []).map((transferencia: any) => ({
+          ...transferencia,
+          tipo: 'comprobante',
+          solicitante_nombre: transferencia.solicitante_nombre || 'N/A',
+          numero_solicitud: transferencia.numero_solicitud || 'N/A',
+          // Asegurar que los campos críticos existan
+          estado: transferencia.estado || 'desconocido',
+          ruta_comprobante: transferencia.ruta_comprobante || null,
+          banco_destino: transferencia.banco_destino || 'N/A'
+        }))
+      ];
+      
+      console.log('Documentos formateados:', documentosFormateados);
+      setDocumentos(documentosFormateados);
+    } else {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Error al cargar documentos');
     }
-  };
-
+  } catch (err: any) {
+    setError(err.message || 'Error al cargar documentos');
+    console.error('Error cargando documentos:', err);
+  } finally {
+    setLoading(false);
+  }
+};
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
@@ -154,7 +183,33 @@ export default function DocumentosOperadorPage() {
       console.error('Error obteniendo vista previa:', err);
     }
   };
+const handleVerContratoFirmado = async (firmaId: string) => {
+    try {
+        const session = await getSession();
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+        // 🔍 DEBUG: Verificar qué se está enviando
+        console.log('ID de firma enviado:', firmaId);
+        
+        const response = await fetch(`${API_URL}/firmas/ver-contrato-firmado/${firmaId}`, {
+            headers: {
+                'Authorization': `Bearer ${session?.accessToken}`
+            }
+        });
 
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        } else {
+            console.error('Error response:', response.status, response.statusText);
+            alert('Error al cargar el contrato firmado');
+        }
+    } catch (error) {
+        console.error('Error viendo contrato firmado:', error);
+        alert('Error de conexión');
+    }
+};
   const getEstadoColor = (estado: string) => {
     switch (estado) {
       case 'firmado_completo':
@@ -193,12 +248,15 @@ export default function DocumentosOperadorPage() {
     }
   };
 
-  const formatMonto = (monto: number, moneda: string) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: moneda,
-    }).format(monto);
-  };
+const formatMonto = (monto: number, moneda?: string) => {
+  const monedaValida = moneda && moneda.trim() !== '' ? moneda : 'USD'; // Moneda por defecto
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: monedaValida,
+    minimumFractionDigits: 2,
+  }).format(monto ?? 0);
+};
+
 
   // Filtrar documentos según los filtros aplicados
   const documentosFiltrados = documentos.filter(doc => {
@@ -255,7 +313,7 @@ export default function DocumentosOperadorPage() {
                 <Grid size={{ xs: 12, md: 6}}>
               <TextField
                 fullWidth
-                placeholder="Buscar por número de solicitud, contrato, comprobante o solicitante..."
+                placeholder="Buscar por número de contrato, comprobante o nombre del solicitante..."
                 value={filtroBusqueda}
                 onChange={(e) => setFiltroBusqueda(e.target.value)}
                 InputProps={{
@@ -267,29 +325,7 @@ export default function DocumentosOperadorPage() {
                 }}
               />
             </Grid>
-                <Grid size={{ xs: 12, md: 3}}>
-              <FormControl fullWidth>
-                <InputLabel>Estado</InputLabel>
-                <Select
-                  value={filtroEstado}
-                  label="Estado"
-                  onChange={(e) => setFiltroEstado(e.target.value)}
-                  startAdornment={
-                    <InputAdornment position="start">
-                      <FilterList />
-                    </InputAdornment>
-                  }
-                >
-                  <MenuItem value="todos">Todos los estados</MenuItem>
-                  <MenuItem value="firmado_completo">Firmado completo</MenuItem>
-                  <MenuItem value="vigente">Vigente</MenuItem>
-                  <MenuItem value="pendiente_firma">Pendiente de firma</MenuItem>
-                  <MenuItem value="generado">Generado</MenuItem>
-                  <MenuItem value="completada">Completada</MenuItem>
-                  <MenuItem value="procesando">Procesando</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+        
                 <Grid size={{ xs: 12, md: 3}}>
               <Typography variant="body2" color="text.secondary">
                 {documentosFiltrados.length} documentos encontrados
@@ -334,88 +370,69 @@ export default function DocumentosOperadorPage() {
                     <TableCell>N° Contrato</TableCell>
                     <TableCell>Solicitud</TableCell>
                     <TableCell>Solicitante</TableCell>
-                    <TableCell>Monto</TableCell>
-                    <TableCell>Estado</TableCell>
-                    <TableCell>Fecha</TableCell>
+                    <TableCell>Fecha de última actualización</TableCell>
                     <TableCell align="center">Acciones</TableCell>
                   </TableRow>
                 </TableHead>
-                <TableBody>
-                  {contratos.map((contrato) => (
-                    <TableRow key={contrato.id}>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {contrato.numero_contrato}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {contrato.numero_solicitud}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {contrato.solicitante_nombre}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {formatMonto(contrato.monto, contrato.moneda)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          icon={getEstadoIcon(contrato.estado)}
-                          label={contrato.estado.replace('_', ' ').toUpperCase()}
-                          color={getEstadoColor(contrato.estado)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {new Date(contrato.fecha_creacion).toLocaleDateString('es-ES')}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Box display="flex" gap={1} justifyContent="center">
-                          <Tooltip title="Descargar contrato">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDescargarContrato(contrato)}
-                              disabled={!contrato.ruta_documento}
-                              color="primary"
-                            >
-                              <Download />
-                            </IconButton>
-                          </Tooltip>
-                          
-                          <Tooltip title="Vista previa">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleVerVistaPrevia('contrato', contrato.id)}
-                              disabled={!contrato.ruta_documento}
-                              color="info"
-                            >
-                              <Visibility />
-                            </IconButton>
-                          </Tooltip>
+               <TableBody>
+  {contratos.map((contrato) => {
+    // 🔹 Corregir campo de solicitud
+    const numeroSolicitud = contrato.numero_solicitud || contrato.id_solicitud || contrato.solicitud_id || '—';
 
-                          {contrato.firma_digital?.url_documento_firmado && (
-                            <Tooltip title="Ver documento firmado">
-                              <IconButton
-                                size="small"
-                                onClick={() => window.open(contrato.firma_digital.url_documento_firmado, '_blank')}
-                                color="success"
-                              >
-                                <CheckCircle />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
+    // 🔹 Manejar fecha segura
+    const fechaValida = contrato.updated_at
+      ? new Date(contrato.updated_at)
+      : null;
+    const fechaFormateada =
+      fechaValida && !isNaN(fechaValida.getTime())
+        ? fechaValida.toLocaleDateString('es-ES')
+        : 'Sin fecha';
+
+    return (
+      <TableRow key={contrato.id}>
+        <TableCell>
+          <Typography variant="body2" fontWeight="medium">
+            {contrato.numero_contrato || '—'}
+          </Typography>
+        </TableCell>
+
+        <TableCell>
+          <Typography variant="body2">{numeroSolicitud}</Typography>
+        </TableCell>
+
+        <TableCell>
+          <Typography variant="body2">
+            {contrato.solicitante_nombre || '—'}
+          </Typography>
+        </TableCell>
+
+
+        <TableCell>
+          <Typography variant="body2">{fechaFormateada}</Typography>
+        </TableCell>
+
+     <TableCell align="center">
+  <Box display="flex" gap={1} justifyContent="center">
+   
+
+    {contrato.firma_digital?.id && (
+      <Tooltip title="Ver/Descargar contrato firmado">
+        <IconButton
+          size="small"
+          onClick={() => handleVerContratoFirmado(contrato.firma_digital.id)}
+          color="success"
+        >
+          <CheckCircle />
+        </IconButton>
+      </Tooltip>
+    )}
+  </Box>
+</TableCell>
+      </TableRow>
+    );
+  })}
+</TableBody>
+
               </Table>
             </TableContainer>
           </TabPanel>
@@ -445,7 +462,7 @@ export default function DocumentosOperadorPage() {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {comprobante.numero_solicitud}
+  {comprobante.numero_solicitud || comprobante.solicitud_id || '—'}
                         </Typography>
                       </TableCell>
                       <TableCell>

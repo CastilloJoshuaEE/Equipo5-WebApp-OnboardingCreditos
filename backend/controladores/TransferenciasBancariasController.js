@@ -417,14 +417,14 @@ static async crearTransferencia(req, res) {
         const { error } = await supabase
             .from('solicitudes_credito')
             .update({
-                estado: 'cerrada',
+                estado: 'aprobada',
                 updated_at: new Date().toISOString()
             })
             .eq('id', solicitudId);
 
         if (error) throw error;
 
-        console.log(`✅ Solicitud ${solicitudId} marcada como cerrada`);
+        console.log(`. Solicitud ${solicitudId} marcada como cerrada`);
 
         // También actualizar el contrato
         await supabase
@@ -646,7 +646,7 @@ static async enviarEmailComprobanteSolicitante(email, nombre, transferencia, com
                         return;
                     }
 
-                    console.log('✅ Comprobante PDF generado y guardado exitosamente:', rutaStorage);
+                    console.log('. Comprobante PDF generado y guardado exitosamente:', rutaStorage);
                     resolve(pdfBuffer);
 
                 } catch (error) {
@@ -959,9 +959,9 @@ static async enviarNotificacionesCompletas(transferencia) {
         await TransferenciasBancariasController.enviarEmailsConComprobante(transferencia);
         
         // CORRECCIÓN: Pasar el parámetro correcto
-        await TransferenciasBancariasController.marcarSolicitudComoCerrada(solicitud_id);
+      //  await TransferenciasBancariasController.marcarSolicitudComoCerrada(solicitud_id);
         
-        console.log('✅ Notificaciones completas enviadas exitosamente');
+        console.log('. Notificaciones completas enviadas exitosamente');
 
     } catch (error) {
         console.error('. Error enviando notificaciones completas:', error);
@@ -1008,7 +1008,7 @@ static async crearNotificacionesInternas(transferencia) {
             usuario_id: solicitud.solicitante_id,
             solicitud_id: transferencia.solicitud_id,
             tipo: 'transferencia_completada',
-            titulo: 'Transferencia Completada ✅',
+            titulo: 'Transferencia Completada .',
             mensaje: `Se ha completado la transferencia de ${transferenciaCompleta.moneda} ${transferenciaCompleta.monto} a tu cuenta ${contacto.numero_cuenta} en ${contacto.nombre_banco}. Nº de comprobante: ${numeroComprobante}`,
             datos_adicionales: {
                 transferencia_id: transferenciaCompleta.id,
@@ -1028,7 +1028,7 @@ static async crearNotificacionesInternas(transferencia) {
             usuario_id: solicitud.operador_id,
             solicitud_id: transferencia.solicitud_id,
             tipo: 'transferencia_procesada',
-            titulo: 'Transferencia Procesada ✅',
+            titulo: 'Transferencia Procesada .',
             mensaje: `Transferencia de ${transferenciaCompleta.moneda} ${transferenciaCompleta.monto} procesada exitosamente para la solicitud ${solicitud.numero_solicitud}. Comprobante: ${numeroComprobante}`,
             datos_adicionales: {
                 transferencia_id: transferenciaCompleta.id,
@@ -1146,7 +1146,7 @@ static async enviarEmailsConComprobante(transferencia) {
             }
         }
 
-        console.log('✅ Emails con comprobante procesados:', emailsEnviados.length);
+        console.log('. Emails con comprobante procesados:', emailsEnviados.length);
         return emailsEnviados;
 
     } catch (error) {
@@ -1154,7 +1154,62 @@ static async enviarEmailsConComprobante(transferencia) {
         throw error;
     }
 }
+// En tu controlador de transferencias bancarias
+static async obtenerMisTransferencias(req, res) {
+    try {
+        const usuario_id = req.usuario.id;
+        const usuario_rol = req.usuario.rol;
 
+        console.log(`📋 Obteniendo transferencias para: ${usuario_id} (${usuario_rol})`);
+
+        let query = supabase
+            .from('transferencias_bancarias')
+            .select(`
+                *,
+                solicitudes_credito!inner(
+                    numero_solicitud,
+                    solicitante_id,
+                    operador_id
+                ),
+                contactos_bancarios(
+                    nombre_banco,
+                    numero_cuenta,
+                    tipo_cuenta
+                )
+            `)
+            .order('created_at', { ascending: false });
+
+        // Filtrar por rol - solo el solicitante puede ver sus propias transferencias
+        if (usuario_rol === 'solicitante') {
+            query = query.eq('solicitudes_credito.solicitante_id', usuario_id);
+        } else {
+            return res.status(403).json({
+                success: false,
+                message: 'No autorizado para ver estas transferencias'
+            });
+        }
+
+        const { data: transferencias, error } = await query;
+
+        if (error) {
+            console.error('Error obteniendo transferencias:', error);
+            throw error;
+        }
+
+        res.json({
+            success: true,
+            data: transferencias || []
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo transferencias:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener transferencias',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+}
 
 }
 
