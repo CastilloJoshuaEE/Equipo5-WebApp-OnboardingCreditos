@@ -238,7 +238,7 @@ useEffect(() => {
         // Mostrar alert para cada notificación de operador asignado
         notificacionesOperador.forEach((notif: any) => {
           if (notif.datos_adicionales?.operador_nombre) {
-            alert(`✅ Se ha asignado el operador ${notif.datos_adicionales.operador_nombre} a tu solicitud. \n\nPuedes comunicarte con él para cualquier consulta sobre tu solicitud de crédito.`);
+            alert(`.Se ha asignado el operador ${notif.datos_adicionales.operador_nombre} a tu solicitud. \n\nPuedes comunicarte con él para cualquier consulta sobre tu solicitud de crédito.`);
             
             // Marcar como leída después de mostrar el alert
             fetch(`${API_URL}/notificaciones/${notif.id}/leer`, {

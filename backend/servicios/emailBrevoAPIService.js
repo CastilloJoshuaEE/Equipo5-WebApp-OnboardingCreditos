@@ -83,79 +83,57 @@ class BrevoAPIService {
     }
   }
 /**
- * Enviar email con archivos adjuntos - VERSIÓN CORREGIDA CON FORMATO DESTINATARIOS
+ * Enviar email con archivos adjuntos - . CON FORMATO DESTINATARIOS
  */
+
+// CORREGIR el método enviarEmailConAdjuntos
 async enviarEmailConAdjuntos(destinatario, asunto, contenidoHTML, adjuntos = []) {
     try {
         console.log(`. [BREVO API] Enviando email con adjuntos a:`, destinatario);
         
-        // CORRECCIÓN MEJORADA: Manejo flexible de formatos de destinatario
+        // Formatear destinatario correctamente
         let toFormat;
-        
         if (typeof destinatario === 'string') {
-            // Caso 1: String simple (formato actual)
             toFormat = [{
                 email: destinatario,
                 name: destinatario.split('@')[0] || 'Usuario'
             }];
-            console.log('. Destinatario en formato string:', destinatario);
-            
-        } else if (destinatario && typeof destinatario === 'object') {
-            
-            if (destinatario.email) {
-                // Caso 2: Objeto con propiedad email (nuevo formato)
-                toFormat = [{
-                    email: destinatario.email,
-                    name: destinatario.name || destinatario.email.split('@')[0] || 'Usuario'
-                }];
-                console.log('. Destinatario en formato objeto con email:', destinatario.email);
-                
-            } else if (Array.isArray(destinatario)) {
-                // Caso 3: Array de destinatarios
-                toFormat = destinatario.map(dest => {
-                    if (typeof dest === 'string') {
-                        return {
-                            email: dest,
-                            name: dest.split('@')[0] || 'Usuario'
-                        };
-                    } else if (dest && dest.email) {
-                        return {
-                            email: dest.email,
-                            name: dest.name || dest.email.split('@')[0] || 'Usuario'
-                        };
-                    }
-                    return null;
-                }).filter(Boolean);
-                
-                console.log('. Múltiples destinatarios:', toFormat.length);
-                
-            } else {
-                console.error('. Error: Formato de objeto destinatario no reconocido:', destinatario);
-                return {
-                    success: false,
-                    error: 'Formato de destinatario inválido. Se esperaba string, objeto con email, o array.'
-                };
-            }
-            
         } else {
-            console.error('. Error: Tipo de destinatario no soportado:', typeof destinatario, destinatario);
+            console.error('. Error: Se esperaba string para el destinatario');
             return {
                 success: false,
-                error: 'Formato de destinatario inválido. Se esperaba string u objeto con propiedad email.'
-            };
-        }
-
-        // Validación final del formato
-        if (!toFormat || toFormat.length === 0) {
-            console.error('. Error: No se pudo determinar el formato del destinatario');
-            return {
-                success: false,
-                error: 'No se pudo procesar el formato del destinatario'
+                error: 'Formato de destinatario inválido. Se esperaba string.'
             };
         }
 
         console.log(`. Número de adjuntos: ${adjuntos.length}`);
-        console.log('. Formato final de destinatarios:', toFormat);
+
+        // PREPARAR ADJUNTOS EN FORMATO CORRECTO PARA BREVO
+        const adjuntosFormateados = adjuntos.map(adjunto => {
+            // Si el adjunto ya viene en el formato correcto de Brevo
+            if (adjunto.content && adjunto.name) {
+                return {
+                    name: adjunto.name,
+                    content: adjunto.content // Ya debe estar en base64
+                };
+            }
+            // Si viene como buffer, convertirlo a base64
+            else if (adjunto.content instanceof Buffer) {
+                return {
+                    name: adjunto.name || `adjunto-${Date.now()}.pdf`,
+                    content: adjunto.content.toString('base64')
+                };
+            }
+            // Si viene con contentType (formato anterior)
+            else if (adjunto.contentType) {
+                return {
+                    name: adjunto.filename || adjunto.name,
+                    content: adjunto.content.toString('base64')
+                };
+            }
+        }).filter(Boolean);
+
+        console.log('. Adjuntos formateados:', adjuntosFormateados.length);
 
         const emailData = {
             sender: {
@@ -167,10 +145,13 @@ async enviarEmailConAdjuntos(destinatario, asunto, contenidoHTML, adjuntos = [])
             htmlContent: contenidoHTML,
             textContent: contenidoHTML.replace(/<[^>]*>/g, ''),
             tags: ['comprobante', 'transferencia', 'sistema-creditos'],
-            attachment: adjuntos
+            attachment: adjuntosFormateados.length > 0 ? adjuntosFormateados : undefined
         };
 
-        console.log('. Datos del email con adjuntos preparados correctamente');
+        // Eliminar el campo si no hay adjuntos
+        if (adjuntosFormateados.length === 0) {
+            delete emailData.attachment;
+        }
 
         const response = await axios.post(`${this.baseURL}/smtp/email`, emailData, {
             headers: {

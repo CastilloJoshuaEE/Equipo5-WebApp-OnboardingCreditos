@@ -4754,7 +4754,7 @@ router.get('/solicitudes/:solicitud_id/documentos-storage',
     DocumentoController.listarDocumentosStorage
 );
 
-// Ruta mejorada para documentos de contrato
+// Ruta . para documentos de contrato
 router.get('/solicitudes/:solicitud_id/contrato/documentos-completos', 
     AuthMiddleware.proteger, 
     DocumentoController.obtenerDocumentosContrato

@@ -82,7 +82,7 @@ const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
     s.estado === 'en_revision' || s.estado === 'pendiente_info'
   ).length;
   
-  // ✅ CORRECCIÓN: Usar la propiedad transferencias_bancarias del tipo
+  // .CORRECCIÓN: Usar la propiedad transferencias_bancarias del tipo
   const montoDesembolsado = solicitudesData.reduce((total, solicitud) => {
     // Verificar si hay transferencia completada para esta solicitud
     if (solicitud.transferencias_bancarias && 
@@ -98,7 +98,7 @@ const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
     return total;
   }, 0);
 
-  // ✅ CORRECCIÓN: Usar el tipo Contrato importado
+  // .CORRECCIÓN: Usar el tipo Contrato importado
   const listasParaTransferencia = solicitudesData.filter(solicitud => {
     // Verificar si está aprobada, tiene contrato firmado pero NO tiene transferencia completada
     const tieneContratoFirmado = solicitud.contratos && 
@@ -123,7 +123,7 @@ const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
   if (solicitudes.length > 0) {
     calcularMetricas(solicitudes);
   } else {
-    // ✅ CORRECCIÓN: Resetear métricas sin montoAprobado
+    // .CORRECCIÓN: Resetear métricas sin montoAprobado
     setMetricas({
       totalSolicitudes: 0,
       aprobadas: 0,
@@ -206,7 +206,7 @@ const verificarFirmasDigitales = async () => {
           const data = await response.json();
           nuevasFirmas[solicitud.id] = data.data;
           
-          console.log(`📋 Estado firma digital para ${solicitud.id}:`, {
+          console.log(`. Estado firma digital para ${solicitud.id}:`, {
             existe_firma: data.data.existe,
             estado: data.data.firma_existente?.estado
           });
@@ -250,7 +250,7 @@ const verificarTodasLasFirmas = async () => {
             const data = await response.json();
             firmasVerificadas[solicitud.id] = data.data;
             
-            console.log(`📋 Estado firma para ${solicitud.numero_solicitud}:`, {
+            console.log(`. Estado firma para ${solicitud.numero_solicitud}:`, {
               existe: data.data.existe,
               estado: data.data.firma_existente?.estado
             });
@@ -364,7 +364,7 @@ const handleForzarVerificacion = async () => {
             procesoFirmaExiste = firmaData.data.existe;
             nuevasFirmas[solicitud.id] = firmaData.data;
             
-            console.log(`📋 Proceso de firma existe para ${solicitud.id}:`, procesoFirmaExiste);
+            console.log(`. Proceso de firma existe para ${solicitud.id}:`, procesoFirmaExiste);
             
             // Si no existe proceso de firma, intentar iniciarlo
             if (!procesoFirmaExiste) {

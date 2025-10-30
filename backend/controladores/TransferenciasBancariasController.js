@@ -12,7 +12,7 @@ class TransferenciasBancariasController {
 
             console.log(`. Verificando habilitación para solicitud: ${solicitud_id}`);
 
-            // CONSULTA MEJORADA: Manejar casos con múltiples registros
+            // CONSULTA .: Manejar casos con múltiples registros
             const { data: firmas, error: firmaError } = await supabase
                 .from('firmas_digitales')
                 .select('estado, fecha_firma_completa, integridad_valida, fecha_firma_solicitante, fecha_firma_operador')
@@ -55,7 +55,7 @@ class TransferenciasBancariasController {
                 firma.estado === 'firmado_completo'
             );
 
-            console.log('. Resultado verificación firma CORREGIDO:', {
+            console.log('. Resultado verificación firma .:', {
                 estado: firma.estado,
                 integridad_valida: firma.integridad_valida,
                 tiene_firma_solicitante: !!firma.fecha_firma_solicitante,
@@ -440,6 +440,62 @@ static async crearTransferencia(req, res) {
         throw error;
     }
 }
+static async enviarEmailComprobanteSolicitante(email, nombre, transferencia, comprobanteBuffer) {
+    try {
+        const { enviarEmail } = require('../servicios/emailServicio');
+        
+        const numeroComprobante = transferencia.numero_comprobante || 'N/A';
+        const asunto = `Comprobante de Transferencia - ${numeroComprobante}`;
+        
+        const mensaje = `
+            Hola ${nombre},
+
+            Nos complace informarte que se ha completado la transferencia de tu crédito aprobado.
+
+            . DETALLES DE LA TRANSFERENCIA:
+            • Monto: ${transferencia.moneda} ${transferencia.monto}
+            • Número de comprobante: ${numeroComprobante}
+            • Cuenta destino: ${transferencia.contactos_bancarios?.numero_cuenta || 'N/A'}
+            • Banco destino: ${transferencia.contactos_bancarios?.nombre_banco || 'N/A'}
+            • Fecha de procesamiento: ${new Date(transferencia.fecha_completada || transferencia.created_at).toLocaleDateString()}
+
+            Se adjunta el comprobante de transferencia en formato PDF.
+
+            Saludos cordiales,
+            Equipo de Créditos Pyme
+        `;
+
+        // PREPARAR ADJUNTO CORRECTAMENTE
+        const attachments = [];
+        if (comprobanteBuffer) {
+            attachments.push({
+                filename: `comprobante-${numeroComprobante}.pdf`,
+                content: comprobanteBuffer, // Buffer que se convertirá a base64
+                contentType: 'application/pdf'
+            });
+        }
+
+        const resultado = await enviarEmail({
+            to: email,
+            subject: asunto,
+            text: mensaje,
+            html: mensaje.replace(/\n/g, '<br>'),
+            attachments: attachments
+        });
+        
+        if (resultado.success) {
+            console.log('. Email con comprobante enviado al solicitante:', email);
+        } else {
+            console.error('. Error enviando email al solicitante:', resultado.error);
+        }
+        
+        return resultado;
+
+    } catch (error) {
+        console.error('. Error enviando email con comprobante:', error);
+        throw error;
+    }
+}
 static async enviarEmailConfirmacionOperador(email, nombre, transferencia, comprobanteBuffer) {
     try {
         const { enviarEmail } = require('../servicios/emailServicio');
@@ -452,7 +508,7 @@ static async enviarEmailConfirmacionOperador(email, nombre, transferencia, compr
 
             Se ha procesado exitosamente la transferencia de crédito.
 
-            📋 DETALLES DE LA TRANSFERENCIA:
+            . DETALLES DE LA TRANSFERENCIA:
             • Solicitud: ${transferencia.solicitudes_credito?.numero_solicitud || 'N/A'}
             • Monto: ${transferencia.moneda} ${transferencia.monto}
             • Número de comprobante: ${numeroComprobante}
@@ -466,79 +522,34 @@ static async enviarEmailConfirmacionOperador(email, nombre, transferencia, compr
             Se adjunta el comprobante para tus registros.
         `;
 
-        const opcionesEmail = {
+        // PREPARAR ADJUNTO CORRECTAMENTE
+        const attachments = [];
+        if (comprobanteBuffer) {
+            attachments.push({
+                filename: `comprobante-${numeroComprobante}.pdf`,
+                content: comprobanteBuffer,
+                contentType: 'application/pdf'
+            });
+        }
+
+        const resultado = await enviarEmail({
             to: email,
             subject: asunto,
             text: mensaje,
             html: mensaje.replace(/\n/g, '<br>'),
-            attachments: comprobanteBuffer ? [
-                {
-                    filename: `comprobante-${numeroComprobante}.pdf`,
-                    content: comprobanteBuffer,
-                    contentType: 'application/pdf'
-                }
-            ] : []
-        };
+            attachments: attachments
+        });
 
-        await enviarEmail(opcionesEmail);
-        console.log('. Email de confirmación enviado al operador:', email);
-
-    } catch (error) {
-        console.error('. Error enviando email al operador:', error);
-        throw error;
-    }
-}
-static async enviarEmailComprobanteSolicitante(email, nombre, transferencia, comprobanteBuffer) {
-    try {
-        const { enviarEmail } = require('../servicios/emailServicio');
-        
-        const numeroComprobante = transferencia.numero_comprobante || 'N/A';
-        const asunto = `Comprobante de Transferencia - ${numeroComprobante}`;
-        
-        const mensaje = `
-            Hola ${nombre},
-
-            Nos complace informarte que se ha completado la transferencia de tu crédito aprobado.
-
-            📋 DETALLES DE LA TRANSFERENCIA:
-            • Monto: ${transferencia.moneda} ${transferencia.monto}
-            • Número de comprobante: ${numeroComprobante}
-            • Cuenta destino: ${transferencia.contactos_bancarios?.numero_cuenta || 'N/A'}
-            • Banco destino: ${transferencia.contactos_bancarios?.nombre_banco || 'N/A'}
-            • Fecha de procesamiento: ${new Date(transferencia.fecha_completada || transferencia.created_at).toLocaleDateString()}
-
-            Se adjunta el comprobante de transferencia en formato PDF.
-
-            Saludos cordiales,
-            Equipo de Créditos Pyme
-        `;
-
-        const opcionesEmail = {
-            to: email, // CORRECCIÓN: Solo el email, no objeto
-            subject: asunto,
-            text: mensaje,
-            html: mensaje.replace(/\n/g, '<br>'),
-            attachments: comprobanteBuffer ? [
-                {
-                    filename: `comprobante-${numeroComprobante}.pdf`,
-                    content: comprobanteBuffer,
-                    contentType: 'application/pdf'
-                }
-            ] : []
-        };
-
-        const resultado = await enviarEmail(opcionesEmail);
-        
         if (resultado.success) {
-            console.log('. Email con comprobante enviado al solicitante:', email);
+            console.log('. Email de confirmación enviado al operador:', email);
         } else {
-            console.error('. Error enviando email al solicitante:', resultado.error);
+            console.error('. Error enviando email al operador:', resultado.error);
         }
-        
+
         return resultado;
 
     } catch (error) {
-        console.error('. Error enviando email con comprobante:', error);
+        console.error('. Error enviando email al operador:', error);
         throw error;
     }
 }
@@ -863,7 +874,7 @@ static async enviarEmailComprobanteSolicitante(email, nombre, transferencia, com
 
             console.log(`🔄 Forzando actualización para solicitud: ${solicitud_id} por usuario: ${usuario.id}`);
 
-            // CONSULTA MEJORADA: Tomar la firma más reciente
+            // CONSULTA .: Tomar la firma más reciente
             const { data: firmas, error: firmaError } = await supabase
                 .from('firmas_digitales')
                 .select('*')
@@ -943,7 +954,7 @@ static async enviarEmailComprobanteSolicitante(email, nombre, transferencia, com
         }
     }
    /**
- * Enviar notificaciones completas - VERSIÓN CORREGIDA
+ * Enviar notificaciones completas - .
  */
 static async enviarNotificacionesCompletas(transferencia) {
     try {
@@ -998,7 +1009,7 @@ static async crearNotificacionesInternas(transferencia) {
 
         const numeroComprobante = transferenciaCompleta.numero_comprobante || 'N/A';
 
-        console.log('📋 Creando notificaciones internas para:', {
+        console.log('. Creando notificaciones internas para:', {
             solicitante_id: solicitud.solicitante_id,
             operador_id: solicitud.operador_id
         });
@@ -1160,7 +1171,7 @@ static async obtenerMisTransferencias(req, res) {
         const usuario_id = req.usuario.id;
         const usuario_rol = req.usuario.rol;
 
-        console.log(`📋 Obteniendo transferencias para: ${usuario_id} (${usuario_rol})`);
+        console.log(`. Obteniendo transferencias para: ${usuario_id} (${usuario_rol})`);
 
         let query = supabase
             .from('transferencias_bancarias')

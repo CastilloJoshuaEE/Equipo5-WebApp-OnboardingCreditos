@@ -1,4 +1,4 @@
-// frontend/src/app/(dashboard)/operador/transferencias/nueva/page.tsx - VERSIÓN CORREGIDA
+// frontend/src/app/(dashboard)/operador/transferencias/nueva/page.tsx - .
 
 'use client';
 

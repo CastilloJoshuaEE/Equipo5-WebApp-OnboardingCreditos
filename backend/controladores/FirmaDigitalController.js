@@ -518,7 +518,7 @@ class FirmaDigitalController {
                 firma_id: firma.id,
                 usuario_id: usuario.id,
                 accion: 'iniciar_proceso_firma',
-                descripcion: 'Proceso de firma digital iniciado con verificaciones mejoradas',
+                descripcion: 'Proceso de firma digital iniciado con verificaciones .s',
                 estado_anterior: 'pendiente',
                 estado_nuevo: 'enviado',
                 signature_request_id: firmaResult.signatureRequestId,
@@ -613,7 +613,7 @@ static async obtenerInfoFirma(req, res) {
         const contrato = firma.contratos;
         const solicitud = firma.solicitudes_credito;
 
-        // VERIFICACIÓN CRÍTICA MEJORADA
+        // VERIFICACIÓN CRÍTICA .
         if (!contrato) {
             console.error('. Contrato no encontrado para firma:', firma_id);
             
@@ -778,7 +778,7 @@ static async obtenerInfoFirma(req, res) {
         }
     }
   /**
-     * Procesar firma del documento - VERSIÓN MEJORADA CON FIRMA ACUMULATIVA
+     * Procesar firma del documento - VERSIÓN . CON FIRMA ACUMULATIVA
      */
     static async procesarFirma(req, res) {
         try {
@@ -792,7 +792,7 @@ static async obtenerInfoFirma(req, res) {
             const ip_address = req.ip;
             const user_agent = req.get('User-Agent');
 
-            console.log('. Procesando firma Word MEJORADA para:', firma_id);
+            console.log('. Procesando firma Word . para:', firma_id);
             console.log('. Datos recibidos:', {
                 tipo_firma: tipo_firma,
                 tiene_firma_data: !!firma_data
@@ -1176,7 +1176,7 @@ static async descargarDocumentoFirmado(req, res) {
             });
         }
 
-        // VERIFICACIÓN MEJORADA: Permitir descarga en más estados
+        // VERIFICACIÓN .: Permitir descarga en más estados
 const estadosPermitidos = [
   'borrador', 'enviado', 'en_revision', 'pendiente_info', 
   'pendiente_firmas', 'aprobado', 'rechazado'

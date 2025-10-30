@@ -25,14 +25,55 @@ const enviarEmailBienvenida = async (email, nombre, rol) => {
   }
 };
 // En emailServicio.js - Agregar método para enviar emails con adjuntos
-const enviarEmail = async (destinatario, asunto, contenido, adjuntos = []) => {
+const enviarEmail = async (opcionesEmail) => {
     try {
+        const { to, subject, text, html, attachments = [] } = opcionesEmail;
+        
+        // Validar formato del destinatario
+        let destinatarioFormateado;
+        if (typeof to === 'string') {
+            destinatarioFormateado = to;
+        } else if (to && to.email) {
+            destinatarioFormateado = to.email;
+        } else {
+            throw new Error('Formato de destinatario inválido. Se esperaba string u objeto con email.');
+        }
+
+        console.log(`. [EMAIL SERVICE] Enviando email a: ${destinatarioFormateado}`);
+
+        // PREPARAR ADJUNTOS EN FORMATO CORRECTO
+        const adjuntosFormateados = attachments.map(adjunto => {
+            // Si ya está en base64
+            if (typeof adjunto.content === 'string') {
+                return {
+                    name: adjunto.filename || adjunto.name || `adjunto-${Date.now()}.pdf`,
+                    content: adjunto.content
+                };
+            }
+            // Si es un buffer, convertirlo a base64
+            else if (adjunto.content instanceof Buffer) {
+                return {
+                    name: adjunto.filename || adjunto.name || `adjunto-${Date.now()}.pdf`,
+                    content: adjunto.content.toString('base64')
+                };
+            }
+            // Si tiene data en base64
+            else if (adjunto.data) {
+                return {
+                    name: adjunto.filename || adjunto.name,
+                    content: adjunto.data.toString('base64')
+                };
+            }
+        }).filter(Boolean);
+
+        console.log(`. Número de adjuntos formateados: ${adjuntosFormateados.length}`);
+
         // Usando Brevo API para enviar emails con adjuntos
         const resultado = await brevoAPIService.enviarEmailConAdjuntos(
-            destinatario, 
-            asunto, 
-            contenido, 
-            adjuntos
+            destinatarioFormateado, 
+            subject, 
+            html || text, 
+            adjuntosFormateados
         );
         
         return resultado;
