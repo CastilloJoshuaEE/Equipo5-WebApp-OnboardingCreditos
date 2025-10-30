@@ -316,95 +316,81 @@ static async enviarSolicitud(req, res) {
         throw error;
     }
   }
+static async aprobarSolicitud(req, res) {
+  try {
+    const { solicitud_id } = req.params;
+    const { comentarios, condiciones } = req.body;
+    const operador_id = req.usuario.id;
 
-  // Aprobar solicitud de crédito
-  static async aprobarSolicitud(req, res) {
-    try {
-      const { solicitud_id } = req.params;
-      const { comentarios, condiciones } = req.body;
-        const operador_id = req.usuario.id;
-
-      if (req.usuario.rol !== 'operador') {
-        return res.status(403).json({
-          success: false,
-          message: 'Solo los operadores pueden aprobar solicitudes'
-        });
-      }
-
-      const datosAdicionales = {
-        comentarios: comentarios || 'Solicitud aprobada',
-        operador_id: req.usuario.id
-      };
-
-      const solicitud = await SolicitudModel.cambiarEstado(solicitud_id, 'aprobado', datosAdicionales);
-
-      // Registrar condiciones si se proporcionan
-      if (condiciones) {
-        await this.registrarCondicionesAprobacion(solicitud_id, condiciones, req.usuario.id);
-      }
-if (solicitud.estado === 'aprobado') {
-    try {
-        const contrato= await ContratoController.generarContratoParaSolicitud(solicitud_id);
-        
-        // Iniciar proceso de firma automático .
-        setTimeout(async () => {
-            try {
-                console.log('. Iniciando proceso de firma digital automático para solicitud:', solicitud_id);
-                    // Verificar que el contrato tiene ruta_documento
-                const { data: contratoVerificado } = await supabase
-                    .from('contratos')
-                    .select('ruta_documento')
-                    .eq('id', contrato.id)
-                    .single();
-                
-                if (!contratoVerificado?.ruta_documento) {
-                    throw new Error('El contrato no tiene Word generado');
-                }  
-                // Usar el método automático que no requiere response HTTP
-                await FirmaDigitalController.iniciarProcesoFirmaAutomatico(
-                    solicitud_id, 
-                    req.usuario, 
-                    req.ip
-                );
-                
-                console.log('. Proceso de firma digital iniciado automáticamente');
-                
-            } catch (error) {
-                console.error('. Error en firma digital automática:', error);
-                
-                // Notificar error al operador
-               return NotificacionService.notificarErrorFirmaDigital(
-                    operador_id,
-                    solicitud_id,
-                    error.message
-                );
-            }
-        }, 2000);
-        
-    } catch (error) {
-        console.error('. Error generando contrato:', error);
-        return NotificacionService.notificarErrorFirmaDigital(
-            operador_id,
-            solicitud_id,
-            `Error generando contrato: ${error.message}`
-        );
-    }
-}
-      res.json({
-        success: true,
-        message: 'Solicitud aprobada exitosamente',
-        data: solicitud
-      });
-
-    } catch (error) {
-      console.error('. Error aprobando solicitud:', error);
-      res.status(500).json({
+    if (req.usuario.rol !== 'operador') {
+      return res.status(403).json({
         success: false,
-        message: error.message || 'Error al aprobar solicitud'
+        message: 'Solo los operadores pueden aprobar solicitudes'
       });
     }
-  }
 
+    // 1. VERIFICAR QUE LA SOLICITUD ESTÉ EN ESTADO VÁLIDO PARA APROBAR
+    const solicitudActual = await SolicitudModel.findById(solicitud_id);
+    if (!['en_revision', 'pendiente_info'].includes(solicitudActual.estado)) {
+      return res.status(400).json({
+        success: false,
+        message: 'La solicitud no está en estado válido para aprobación'
+      });
+    }
+
+    const datosAdicionales = {
+      comentarios: comentarios || 'Solicitud aprobada',
+      operador_id: req.usuario.id
+    };
+
+    // 2. ACTUALIZAR ESTADO A "APROBADO" - SOLO APROBACIÓN, NO PAGO
+    const solicitud = await SolicitudModel.cambiarEstado(solicitud_id, 'aprobado', datosAdicionales);
+
+    // 3. REGISTRAR CONDICIONES SI SE PROPORCIONAN
+    if (condiciones) {
+      await this.registrarCondicionesAprobacion(solicitud_id, condiciones, req.usuario.id);
+    }
+
+    // 4. GENERAR CONTRATO (PERO NO INICIAR FIRMA AUTOMÁTICAMENTE)
+    try {
+      const contrato = await ContratoController.generarContratoParaSolicitud(solicitud_id);
+      
+      console.log(`📄 Contrato generado para solicitud ${solicitud_id}: ${contrato.id}`);
+      
+      // NOTIFICAR AL SOLICITANTE SOBRE LA APROBACIÓN Y PRÓXIMOS PASOS
+      await NotificacionService.notificarAprobacionSolicitud(
+        solicitud.solicitante_id,
+        solicitud_id,
+        {
+          numero_contrato: contrato.numero_contrato,
+          monto_aprobado: solicitud.monto,
+          comentarios: comentarios
+        }
+      );
+
+    } catch (error) {
+      console.error('Error generando contrato:', error);
+      // No es crítico, puede generarse más tarde
+    }
+
+    res.json({
+      success: true,
+      message: 'Solicitud aprobada exitosamente. El siguiente paso es la firma digital del contrato.',
+      data: {
+        ...solicitud,
+        siguiente_paso: 'firma_digital',
+        mensaje: 'La solicitud ha sido aprobada. Debe completarse el proceso de firma digital antes del desembolso.'
+      }
+    });
+
+  } catch (error) {
+    console.error('Error aprobando solicitud:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al aprobar solicitud'
+    });
+  }
+}
   // Rechazar solicitud de crédito
   static async rechazarSolicitud(req, res) {
     try {

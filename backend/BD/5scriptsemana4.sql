@@ -97,8 +97,6 @@ CREATE TRIGGER trigger_actualizar_estado_firma
 
 
 
-
-
 -- Política para permitir a operadores ver todos los contactos
 CREATE POLICY "Operadores pueden ver contactos" ON contactos_bancarios
     FOR SELECT USING (
@@ -135,12 +133,12 @@ CREATE POLICY "Operadores pueden eliminar contactos" ON contactos_bancarios
         )
     );
 
+
 ALTER TABLE contactos_bancarios 
 ADD COLUMN IF NOT EXISTS solicitante_id UUID REFERENCES solicitantes(id);
 
 -- Crear índice para búsquedas eficientes
 CREATE INDEX IF NOT EXISTS idx_contactos_solicitante ON contactos_bancarios(solicitante_id);
-
 
 
 ALTER TABLE solicitudes_credito 
@@ -152,6 +150,7 @@ CHECK (estado IN (
   'borrador', 'enviado', 'en_revision', 'pendiente_info', 
   'pendiente_firmas', 'aprobado', 'rechazado', 'cerrada'
 ));
+
 
 
 -- Actualizar contratos cuando se completa la transferencia
@@ -170,3 +169,50 @@ BEGIN
     WHERE solicitud_id = p_solicitud_id;
 END;
 $$ LANGUAGE plpgsql;
+
+
+-- Permitir a operadores ver todos los contratos
+CREATE POLICY "operadores_ver_contratos" ON contratos
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM usuarios 
+    WHERE id = auth.uid() AND rol = 'operador'
+  )
+);
+
+-- Permitir a operadores ver todas las firmas digitales
+CREATE POLICY "operadores_ver_firmas" ON firmas_digitales
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM usuarios 
+    WHERE id = auth.uid() AND rol = 'operador'
+  )
+);
+
+-- Permitir a operadores ver todas las transferencias
+CREATE POLICY "operadores_ver_transferencias" ON transferencias_bancarias
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM usuarios 
+    WHERE id = auth.uid() AND rol = 'operador'
+  )
+);
+
+
+-- Política para permitir acceso a documentos de contratos
+CREATE POLICY "acceso_documentos_contratos_solicitante" ON storage.objects
+FOR SELECT USING (
+  bucket_id = 'kyc-documents' 
+  AND (
+    -- Solicitantes pueden ver sus propios documentos
+    (auth.uid()::text IN (
+      SELECT sc.solicitante_id::text 
+      FROM solicitudes_credito sc
+      JOIN contratos c ON c.solicitud_id = sc.id
+      WHERE storage.objects.name LIKE '%' || c.id::text || '%'
+    ))
+    OR
+    -- Operadores pueden ver todos los documentos
+    auth.uid() IN (SELECT id FROM usuarios WHERE rol = 'operador')
+  )
+);

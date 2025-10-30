@@ -237,7 +237,7 @@ export const DocumentosContrato: React.FC<DocumentosContratoProps> = ({ solicitu
           {documentos.firma && documentos.firma.fecha_firma_completa && (
             <Box mt={2} p={2} bgcolor="success.light" borderRadius={1}>
               <Typography variant="body2" color="success.dark">
-                ✅ Contrato completamente firmado el{' '}
+                . Contrato completamente firmado el{' '}
                 {new Date(documentos.firma.fecha_firma_completa).toLocaleDateString('es-ES', {
                   year: 'numeric',
                   month: 'long',

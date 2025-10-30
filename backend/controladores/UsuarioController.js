@@ -191,7 +191,7 @@ static validarCamposRegistro(data, rol) {
                 telefono: datosFiltrados.telefono || '',
                 dni: datosFiltrados.dni,
                 rol: rol,
-                password_hash: 'hashed_by_supabase', // ✅ AGREGAR ESTE CAMPO
+                password_hash: 'hashed_by_supabase', // . AGREGAR ESTE CAMPO
                 cuenta_activa: true,
                 updated_at: new Date().toISOString()
             });
@@ -205,7 +205,7 @@ static validarCamposRegistro(data, rol) {
                     email: authUser.email,
                     telefono: datosFiltrados.telefono || '',
                     dni: datosFiltrados.dni,
-                    password_hash: 'hashed_by_supabase', // ✅ AGREGAR ESTE CAMPO
+                    password_hash: 'hashed_by_supabase', // . AGREGAR ESTE CAMPO
                     rol: rol,
                     cuenta_activa: true,
                     created_at: new Date().toISOString()

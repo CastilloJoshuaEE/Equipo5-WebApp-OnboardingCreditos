@@ -151,4 +151,15 @@ export const DocumentosService = {
       return false;
     }
   },
+      /**
+     * Obtener mis solicitudes con documentos disponibles
+     */
+    async obtenerMisSolicitudesConDocumentos() {
+        const response = await api.get('/solicitudes/mis-solicitudes-con-documentos');
+        return response.data.data;
+    },
+    async obtenerDocumentosStorage(solicitudId: string) {
+    const response = await api.get(`/solicitudes/${solicitudId}/documentos-storage`);
+    return response.data.data;
+},
 };
