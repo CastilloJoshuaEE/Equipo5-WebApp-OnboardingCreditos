@@ -26,7 +26,13 @@ import {
   Grid,
   LinearProgress
 } from '@mui/material';
-import { Documento, RevisionData, SolicitudOperador } from '@/types/operador';
+import { 
+  Documento, 
+  RevisionData, 
+  SolicitudOperador, 
+  TransferenciaBancaria, 
+  Contrato 
+} from '@/types/operador';
 import RevisionModal from '@/components/operador/RevisionModal';
 import './operador-styles.css';
 import { HabilitacionTransferencia } from '@/types/transferencias';
@@ -55,7 +61,9 @@ export default function OperadorDashboard() {
     totalSolicitudes: 0,
     aprobadas: 0,
     enRevision: 0,
-    montoAprobado: 0
+        montoDesembolsado: 0,
+        listasParaTransferencia:0
+
   });
 
   const solicitudId = params?.id as string;
@@ -64,45 +72,67 @@ export default function OperadorDashboard() {
   const [revisionData, setRevisionData] = useState<RevisionData | null>(null);
 
   // Función para calcular métricas basadas en las solicitudes
-  const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
-    const totalSolicitudes = solicitudesData.length;
-    
-    const aprobadas = solicitudesData.filter(s => s.estado === 'aprobado').length;
-    
-    const enRevision = solicitudesData.filter(s => 
-      s.estado === 'en_revision' || s.estado === 'pendiente_info'
-    ).length;
-    
-    const montoAprobado = solicitudesData
-      .filter(s => s.estado === 'aprobado')
-      .reduce((total, solicitud) => {
-        // Convertir a número y sumar
-        const monto = typeof solicitud.monto === 'number' ? solicitud.monto : parseFloat(solicitud.monto) || 0;
-        return total + monto;
-      }, 0);
-
-    setMetricas({
-      totalSolicitudes,
-      aprobadas,
-      enRevision,
-      montoAprobado
-    });
-  };
- 
-  // Actualizar métricas cuando cambien las solicitudes
-  useEffect(() => {
-    if (solicitudes.length > 0) {
-      calcularMetricas(solicitudes);
-    } else {
-      // Resetear métricas si no hay solicitudes
-      setMetricas({
-        totalSolicitudes: 0,
-        aprobadas: 0,
-        enRevision: 0,
-        montoAprobado: 0
-      });
+// Función para calcular métricas basadas en las solicitudes
+const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
+  const totalSolicitudes = solicitudesData.length;
+  
+  const aprobadas = solicitudesData.filter(s => s.estado === 'aprobado').length;
+  
+  const enRevision = solicitudesData.filter(s => 
+    s.estado === 'en_revision' || s.estado === 'pendiente_info'
+  ).length;
+  
+  // ✅ CORRECCIÓN: Usar la propiedad transferencias_bancarias del tipo
+  const montoDesembolsado = solicitudesData.reduce((total, solicitud) => {
+    // Verificar si hay transferencia completada para esta solicitud
+    if (solicitud.transferencias_bancarias && 
+      solicitud.transferencias_bancarias.length > 0) {
+      
+      const transferenciaCompletada = solicitud.transferencias_bancarias
+        .find((t: TransferenciaBancaria) => t.estado === 'completada');
+      
+      if (transferenciaCompletada) {
+        return total + (parseFloat(transferenciaCompletada.monto.toString()) || 0);
+      }
     }
-  }, [solicitudes]);
+    return total;
+  }, 0);
+
+  // ✅ CORRECCIÓN: Usar el tipo Contrato importado
+  const listasParaTransferencia = solicitudesData.filter(solicitud => {
+    // Verificar si está aprobada, tiene contrato firmado pero NO tiene transferencia completada
+    const tieneContratoFirmado = solicitud.contratos && 
+      solicitud.contratos.some((c: Contrato) => c.estado === 'firmado_completo');
+    const tieneTransferenciaCompletada = solicitud.transferencias_bancarias &&
+      solicitud.transferencias_bancarias.some((t: TransferenciaBancaria) => t.estado === 'completada');
+    
+    return solicitud.estado === 'aprobado' && 
+           tieneContratoFirmado && 
+           !tieneTransferenciaCompletada;
+  }).length;
+
+  setMetricas({
+    totalSolicitudes,
+    aprobadas,
+    enRevision,
+    montoDesembolsado,
+    listasParaTransferencia
+  });
+};
+ useEffect(() => {
+  if (solicitudes.length > 0) {
+    calcularMetricas(solicitudes);
+  } else {
+    // ✅ CORRECCIÓN: Resetear métricas sin montoAprobado
+    setMetricas({
+      totalSolicitudes: 0,
+      aprobadas: 0,
+      enRevision: 0,
+      montoDesembolsado: 0,
+      listasParaTransferencia: 0
+    });
+  }
+}, [solicitudes]);
 
   // Función para refrescar datos después de validar
   const handleDocumentoActualizado = async () => {
@@ -593,19 +623,19 @@ useEffect(() => {
           </Card>
         </Grid>
         <Grid size={{ xs: 12, md: 3}}>
-          <Card className="metric-card">
-            <CardContent>
-              <Box className="metric-header">
-                <span>Monto aprobado</span>
-                <AttachMoneyIcon />
-              </Box>
-              <Typography variant="h4" className="metric-value">
-                {formatearMonto(metricas.montoAprobado)}
-              </Typography>
-              <Typography className="metric-subtext">Capital desembolsado</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+           <Card className="metric-card">
+    <CardContent>
+      <Box className="metric-header">
+        <span>Monto desembolsado</span> 
+        <AttachMoneyIcon />
+      </Box>
+      <Typography variant="h4" className="metric-value">
+        {formatearMonto(metricas.montoDesembolsado)} 
+      </Typography>
+      <Typography className="metric-subtext">Capital realmente transferido</Typography> 
+    </CardContent>
+  </Card>
+</Grid>
       </Grid>
 
       {/* El resto del código se mantiene igual... */}
