@@ -48,7 +48,7 @@ class SolicitanteModel extends UsuarioModel{
         return data;
     }
     //Validar datos de empresa
-    static validateEmpresaData(data){
+    static validarEmpresaData(data){
         const errors=[];
         if(!data.nombre_empresa || data.nombre_empresa.trim().length<2){
             errors.push('Nombre de empresa es requerido');
