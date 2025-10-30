@@ -144,7 +144,7 @@ class AuthController {
           
           return res.status(429).json({
             success: false,
-            message: 'Cuenta temporalmente bloqueada por seguridad después de múltiples intentos fallidos. Espere 15 minutos o use la opción de recuperación.'
+            message: 'Cuenta temporalmente bloqueada por seguridad después de múltiples intentos fallidos. Espere 15 minutos o use la opción de "Olvidaste tu contraseña?".'
           });
         }
 
