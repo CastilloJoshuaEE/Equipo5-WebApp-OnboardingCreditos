@@ -9,9 +9,9 @@ class WordService {
     /**
      * Procesar firma acumulativa - usa el último documento firmado
      */
-static async procesarFirmaAcumulativa(firma_id, datosFirma, tipo) {
+    static async procesarFirmaAcumulativa(firma_id, datosFirma, tipo) {
     try {
-        console.log('. 🔄 Procesando firma acumulativa para:', firma_id);
+        console.log('. 🔄 Procesando firma acumulativa CORREGIDA para:', firma_id);
 
         // 1. Obtener información COMPLETA de la firma
         const { data: firma, error: firmaError } = await supabase
@@ -31,229 +31,240 @@ static async procesarFirmaAcumulativa(firma_id, datosFirma, tipo) {
             throw new Error('Firma no encontrada en la base de datos');
         }
 
-        if (!firma.contratos) {
-            throw new Error('No se encontró contrato asociado a esta firma');
-        }
-
-        // 2. ESTRATEGIA MEJORADA para obtener documento
-        let rutaDocumentoActual = null;
+        // 2. Obtener el documento ACTUAL (no siempre el original)
+        let rutaDocumentoActual = firma.url_documento_firmado || firma.contratos?.ruta_documento;
         
-        // Prioridad 1: Documento ya firmado (firma acumulativa)
-        if (firma.url_documento_firmado) {
-            rutaDocumentoActual = firma.url_documento_firmado;
-            console.log('. Usando documento FIRMADO anteriormente:', rutaDocumentoActual);
-        }
-        // Prioridad 2: Documento original del contrato
-        else if (firma.contratos.ruta_documento) {
-            rutaDocumentoActual = firma.contratos.ruta_documento;
-            console.log('. Usando documento ORIGINAL del contrato:', rutaDocumentoActual);
-        }
-        // Prioridad 3: Ruta del documento en la firma (fallback)
-        else if (firma.ruta_documento) {
-            rutaDocumentoActual = firma.ruta_documento;
-            console.log('. Usando ruta de documento de la firma:', rutaDocumentoActual);
-        }
-
         if (!rutaDocumentoActual) {
-            // INTENTO DE RECUPERACIÓN: Buscar cualquier documento relacionado
-            console.log('. 🚨 No se encontró ruta de documento, buscando alternativas...');
-            
-            // Buscar en la tabla de contratos por solicitud_id
-            const { data: contratoAlternativo, error: contratoAltError } = await supabase
-                .from('contratos')
-                .select('ruta_documento')
-                .eq('solicitud_id', firma.solicitud_id)
-                .not('ruta_documento', 'is', null)
-                .single();
-
-            if (contratoAltError || !contratoAlternativo) {
-                throw new Error(`No se encontró documento para firmar. Contrato ID: ${firma.contrato_id}, Solicitud ID: ${firma.solicitud_id}`);
-            }
-            
-            rutaDocumentoActual = contratoAlternativo.ruta_documento;
-            console.log('. . Documento recuperado alternativamente:', rutaDocumentoActual);
+            throw new Error('No se encontró documento para firmar');
         }
 
-        // 3. VERIFICAR QUE EL DOCUMENTO EXISTE EN STORAGE
-        console.log('. Verificando documento en storage:', rutaDocumentoActual);
+        console.log('. Usando documento:', rutaDocumentoActual);
+
+        // 3. VERIFICAR que el documento existe en storage
         const { data: fileData, error: fileError } = await supabase.storage
             .from('kyc-documents')
             .download(rutaDocumentoActual);
 
         if (fileError) {
-            console.error('. . Error descargando documento:', fileError);
-            
-            // INTENTAR REGENERAR EL DOCUMENTO
-            console.log('. 🔄 Intentando regenerar documento...');
-            try {
-                // Obtener datos de la solicitud para regenerar
-                const { data: solicitudCompleta, error: solError } = await supabase
-                    .from('solicitudes_credito')
-                    .select(`
-                        *,
-                        solicitantes: solicitantes!solicitante_id(
-                            usuarios(*),
-                            nombre_empresa,
-                            cuit,
-                            representante_legal,
-                            domicilio
-                        )
-                    `)
-                    .eq('id', firma.solicitud_id)
-                    .single();
-
-                if (solError) {
-                    throw new Error('No se pudo obtener datos para regenerar documento: ' + solError.message);
-                }
-
-                // Regenerar el Word
-                await ContratoController.generarWordContrato(firma.contrato_id, solicitudCompleta);
-                console.log('. . Documento regenerado exitosamente');
-
-                // Reintentar descarga
-                const { data: fileDataRetry, error: fileErrorRetry } = await supabase.storage
-                    .from('kyc-documents')
-                    .download(rutaDocumentoActual);
-
-                if (fileErrorRetry) {
-                    throw new Error('Documento no disponible incluso después de regenerar: ' + fileErrorRetry.message);
-                }
-
-            } catch (regenerateError) {
-                throw new Error('Error regenerando documento: ' + regenerateError.message);
-            }
+            throw new Error('Error accediendo al documento: ' + fileError.message);
         }
 
-        console.log('. . Documento disponible para firma, tamaño:', fileData.size);
+        const bufferActual = Buffer.from(await fileData.arrayBuffer());
 
+        // 4. EXTRAER contenido EXISTENTE y EVITAR duplicación
+        const contenidoExistente = await WordService.extraerContenidoSinFirmasDuplicadas(bufferActual);
+        
+        // 5. GENERAR NUEVA SECCIÓN DE FIRMAS (solo una vez)
+        const seccionFirmasActualizada = await WordService.generarSeccionFirmasActualizada(firma_id, datosFirma, tipo);
 
-            const bufferActual = Buffer.from(await fileData.arrayBuffer());
+        // 6. COMBINAR contenido existente con nueva sección de firmas
+        const documentoFinal = await WordService.combinarContenidoYFirmas(
+            contenidoExistente, 
+            seccionFirmasActualizada
+        );
 
-            // 4. Procesar firma en el documento actual
-            const documentoFirmadoBuffer = await WordService.agregarFirmaADocumento(
-                bufferActual, 
-                datosFirma
-            );
-
-            // 5. Generar hash del documento firmado
-        const nuevoHash = WordService.generarHashDocumento(documentoFirmadoBuffer, {
+        // 7. Generar hash del documento final
+        const nuevoHash = WordService.generarHashDocumento(documentoFinal, {
             fechaFirma: datosFirma.fechaFirma,
             firmante: datosFirma.nombreFirmante,
             tipoFirma: tipo,
-            firmaAnterior: firma.hash_documento_firmado,
-            ubicacion: datosFirma.ubicacion,
-            documentoOriginalHash: firma.hash_documento_original
+            firmaAnterior: firma.hash_documento_firmado
         });
 
-            // 6. Verificar integridad completa
-            const integridadValida = await WordService.verificarIntegridadCompleta(firma_id);
-
-            // 7. Subir nuevo documento firmado
-      const nombreArchivoFirmado = `contrato-firmado-${firma_id}-${Date.now()}.docx`;
+        // 8. Subir nuevo documento firmado
+        const nombreArchivoFirmado = `contrato-firmado-${firma_id}.docx`;
         const uploadResult = await WordService.subirDocumento(
             nombreArchivoFirmado,
-            documentoFirmadoBuffer,
+            documentoFinal,
             {
                 firma_id: firma_id,
                 firmante: datosFirma.nombreFirmante,
                 fecha_firma: datosFirma.fechaFirma,
                 hash_firmado: nuevoHash,
-                tipo_firma: tipo,
-                integridad_valida: Boolean(integridadValida),
-                ubicacion: datosFirma.ubicacion,
-                ip_firmante: datosFirma.ipFirmante,
-                user_agent: datosFirma.userAgent,
-                documento_original_hash: firma.hash_documento_original
+                tipo_firma: tipo
             }
         );
-            if (!uploadResult.success) {
-                throw new Error('Error subiendo documento firmado: ' + uploadResult.error);
+
+        if (!uploadResult.success) {
+            throw new Error('Error subiendo documento firmado: ' + uploadResult.error);
+        }
+
+        return {
+            success: true,
+            buffer: documentoFinal,
+            hash: nuevoHash,
+            ruta: uploadResult.ruta
+        };
+
+    } catch (error) {
+        console.error('. Error en procesarFirmaAcumulativa:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+    /**
+     * Extraer contenido real del documento Word
+     */
+   static async extraerContenidoSinFirmasDuplicadas(bufferDocumento) {
+        try {
+            console.log('. Extrayendo contenido sin duplicar firmas...');
+            
+            const result = await mammoth.extractRawText({ 
+                buffer: bufferDocumento,
+                preserveEmptyLines: true
+            });
+            
+            let contenido = result.value;
+            
+            // ELIMINAR secciones de firmas duplicadas
+            // Buscar y eliminar todo desde "--- FIRMAS DIGITALES REGISTRADAS ---" en adelante
+            const indiceFirmas = contenido.indexOf('--- FIRMAS DIGITALES REGISTRADAS ---');
+            
+            if (indiceFirmas !== -1) {
+                // Conservar solo el contenido ANTES de las firmas
+                contenido = contenido.substring(0, indiceFirmas).trim();
+                console.log('. Se eliminaron secciones de firmas duplicadas');
             }
-
-            return {
-                success: true,
-                buffer: documentoFirmadoBuffer,
-                hash: nuevoHash,
-                ruta: uploadResult.ruta,
-                integridadValida: integridadValida
-            };
-
+            
+            // También eliminar la sección simple de "--- FIRMAS DIGITALES ---" si existe
+            const indiceFirmasSimple = contenido.indexOf('--- FIRMAS DIGITALES ---');
+            if (indiceFirmasSimple !== -1) {
+                contenido = contenido.substring(0, indiceFirmasSimple).trim();
+                console.log('. Se eliminó sección simple de firmas');
+            }
+            
+            console.log('. Contenido limpiado exitosamente');
+            return contenido;
+            
         } catch (error) {
-            console.error('. Error en procesarFirmaAcumulativa:', error);
-            return {
-                success: false,
-                error: error.message
-            };
+            console.error('. Error extrayendo contenido sin duplicados:', error);
+            // Fallback: devolver contenido sin procesar
+            const result = await mammoth.extractRawText({ buffer: bufferDocumento });
+            return result.value;
         }
     }
 
     /**
-     * Extraer contenido real del documento Word
+     * Generar sección de firmas ACTUALIZADA (solo una vez)
      */
- static async extraerContenidoWord(bufferDocumento) {
+   
+    static async generarSeccionFirmasActualizada(firma_id, datosFirma, tipo) {
     try {
-        console.log('. Extrayendo contenido real del documento Word...');
+        console.log('. Generando sección de firmas actualizada para:', firma_id);
         
-        const result = await mammoth.extractRawText({ 
-            buffer: bufferDocumento,
-            preserveEmptyLines: true
+        // Obtener información actual de todas las firmas
+        const { data: firmaCompleta, error } = await supabase
+            .from('firmas_digitales')
+            .select(`
+                fecha_firma_solicitante,
+                fecha_firma_operador,
+                hash_documento_original,
+                solicitudes_credito(
+                    numero_solicitud,
+                    solicitantes:solicitantes!solicitante_id(usuarios(nombre_completo, email)),
+                    operadores:operadores!operador_id(usuarios(nombre_completo, email))
+                )
+            `)
+            .eq('id', firma_id)
+            .single();
+
+        if (error) {
+            throw error;
+        }
+
+        const solicitud = firmaCompleta.solicitudes_credito;
+        const solicitante = solicitud?.solicitantes?.usuarios;
+        const operador = solicitud?.operadores?.usuarios;
+
+        // Construir sección de firmas única y organizada
+        let seccionFirmas = `
+
+--- FIRMAS DIGITALES REGISTRADAS ---
+
+INFORMACIÓN DE FIRMA DIGITAL`;
+
+        // Agregar firma del SOLICITANTE si existe
+        if (firmaCompleta.fecha_firma_solicitante) {
+            seccionFirmas += `
+
+FIRMADO POR: ${solicitante?.nombre_completo || 'Solicitante'}
+FECHA: ${new Date(firmaCompleta.fecha_firma_solicitante).toLocaleString()}
+UBICACIÓN: ${datosFirma.ubicacion || 'Ubicación no disponible'}
+HASH DE VALIDACIÓN: ${firmaCompleta.hash_documento_original}
+
+✓ DOCUMENTO FIRMADO DIGITALMENTE - VÁLIDO LEGALMENTE`;
+        }
+
+        // Agregar firma del OPERADOR si existe
+        if (firmaCompleta.fecha_firma_operador) {
+            seccionFirmas += `
+
+FIRMADO POR: ${operador?.nombre_completo || 'Operador'}
+FECHA: ${new Date(firmaCompleta.fecha_firma_operador).toLocaleString()}
+UBICACIÓN: ${datosFirma.ubicacion || 'Ubicación no disponible'}
+HASH DE VALIDACIÓN: ${firmaCompleta.hash_documento_original}
+
+✓ DOCUMENTO FIRMADO DIGITALMENTE - VÁLIDO LEGALMENTE`;
+        }
+
+        // Agregar firma ACTUAL que se está procesando
+        seccionFirmas += `
+
+FIRMADO POR: ${datosFirma.nombreFirmante}
+FECHA: ${new Date(datosFirma.fechaFirma).toLocaleString()}
+UBICACIÓN: ${datosFirma.ubicacion || 'Ubicación no disponible'}
+HASH DE VALIDACIÓN: ${firmaCompleta.hash_documento_original}
+
+✓ DOCUMENTO FIRMADO DIGITALMENTE - VÁLIDO LEGALMENTE`;
+
+        console.log('. Sección de firmas generada exitosamente');
+        return seccionFirmas;
+
+    } catch (error) {
+        console.error('. Error generando sección de firmas:', error);
+        // Fallback: sección básica
+        return `
+
+--- FIRMAS DIGITALES REGISTRADAS ---
+
+FIRMADO POR: ${datosFirma.nombreFirmante}
+FECHA: ${new Date(datosFirma.fechaFirma).toLocaleString()}
+HASH DE VALIDACIÓN: ${datosFirma.hashDocumento}
+
+✓ DOCUMENTO FIRMADO DIGITALMENTE - VÁLIDO LEGALMENTE`;
+    }
+}
+     static async combinarContenidoYFirmas(contenido, seccionFirmas) {
+    try {
+        console.log('. Combinando contenido y firmas en documento final...');
+        
+        // Crear documento con el contenido preservado + una sola sección de firmas
+        const doc = new Document({
+            sections: [{
+                properties: {},
+                children: [
+                    // Contenido principal del contrato
+                    new Paragraph({
+                        text: contenido,
+                        spacing: { after: 400 }
+                    }),
+
+                    // UNA SOLA sección de firmas al final
+                    new Paragraph({
+                        text: seccionFirmas,
+                        spacing: { before: 800, after: 400 }
+                    })
+                ]
+            }]
         });
-        
-        let contenido = result.value;
-        
-        // PRESERVAR MEJOR LA ESTRUCTURA DEL CONTRATO
-        contenido = contenido
-            .replace(/\n{3,}/g, '\n\n') // Normalizar múltiples saltos
-            .replace(/([.!?])([A-Z])/g, '$1\n$2') // Mejorar separación de párrafos
-            .replace(/FIRMA DIGITAL DEL SOLICITANTE:/g, '_________________________')
-            .replace(/FIRMA DIGITAL DEL OPERADOR:/g, '_________________________')
-            .trim();
-        
-        console.log('. Contenido extraído con estructura preservada');
-        return contenido;
+
+        return await Packer.toBuffer(doc);
         
     } catch (error) {
-        console.error('. Error extrayendo contenido Word:', error);
-        
-        // FALLBACK MEJORADO con estructura real del contrato
-        return `CONTRATO DE AUTORIZACIÓN DE GESTIÓN DE CRÉDITO Y SERVICIOS DE ASESORÍA FINANCIERA
-
-Entre: NEXIA S.A., con domicilio en Argentina, legalmente representada por Ramiro Rodriguez, en adelante "NEXIA",
-
-y [Nombre del Solicitante], portador/a del DNI [DNI], con domicilio en [Domicilio], en adelante "EL SOLICITANTE",
-
-se celebra el presente Contrato de Autorización, conforme a las siguientes cláusulas:
-
-PRIMERA: OBJETO
-El presente contrato tiene por objeto autorizar a NEXIA a gestionar, tramitar y/o intermediar en nombre de EL SOLICITANTE las solicitudes de crédito ante las instituciones financieras con las cuales mantiene convenios o relaciones comerciales, con el fin de facilitar el acceso a productos financieros acordes al perfil crediticio del solicitante.
-
-SEGUNDA: ALCANCE DE LA AUTORIZACIÓN
-EL SOLICITANTE autoriza expresamente a NEXIA a:
-1. Consultar su información crediticia ante burós y entidades financieras autorizadas.
-2. Gestionar documentos, formularios y requisitos necesarios para la tramitación de crédito.
-3. Comunicarle resultados, observaciones o requerimientos derivados del proceso de solicitud.
-
-TERCERA: CONFIDENCIALIDAD Y PROTECCIÓN DE DATOS
-NEXIA se compromete a tratar toda la información personal y financiera de EL SOLICITANTE conforme a las leyes de protección de datos personales vigentes, garantizando su confidencialidad y uso exclusivo para los fines de este contrato.
-
-CUARTA: VIGENCIA
-El presente contrato entrará en vigor a partir de la fecha de firma digital y tendrá una vigencia de seis (6) meses, pudiendo renovarse automáticamente si las partes así lo acuerdan.
-
-QUINTA: NO GARANTÍA DE APROBACIÓN
-EL SOLICITANTE reconoce que la aprobación del crédito depende exclusivamente de las políticas de las instituciones financieras, y que NEXIA actúa únicamente como intermediario o asesor.
-
-SEXTA: ACEPTACIÓN Y FIRMA DIGITAL
-Ambas partes aceptan los términos de este contrato. EL SOLICITANTE declara haber leído y comprendido todas las cláusulas.
-
-La firma digital de este documento implica consentimiento pleno y aceptación legal conforme a la legislación vigente.
-
-_________________________
-Firma del Solicitante
-
-_________________________
-Firma del Operador
-
-Fecha: ${new Date().toLocaleDateString()}`;
+        console.error('. Error combinando contenido y firmas:', error);
+        throw error;
     }
 }
     /**
@@ -312,7 +323,7 @@ Fecha: ${new Date().toLocaleDateString()}`;
                         });
                     }).flat(), // Aplanar el array de arrays
 
-                    // . NUEVA SECCIÓN DE FIRMAS DIGITALES MEJORADA
+                    // . NUEVA SECCIÓN DE FIRMAS DIGITALES .
                     new Paragraph({
                         text: " ",
                         spacing: { before: 800, after: 400 }

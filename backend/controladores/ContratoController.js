@@ -207,25 +207,7 @@ class ContratoController {
                             spacing: { after: 400 }
                         }),
                         
-                        // SECCIÓN DE FIRMAS DIGITALES
-                        new Paragraph({
-                            text: "--- FIRMAS DIGITALES ---",
-                            heading: HeadingLevel.HEADING_3,
-                            alignment: AlignmentType.CENTER,
-                            spacing: { before: 400, after: 200 }
-                        }),
-                        new Paragraph({
-                            text: `Firmado por solicitante: ${emailSolicitante} - ${fechaSolicitante || 'Pendiente'}`,
-                            spacing: { after: 100 }
-                        }),
-                        new Paragraph({
-                            text: `Firmado por operador: ${emailOperador} - ${fechaOperador || 'Pendiente'}`,
-                            spacing: { after: 100 }
-                        }),
-                        new Paragraph({
-                            text: `Hash de validación: ${hashDocumento}`,
-                            spacing: { after: 400 }
-                        })
+                       
                     ]
                 }]
             });
@@ -237,36 +219,10 @@ class ContratoController {
 
         } catch (error) {
             console.error('Error generando DOCX del contrato:', error);
-            // Fallback a contenido básico
-            const contenido = `
-CONTRATO DE AUTORIZACIÓN DE GESTIÓN DE CRÉDITO Y SERVICIOS DE ASESORÍA FINANCIERA
-
-Entre:
-NEXIA S.A., con domicilio en Argentina, legalmente representada por Ramiro Rodriguez, en adelante "NEXIA",
-
-y
-${solicitud.solicitantes?.usuarios?.nombre_completo || 'N/A'}, portador/a del DNI N.º ${solicitud.solicitantes?.usuarios?.dni || 'N/A'}, con domicilio en ${solicitud.solicitantes?.domicilio || 'N/A'}, en adelante "EL SOLICITANTE",
-
-${solicitud.solicitantes?.nombre_empresa ? `EMPRESA: ${solicitud.solicitantes.nombre_empresa}` : ''}
-${solicitud.solicitantes?.cuit ? `CUIT: ${solicitud.solicitantes.cuit}` : ''}
-
-MONTO: $${solicitud.monto}
-PLAZO: ${solicitud.plazo_meses} meses
-
-Fecha: ${new Date().toLocaleDateString()}
-
---- FIRMAS DIGITALES ---
-Firmado por solicitante: ${solicitud.solicitantes?.usuarios?.email || 'No disponible'} - Pendiente
-Firmado por operador: ${solicitud.operadores?.usuarios?.email || 'No disponible'} - Pendiente
-Hash de validación: Pendiente de firma
-
-Este documento constituye un contrato legalmente vinculante conforme a la legislación vigente.
-            `;
-            return Buffer.from(contenido);
+          
         }
     }
 
-    // ... (el resto de los métodos se mantienen igual)
     static async generarContratoParaSolicitud(solicitudId) {
         try {
             const { data: solicitud, error } = await supabaseAdmin

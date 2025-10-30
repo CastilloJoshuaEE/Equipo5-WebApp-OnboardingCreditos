@@ -921,8 +921,8 @@ static async obtenerHistorialEvaluaciones(req, res) {
             // Extraer criterios de la estructura JSONB
             const condiciones = evaluacion.condiciones;
             
-            console.log('📋 Condiciones crudas:', condiciones);
-            console.log('📋 Tipo de condiciones:', typeof condiciones);
+            console.log('. Condiciones crudas:', condiciones);
+            console.log('. Tipo de condiciones:', typeof condiciones);
             
             // Manejar diferentes formatos de condiciones
             let criteriosDetallados = {};
@@ -1556,7 +1556,7 @@ static async obtenerMisSolicitudesConDocumentos(req, res) {
         const usuario_id = req.usuario.id;
         const usuario_rol = req.usuario.rol;
         
-        console.log(`📋 Obteniendo solicitudes con documentos para: ${usuario_id} (${usuario_rol})`);
+        console.log(`. Obteniendo solicitudes con documentos para: ${usuario_id} (${usuario_rol})`);
 
         let solicitudes;
 
@@ -1577,7 +1577,7 @@ static async obtenerMisSolicitudesConDocumentos(req, res) {
                 .order('created_at', { ascending: false });
 
             if (error) {
-                console.error('❌ Error en consulta de solicitante:', error);
+                console.error('. Error en consulta de solicitante:', error);
                 throw error;
             }
             solicitudes = data;
@@ -1601,7 +1601,7 @@ static async obtenerMisSolicitudesConDocumentos(req, res) {
                 .order('created_at', { ascending: false });
 
             if (error) {
-                console.error('❌ Error en consulta de operador:', error);
+                console.error('. Error en consulta de operador:', error);
                 throw error;
             }
             solicitudes = data;
@@ -1612,7 +1612,7 @@ static async obtenerMisSolicitudesConDocumentos(req, res) {
             });
         }
 
-        console.log(`✅ Encontradas ${solicitudes?.length || 0} solicitudes con documentos`);
+        console.log(`.Encontradas ${solicitudes?.length || 0} solicitudes con documentos`);
 
         res.json({
             success: true,
@@ -1620,7 +1620,7 @@ static async obtenerMisSolicitudesConDocumentos(req, res) {
         });
 
     } catch (error) {
-        console.error('❌ Error obteniendo solicitudes con documentos:', error);
+        console.error('. Error obteniendo solicitudes con documentos:', error);
         res.status(500).json({
             success: false,
             message: 'Error al obtener solicitudes con documentos',
@@ -1633,7 +1633,7 @@ static async obtenerTodosLosDocumentos(req, res) {
   try {
     const usuario = req.usuario;
     
-    console.log('📋 Obteniendo todos los documentos para operador:', usuario.id);
+    console.log('. Obteniendo todos los documentos para operador:', usuario.id);
 
     // Verificar que sea operador
     if (usuario.rol !== 'operador') {
@@ -1643,7 +1643,7 @@ static async obtenerTodosLosDocumentos(req, res) {
       });
     }
 
-    // CONSULTA MEJORADA: Obtener contratos con información completa
+    // CONSULTA .: Obtener contratos con información completa
     const { data: contratos, error: errorContratos } = await supabase
       .from('contratos')
       .select(`

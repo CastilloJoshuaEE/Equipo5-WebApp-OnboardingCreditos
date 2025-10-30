@@ -70,7 +70,7 @@ export default function EmailRecuperacionForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validación mejorada
+    // Validación .
     if (!emailRecuperacion) {
       setError('El email de recuperación es requerido');
       return;

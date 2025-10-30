@@ -59,7 +59,7 @@ export interface TransferenciaBancaria {
     updated_at: string;
 }
 
-// ✅ NUEVA INTERFACE: Contrato
+// .NUEVA INTERFACE: Contrato
 export interface Contrato {
     id: string;
     solicitud_id: string;

@@ -161,7 +161,7 @@ const insertarUsuariosEnTablas = async (usuariosAuthIds) => {
   }
 };
 
-// Función para crear usuarios en Auth - . MEJORADA
+// Función para crear usuarios en Auth - . .
 const crearUsuariosAuth = async () => {
   const usuariosAuthIds = {};
   

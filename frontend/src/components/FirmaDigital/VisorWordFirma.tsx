@@ -286,7 +286,7 @@ Fecha: ${new Date().toLocaleDateString()}
         setFirmaSeleccionada(nuevaFirma.id);
     };
 
-    // FUNCIONES MEJORADAS PARA ARRASTRAR FIRMAS
+    // FUNCIONES .S PARA ARRASTRAR FIRMAS
     const handleMouseDown = (event: React.MouseEvent, firmaId: string) => {
         event.stopPropagation();
         event.preventDefault();
@@ -432,7 +432,7 @@ const handleGuardarDocumento = async () => {
         console.log('. Resultado de firma acumulativa:', result);
         
         if (result.success) {
-            // . MANEJAR RESPUESTA MEJORADA
+            // . MANEJAR RESPUESTA .
             onFirmaCompletada({
                 ...result.data,
                 es_firma_completa: result.data.integridad_valida,

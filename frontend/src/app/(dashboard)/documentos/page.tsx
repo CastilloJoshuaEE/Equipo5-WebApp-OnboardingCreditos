@@ -109,7 +109,7 @@ const cargarTodosLosDocumentos = async () => {
     if (response.ok) {
       const data = await response.json();
       
-      // Formatear datos para la tabla - CORREGIDO
+      // Formatear datos para la tabla - .
       const documentosFormateados = [
         // Contratos
 ...(data.data.contratos || []).map((contrato: any) => ({

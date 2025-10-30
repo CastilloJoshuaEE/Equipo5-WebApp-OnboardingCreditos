@@ -70,7 +70,7 @@ const FirmaContratoPage = () => {
       try {
         console.log('. Verificando sesión...');
         const sessionData = await getSession();
-        console.log('📋 Datos de sesión:', sessionData);
+        console.log('. Datos de sesión:', sessionData);
         
         if (sessionData) {
           setSession(sessionData);
@@ -105,7 +105,7 @@ const FirmaContratoPage = () => {
       setError('');
 
       console.log('. Cargando información de firma para:', firma_id);
-      console.log('📋 Token disponible:', !!session?.accessToken);
+      console.log('. Token disponible:', !!session?.accessToken);
       
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 

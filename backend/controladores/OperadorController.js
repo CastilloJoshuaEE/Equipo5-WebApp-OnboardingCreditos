@@ -73,14 +73,14 @@ class OperadorController{
                 };
             }) || [];
 
-            // ✅ NUEVO: Calcular métricas CORRECTAS basadas en transferencias REALES
+            // .NUEVO: Calcular métricas CORRECTAS basadas en transferencias REALES
             const metricas = {
                 totalSolicitudes: solicitudesProcesadas.length,
                 aprobadas: solicitudesProcesadas.filter(s => s.estado === 'aprobado').length,
                 enRevision: solicitudesProcesadas.filter(s =>
                     s.estado === 'en_revision' || s.estado === 'pendiente_info'
                 ).length,
-                // ✅ CORRECCIÓN: Monto basado en transferencias COMPLETADAS, no en aprobaciones
+                // .CORRECCIÓN: Monto basado en transferencias COMPLETADAS, no en aprobaciones
                 montoDesembolsado: solicitudesProcesadas.reduce((total, solicitud) => {
                     if (solicitud.transferencias_bancarias && solicitud.transferencias_bancarias.length > 0) {
                         const transferenciaCompletada = solicitud.transferencias_bancarias
@@ -93,7 +93,7 @@ class OperadorController{
                     }
                     return total;
                 }, 0),
-                // ✅ MÉTRICA ADICIONAL: Solicitudes listas para transferencia (firmadas pero sin transferir)
+                // .MÉTRICA ADICIONAL: Solicitudes listas para transferencia (firmadas pero sin transferir)
                 listasParaTransferencia: solicitudesProcesadas.filter(solicitud => {
                     // Verificar si está aprobada, tiene contrato firmado pero NO tiene transferencia completada
                     const tieneContratoFirmado = solicitud.contratos && 
@@ -138,7 +138,7 @@ class OperadorController{
                 data: {
                     solicitudes: solicitudesProcesadas,
                     estadisticas,
-                    metricas, // ✅ NUEVO: Enviar métricas calculadas correctamente
+                    metricas, // .NUEVO: Enviar métricas calculadas correctamente
                     total: solicitudesProcesadas.length
                 }
             });

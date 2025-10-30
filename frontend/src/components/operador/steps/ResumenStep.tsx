@@ -9,7 +9,7 @@ interface ResumenStepProps {
 }
 
 export default function ResumenStep({ solicitud }: ResumenStepProps) {
-    // Función mejorada para acceder a los datos anidados
+    // Función . para acceder a los datos anidados
 // Mejorar la función getContactoInfo
 const getContactoInfo = (solicitud: SolicitudOperador) => {
     console.log('. Datos completos del solicitante:', solicitud.solicitantes);

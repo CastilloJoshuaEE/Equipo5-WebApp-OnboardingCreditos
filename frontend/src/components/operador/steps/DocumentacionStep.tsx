@@ -196,9 +196,9 @@ const handleAbrirEvaluacion = async (documento: Documento) => {
             // Tomar la última evaluación registrada
             const ultimaEvaluacion = historial[0];
             
-            console.log('📋 Última evaluación encontrada:', ultimaEvaluacion);
-                        console.log('📋 Criterios recibidos:', ultimaEvaluacion.criterios);
-            console.log('📋 Tipo de criterios:', typeof ultimaEvaluacion.criterios);
+            console.log('. Última evaluación encontrada:', ultimaEvaluacion);
+                        console.log('. Criterios recibidos:', ultimaEvaluacion.criterios);
+            console.log('. Tipo de criterios:', typeof ultimaEvaluacion.criterios);
             // Mapear criterios al checklist - manejar diferentes estructuras
             if (ultimaEvaluacion.criterios && typeof ultimaEvaluacion.criterios === 'object') {
                 const criteriosMapeados: {[key: string]: boolean} = {};
