@@ -82,14 +82,24 @@ app.use((req, res, next) => {
 // Configurar CORS
 app.use(cors({
   origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com'
+    'http://localhost:3000',
+    'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com',
+    'https://equipo5-web-app-onboarding-creditos.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
-
+app.options('*', cors({
+  origin: [
+    'http://localhost:3000',
+    'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com',
+    'https://equipo5-web-app-onboarding-creditos.vercel.app'
+  ],
+  credentials: true
+}));
 // Middleware para parsear JSON
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
