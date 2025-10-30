@@ -2,114 +2,157 @@ const {supabase}= require('../config/conexion');
 const  BCRAService= require('../servicios/BCRAService');
 class OperadorController{
     //Obtener dashboard del operador con filtros
-static async obtenerDashboard(req, res) {
-  try {
-    const operadorId = req.usuario.id;
-    const { estado, fecha_desde, fecha_hasta, nivel_riesgo, numero_solicitud, dni } = req.query;
+    static async obtenerDashboard(req, res) {
+        try {
+            const operadorId = req.usuario.id;
+            const { estado, fecha_desde, fecha_hasta, nivel_riesgo, numero_solicitud, dni } = req.query;
 
-    console.log(`. Obteniendo dashboard para operador: ${operadorId}`, { 
-      estado, fecha_desde, fecha_hasta, nivel_riesgo 
-    });
+            console.log(`. Obteniendo dashboard para operador: ${operadorId}`, {
+                estado, fecha_desde, fecha_hasta, nivel_riesgo
+            });
 
-    let query = supabase
-      .from('solicitudes_credito')
-      .select(`
-        *,
-        solicitantes: solicitantes!solicitante_id(
-          nombre_empresa,
-          cuit,
-          representante_legal,
-          domicilio,
-          usuarios:usuarios!inner(
-            nombre_completo, 
-            email, 
-            telefono, 
-            dni
-          )
-        )
-      `)
-      .eq('operador_id', operadorId)
-      .order('created_at', { ascending: false });
+            let query = supabase
+                .from('solicitudes_credito')
+                .select(`
+                    *,
+                    solicitantes: solicitantes!solicitante_id(
+                        nombre_empresa,
+                        cuit,
+                        representante_legal,
+                        domicilio,
+                        usuarios:usuarios!inner(
+                            nombre_completo, 
+                            email, 
+                            telefono, 
+                            dni
+                        )
+                    ),
+                    transferencias_bancarias(*)
+                `)
+                .eq('operador_id', operadorId)
+                .order('created_at', { ascending: false });
 
-    // Aplicar filtros
-    if (estado) query = query.eq('estado', estado);
-    if (nivel_riesgo) query = query.eq('nivel_riesgo', nivel_riesgo);
-    if (fecha_desde) query = query.gte('created_at', fecha_desde);
-    if (fecha_hasta) query = query.lte('created_at', fecha_hasta);
-    if (numero_solicitud) query = query.ilike('numero_solicitud', `%${numero_solicitud}%`);
-    
-    // . CORRECCIÓN: Filtrar por DNI del usuario relacionado
-    if (dni) {
-      query = query.filter('solicitantes.usuarios.dni', 'eq', dni);
-    }
+            // Aplicar filtros
+            if (estado) query = query.eq('estado', estado);
+            if (nivel_riesgo) query = query.eq('nivel_riesgo', nivel_riesgo);
+            if (fecha_desde) query = query.gte('created_at', fecha_desde);
+            if (fecha_hasta) query = query.lte('created_at', fecha_hasta);
+            if (numero_solicitud) query = query.ilike('numero_solicitud', `%${numero_solicitud}%`);
 
-    const { data: solicitudes, error } = await query;
+            // . CORRECCIÓN: Filtrar por DNI del usuario relacionado
+            if (dni) {
+                query = query.filter('solicitantes.usuarios.dni', 'eq', dni);
+            }
 
-    if (error) {
-      console.error('. Error en consulta de solicitudes:', error);
-      throw error;
-    }
+            const { data: solicitudes, error } = await query;
 
-    console.log(`. Solicitudes encontradas: ${solicitudes?.length || 0}`);
+            if (error) {
+                console.error('. Error en consulta de solicitudes:', error);
+                throw error;
+            }
 
-       // CORRECCIÓN: Procesar datos para estructura consistente
-        const solicitudesProcesadas = solicitudes?.map(solicitud => {
-            // Asegurar que la información de contacto esté disponible
-            const infoContacto = solicitud.solicitantes?.usuarios || {};
-            
-            return {
-                ...solicitud,
-                solicitante_info: {
-                    nombre_empresa: solicitud.solicitantes?.nombre_empresa || 'No disponible',
-                    cuit: solicitud.solicitantes?.cuit || 'No disponible',
-                    representante_legal: solicitud.solicitantes?.representante_legal || 'No disponible',
-                    domicilio: solicitud.solicitantes?.domicilio || 'No disponible',
-                    contacto: infoContacto.nombre_completo || 'No disponible',
-                    email: infoContacto.email || 'No disponible',
-                    telefono: infoContacto.telefono || 'No disponible',
-                    dni: infoContacto.dni || 'No disponible'
-                }
+            console.log(`. Solicitudes encontradas: ${solicitudes?.length || 0}`);
+
+            // CORRECCIÓN: Procesar datos para estructura consistente
+            const solicitudesProcesadas = solicitudes?.map(solicitud => {
+                // Asegurar que la información de contacto esté disponible
+                const infoContacto = solicitud.solicitantes?.usuarios || {};
+
+                return {
+                    ...solicitud,
+                    solicitante_info: {
+                        nombre_empresa: solicitud.solicitantes?.nombre_empresa || 'No disponible',
+                        cuit: solicitud.solicitantes?.cuit || 'No disponible',
+                        representante_legal: solicitud.solicitantes?.representante_legal || 'No disponible',
+                        domicilio: solicitud.solicitantes?.domicilio || 'No disponible',
+                        contacto: infoContacto.nombre_completo || 'No disponible',
+                        email: infoContacto.email || 'No disponible',
+                        telefono: infoContacto.telefono || 'No disponible',
+                        dni: infoContacto.dni || 'No disponible'
+                    }
+                };
+            }) || [];
+
+            // ✅ NUEVO: Calcular métricas CORRECTAS basadas en transferencias REALES
+            const metricas = {
+                totalSolicitudes: solicitudesProcesadas.length,
+                aprobadas: solicitudesProcesadas.filter(s => s.estado === 'aprobado').length,
+                enRevision: solicitudesProcesadas.filter(s =>
+                    s.estado === 'en_revision' || s.estado === 'pendiente_info'
+                ).length,
+                // ✅ CORRECCIÓN: Monto basado en transferencias COMPLETADAS, no en aprobaciones
+                montoDesembolsado: solicitudesProcesadas.reduce((total, solicitud) => {
+                    if (solicitud.transferencias_bancarias && solicitud.transferencias_bancarias.length > 0) {
+                        const transferenciaCompletada = solicitud.transferencias_bancarias
+                            .find(t => t.estado === 'completada');
+                        if (transferenciaCompletada) {
+                            const monto = parseFloat(transferenciaCompletada.monto) || 0;
+                            console.log(`💰 Transferencia completada para ${solicitud.numero_solicitud}: $${monto}`);
+                            return total + monto;
+                        }
+                    }
+                    return total;
+                }, 0),
+                // ✅ MÉTRICA ADICIONAL: Solicitudes listas para transferencia (firmadas pero sin transferir)
+                listasParaTransferencia: solicitudesProcesadas.filter(solicitud => {
+                    // Verificar si está aprobada, tiene contrato firmado pero NO tiene transferencia completada
+                    const tieneContratoFirmado = solicitud.contratos && 
+                        solicitud.contratos.estado === 'firmado_completo';
+                    const tieneTransferenciaCompletada = solicitud.transferencias_bancarias &&
+                        solicitud.transferencias_bancarias.some(t => t.estado === 'completada');
+                    
+                    return solicitud.estado === 'aprobado' && 
+                           tieneContratoFirmado && 
+                           !tieneTransferenciaCompletada;
+                }).length
             };
-        }) || [];
 
-    // Obtener estadísticas del operador
-    const { data: stats, error: statsError } = await supabase
-      .from('solicitudes_credito')
-      .select('estado')
-      .eq('operador_id', operadorId);
+            console.log(`📊 Métricas calculadas:`, {
+                total: metricas.totalSolicitudes,
+                aprobadas: metricas.aprobadas,
+                enRevision: metricas.enRevision,
+                montoDesembolsado: metricas.montoDesembolsado,
+                listasParaTransferencia: metricas.listasParaTransferencia
+            });
 
-    if (statsError) {
-      console.error('. Error obteniendo estadísticas:', statsError);
+            // Obtener estadísticas del operador (para compatibilidad)
+            const { data: stats, error: statsError } = await supabase
+                .from('solicitudes_credito')
+                .select('estado')
+                .eq('operador_id', operadorId);
+
+            if (statsError) {
+                console.error('. Error obteniendo estadísticas:', statsError);
+            }
+
+            const estadisticas = {
+                total: solicitudesProcesadas.length,
+                en_revision: stats?.filter(s => s.estado === 'en_revision').length || 0,
+                pendiente_info: stats?.filter(s => s.estado === 'pendiente_info').length || 0,
+                aprobado: stats?.filter(s => s.estado === 'aprobado').length || 0,
+                rechazado: stats?.filter(s => s.estado === 'rechazado').length || 0
+            };
+
+            res.json({
+                success: true,
+                data: {
+                    solicitudes: solicitudesProcesadas,
+                    estadisticas,
+                    metricas, // ✅ NUEVO: Enviar métricas calculadas correctamente
+                    total: solicitudesProcesadas.length
+                }
+            });
+
+        } catch (error) {
+            console.error('. Error en obtenerDashboard:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener el dashboard del operador',
+                error: error.message
+            });
+        }
     }
 
-    const estadisticas = {
-      total: solicitudesProcesadas.length,
-      en_revision: stats?.filter(s => s.estado === 'en_revision').length || 0,
-      pendiente_info: stats?.filter(s => s.estado === 'pendiente_info').length || 0,
-      aprobado: stats?.filter(s => s.estado === 'aprobado').length || 0,
-      rechazado: stats?.filter(s => s.estado === 'rechazado').length || 0
-    };
-
-    res.json({
-      success: true,
-      data: {
-        solicitudes: solicitudesProcesadas,
-        estadisticas,
-        total: solicitudesProcesadas.length
-      }
-    });
-
-  } catch (error) {
-    console.error('. Error en obtenerDashboard:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al obtener el dashboard del operador',
-      error: error.message
-    });
-  }
-}
-
-// Iniciar revision de solicitud (abrir modal de acciones) - .
 // Iniciar revisión de solicitud (abrir modal de acciones) - .
 static async iniciarRevision(req, res) {
   try {
