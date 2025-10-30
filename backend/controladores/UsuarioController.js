@@ -29,7 +29,7 @@ static validarCamposRegistro(data, rol) {
         errors.push('Formato de email inválido');
     }
 
-    if (data.telefono && !this.validarTelefono(data.telefono)) {
+    if (data.telefono && !UsuarioController.validarTelefono(data.telefono)) {
         errors.push('Formato de teléfono inválido');
     }
 
@@ -75,8 +75,8 @@ static validarCamposRegistro(data, rol) {
     try{
       console.log('Body recibido:', req.body);
       const{rol='solicitante'}= req.body;
-      const datosFiltrados= this.filtrarCamposValidos(req.body, rol);
-      const validacionErrores= this.validarCamposRegistro(datosFiltrados, rol);
+      const datosFiltrados= UsuarioController.filtrarCamposValidos(req.body, rol);
+      const validacionErrores= UsuarioController.validarCamposRegistro(datosFiltrados, rol);
       if(validacionErrores.length>0){
         return res.status(400).json({
           success:false,
@@ -102,7 +102,7 @@ static validarCamposRegistro(data, rol) {
       const usuarioExistente= await UsuarioModel.finInactiveByEmail(email);
       if(usuarioExistente){
         console.log('Usuario existente inctivo encontrado, reactivando...');
-        return await this.reactivarUsuario(req, res, usuarioExistente.id);
+        return await UsuarioController.reactivarUsuario(req, res, usuarioExistente.id);
       }
       const usuarioActivo= await UsuarioModel.exists(email);
       if(usuarioActivo){
@@ -133,13 +133,13 @@ static validarCamposRegistro(data, rol) {
       }
       if(authError){
         if(authError.message.includes('already registered')|| authError.status===42){
-          return await this.manejarUsuarioAuthExistente(req, res, email);
+          return await UsuarioController.manejarUsuarioAuthExistente(req, res, email);
         }
         throw authError;
       }
       if(authData && authData.user){
         console.log('Usuario creado en auth, completando registro...');
-        return await this.completarRegistroNuevoUsuario(req, res, authData.user, datosFiltrados);
+        return await UsuarioController.completarRegistroNuevoUsuario(req, res, authData.user, datosFiltrados);
       }
 
 
@@ -165,12 +165,12 @@ static validarCamposRegistro(data, rol) {
           throw new Error('Ya existe una cuenta activa con este email');
 
         } else{
-          return await this.completarRegistroNuevoUsuario(req, res, existingUserId, existingAuthUser.user);
+          return await UsuarioController.completarRegistroNuevoUsuario(req, res, existingUserId, existingAuthUser.user);
         }
 
       }catch(error){ 
         if(error.message.includes('no encontrado')){
-          return await this.completarRegistroNuevoUsuario(req, res, existingUserId, existingAuthUser.user);
+          return await UsuarioController.completarRegistroNuevoUsuario(req, res, existingUserId, existingAuthUser.user);
         }
         throw error;
       }
@@ -203,8 +203,8 @@ static validarCamposRegistro(data, rol) {
         }
       }
       console.log(`Usuario insertado en tabla usuarios con rol:${rol}(ID:${authUser.id})`);
-      await this.insertarEnTablaEspecifica(rol, authUser.id, datos);
-      const emailResult= await this.enviarEmailConfirmacionSiEsPosible(authUser.email, datos.nombre_completo, authUser.id);
+      await UsuarioController.insertarEnTablaEspecifica(rol, authUser.id, datos);
+      const emailResult= await UsuarioController.enviarEmailConfirmacionSiEsPosible(authUser.email, datos.nombre_completo, authUser.id);
       res.status(201).json({
         success:true,
         message: 'Usuario registrado correctamente. Por favor revisa tu email para confirmar tu cuenta',
@@ -223,7 +223,7 @@ static validarCamposRegistro(data, rol) {
     }
   }
   static async completarRegistroUsuarioExistente(req, res, userId, authUser){
-    const datosFiltrados= this.filtrarCamposValidos(req.body, req.body.rol);
+    const datosFiltrados= UsuarioController.filtrarCamposValidos(req.body, req.body.rol);
     const { rol='solicitante'}= datosFiltrados;
     try{
       let userData;
@@ -258,8 +258,8 @@ static validarCamposRegistro(data, rol) {
           throw error;
         }
       }
-      await this.insertarEnTablaEspecifica(rol, userId, datosFiltrados);
-      await this.enviarEmailBienvenidaSiEsPosible(authUser.email, datosFiltrados.nombre_completo, rol);
+      await UsuarioController.insertarEnTablaEspecifica(rol, userId, datosFiltrados);
+      await UsuarioController.enviarEmailBienvenidaSiEsPosible(authUser.email, datosFiltrados.nombre_completo, rol);
       res.status(201).json({
         success:true,
         message: 'Usuario registrado correctamente(cuenta reactivada)',
@@ -274,7 +274,7 @@ static validarCamposRegistro(data, rol) {
     }
   }
   static async reactivarUsuario(req, res, userId){
-    const datosFiltrados= this.filtrarCamposValidos(req.body, req.body.rol);
+    const datosFiltrados= UsuarioController.filtrarCamposValidos(req.body, req.body.rol);
     const{rol='solicitante'}= datosFiltrados;
     try{
       console.log(`Reactivando usuario ID: ${userId}`);
@@ -286,10 +286,10 @@ static validarCamposRegistro(data, rol) {
         cuenta_activa: true,
         update_at: new Date().toISOString()
       });
-      await this.insertarEnTablaEspecifica(rol, userId, datosFiltrados);
+      await UsuarioController.insertarEnTablaEspecifica(rol, userId, datosFiltrados);
       const {data: authUser, error: authError}= await supabaseAdmin.auth.admin.getUserById(userId);
       if(authError) throw authError;
-      await this.enviarEmailBienvenidaSiEsPosible(authUser.user.email, datosFiltrados.nombre_completo, rol);
+      await UsuarioController.enviarEmailBienvenidaSiEsPosible(authUser.user.email, datosFiltrados.nombre_completo, rol);
       res.status(200).json({
         success:true,
         message: 'Usuario reactivado correctamente',
