@@ -9,6 +9,16 @@ class UsuarioModel{
     if(error) throw new Error('Usuario no encontrado');
     return data;
   }
+static async findInactiveByEmail(email){
+    const{data, error}= await supabase
+    .from('usuarios')
+    .select('*')
+    .eq('email', email)
+    .eq('cuenta_activa', false)
+    .single();
+    if(error) return null;
+    return data;
+}
   static async findById(id){
     const{data, error}= await supabase
     .from('usuarios')
@@ -55,7 +65,7 @@ class UsuarioModel{
     .from('usuarios')
     .update({
       cuenta_activa: true,
-      update_at: new Date().toISOString()
+      updated_at: new Date().toISOString()
     })
     .eq('email', email)
     .select();

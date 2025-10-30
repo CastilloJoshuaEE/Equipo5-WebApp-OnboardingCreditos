@@ -71,41 +71,67 @@ export default function RegisterForm() {
   };
 
   const block2 = getBlock2Content();
-
-  const onSubmit = async (data: RegisterInput) => {
+const onSubmit = async (data: RegisterInput) => {
     try {
-      setError('');
-      setIsSubmitting(true);
-      
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${API_URL}/usuarios/registro`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+        setError('');
+        setIsSubmitting(true);
+        
+        console.log('Datos enviados al servidor:', data);
+        
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        const response = await fetch(`${API_URL}/usuarios/registro`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error en el registro');
-      }
+        const responseData = await response.json();
+        console.log('Respuesta completa del servidor:', responseData);
 
-      const result = await response.json();
-      console.log('Registro exitoso:', result);
-      
-      alert('Registro exitoso. Revisá tu email para confirmar tu cuenta.');
-      router.push('/login');
-      
+        if (!response.ok) {
+            // Mostrar errores específicos del backend
+            if (responseData.errors && Array.isArray(responseData.errors)) {
+                const errorMessages = responseData.errors.join(', ');
+                throw new Error(errorMessages);
+            }
+            throw new Error(responseData.message || `Error ${response.status} en el registro`);
+        }
+
+        console.log('Registro exitoso:', responseData);
+        
+        alert('Registro exitoso. Revisá tu email para confirmar tu cuenta.');
+        router.push('/login');
+        
     } catch (error) {
-      console.error('Error en registro:', error);
-      setError(error instanceof Error ? error.message : 'Error al registrar usuario');
+        console.error('Error completo en registro:', error);
+        setError(error instanceof Error ? error.message : 'Error al registrar usuario');
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
-  };
+};
+const [passwordRequirements, setPasswordRequirements] = useState({
+    length: false,
+    lowercase: false,
+    uppercase: false,
+    number: false,
+    special: false
+});
 
+// Efecto para validar contraseña en tiempo real
+useEffect(() => {
+    const password = watch('password') || '';
+    setPasswordRequirements({
+        length: password.length >= 8,
+        lowercase: /[a-z]/.test(password),
+        uppercase: /[A-Z]/.test(password),
+        number: /\d/.test(password),
+        special: /[@$!%*?&]/.test(password)
+    });
+}, [watch('password')]);
   return (
+    
     <Box
       sx={{
         width: '100%',
@@ -414,6 +440,29 @@ export default function RegisterForm() {
       >
         &larr; Volver al inicio
       </Typography>
+      <Box sx={{ mt: 1, mb: 2 }}>
+    <Typography variant="caption" color="textSecondary">
+        Requisitos de contraseña:
+    </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', ml: 2 }}>
+        <Typography variant="caption" color={passwordRequirements.length ? 'success.main' : 'textSecondary'}>
+            ✓ Mínimo 8 caracteres
+        </Typography>
+        <Typography variant="caption" color={passwordRequirements.lowercase ? 'success.main' : 'textSecondary'}>
+            ✓ Una letra minúscula
+        </Typography>
+        <Typography variant="caption" color={passwordRequirements.uppercase ? 'success.main' : 'textSecondary'}>
+            ✓ Una letra mayúscula
+        </Typography>
+        <Typography variant="caption" color={passwordRequirements.number ? 'success.main' : 'textSecondary'}>
+            ✓ Un número
+        </Typography>
+        <Typography variant="caption" color={passwordRequirements.special ? 'success.main' : 'textSecondary'}>
+            ✓ Un carácter especial (@$!%*?&)
+        </Typography>
     </Box>
+</Box>
+    </Box>
+    
   );
 }
