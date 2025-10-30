@@ -99,7 +99,7 @@ static validarCamposRegistro(data, rol) {
         });
       }
       console.log('Registrando nuevo usuario:',{email, rol});
-      const usuarioExistente= await UsuarioModel.finInactiveByEmail(email);
+      const usuarioExistente= await UsuarioModel.findInactiveByEmail(email);
       if(usuarioExistente){
         console.log('Usuario existente inctivo encontrado, reactivando...');
         return await UsuarioController.reactivarUsuario(req, res, usuarioExistente.id);
@@ -178,101 +178,119 @@ static validarCamposRegistro(data, rol) {
       throw error;
     }
   }
-  static async completarRegistroNuevoUsuario(req, res, authUser, datos){
-    const { rol='solicitante'}=datos;
-    try{
-      const usuarioData={
-        id:authUser.id,
-        nombre_completo: datos.nombre_completo,
-        email: authUser.email,
-        telefono: datos.telefono || '',
-        rol: rol,
-        cuenta_activa: false,
-        created_at: new Date().toISOString()
-      };
-      let userData;
-      try{
-        userData=await UsuarioModel.create(usuarioData);
-      }catch(userError){
-        if(userError.message.includes('duplicate')){
-          console.log('ID ya existe, actualizando registro existente...');
-          userData=await UsuarioModel.update(authUser.id, usuarioData);
-        }else{
-          await supabaseAdmin.auth.admin.deleteUser(authUser.id);
-          throw userError
-        }
-      }
-      console.log(`Usuario insertado en tabla usuarios con rol:${rol}(ID:${authUser.id})`);
-      await UsuarioController.insertarEnTablaEspecifica(rol, authUser.id, datos);
-      const emailResult= await UsuarioController.enviarEmailConfirmacionSiEsPosible(authUser.email, datos.nombre_completo, authUser.id);
-      res.status(201).json({
-        success:true,
-        message: 'Usuario registrado correctamente. Por favor revisa tu email para confirmar tu cuenta',
-        data:{
-          user:authUser,
-          profile: userData,
-          rol:rol,
-          emailConfirmed:false,
-          emailEnviado: emailResult.emailEnviado
-        }
-      });
+  static async completarRegistroUsuarioExistente(req, res, userId, authUser) {
+    const datosFiltrados = UsuarioController.filtrarCamposValidos(req.body, req.body.rol);
+    const { rol = 'solicitante' } = datosFiltrados;
+    try {
+        let userData;
+        try {
+            const existingUser = await UsuarioModel.findById(userId);
+            console.log('Actualizando usuario existente inactivo...');
+            userData = await UsuarioModel.update(userId, {
+                nombre_completo: datosFiltrados.nombre_completo,
+                telefono: datosFiltrados.telefono || '',
+                dni: datosFiltrados.dni,
+                rol: rol,
+                password_hash: 'hashed_by_supabase', // ✅ AGREGAR ESTE CAMPO
+                cuenta_activa: true,
+                updated_at: new Date().toISOString()
+            });
 
-
-    } catch(error){
-      throw error;
+        } catch (error) {
+            if (error.message.includes('no encontrado')) {
+                console.log('Insertando nuevo registro para usuario existente...');
+                const usuarioData = {
+                    id: userId,
+                    nombre_completo: datosFiltrados.nombre_completo,
+                    email: authUser.email,
+                    telefono: datosFiltrados.telefono || '',
+                    dni: datosFiltrados.dni,
+                    password_hash: 'hashed_by_supabase', // ✅ AGREGAR ESTE CAMPO
+                    rol: rol,
+                    cuenta_activa: true,
+                    created_at: new Date().toISOString()
+                };
+                userData = await UsuarioModel.create(usuarioData);
+            } else {
+                throw error;
+            }
+        }
+        
+        await UsuarioController.insertarEnTablaEspecifica(rol, userId, datosFiltrados);
+        await UsuarioController.enviarEmailBienvenidaSiEsPosible(authUser.email, datosFiltrados.nombre_completo, rol);
+        
+        res.status(201).json({
+            success: true,
+            message: 'Usuario registrado correctamente (cuenta reactivada)',
+            data: {
+                user: authUser,
+                profile: userData,
+                rol: rol
+            }
+        });
+    } catch (error) {
+        throw error;
     }
-  }
-  static async completarRegistroUsuarioExistente(req, res, userId, authUser){
-    const datosFiltrados= UsuarioController.filtrarCamposValidos(req.body, req.body.rol);
-    const { rol='solicitante'}= datosFiltrados;
-    try{
-      let userData;
-      try{
-        const existingUser= await UsuarioModel.findById(userId);
-        console.log('Actualizando usuario existente inactivo...');
-        userData= await UsuarioModel.update(userId, {
-          nombre_completo: datosFiltrados.nombre_completo,
-          telefono: datosFiltrados.telefono || '',
-          dni: datosFiltrados.dni,
-          rol: rol,
-          cuenta_activa: true,
-          update_at: new Date().toISOString()
+}
+  static async completarRegistroNuevoUsuario(req, res, authUser, datos) {
+    const { rol = 'solicitante' } = datos;
+    try {
+        const usuarioData = {
+            id: authUser.id,
+            nombre_completo: datos.nombre_completo,
+            email: authUser.email,
+            telefono: datos.telefono || '',
+            dni: datos.dni, // ¡IMPORTANTE! Agregar el campo dni que falta
+            rol: rol,
+            password_hash: 'hashed_by_supabase', 
+            cuenta_activa: false,
+            created_at: new Date().toISOString(),
+        };
+        
+        console.log('Datos para insertar en usuarios:', usuarioData);
+        
+        let userData;
+        try {
+            userData = await UsuarioModel.create(usuarioData);
+        } catch (userError) {
+            if (userError.message.includes('duplicate')) {
+                console.log('ID ya existe, actualizando registro existente...');
+                userData = await UsuarioModel.update(authUser.id, usuarioData);
+            } else {
+                console.error('Error creando usuario:', userError);
+                // Intentar eliminar usuario de auth si falla
+                try {
+                    await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+                } catch (deleteError) {
+                    console.warn('No se pudo eliminar usuario de auth:', deleteError.message);
+                }
+                throw userError;
+            }
+        }
+        
+        console.log(`Usuario insertado en tabla usuarios con rol: ${rol} (ID: ${authUser.id})`);
+        await UsuarioController.insertarEnTablaEspecifica(rol, authUser.id, datos);
+        
+        const emailResult = await UsuarioController.enviarEmailConfirmacionSiEsPosible(authUser.email, datos.nombre_completo, authUser.id);
+        
+        res.status(201).json({
+            success: true,
+            message: 'Usuario registrado correctamente. Por favor revisa tu email para confirmar tu cuenta',
+            data: {
+                user: authUser,
+                profile: userData,
+                rol: rol,
+                emailConfirmed: false,
+                emailEnviado: emailResult.emailEnviado
+            }
         });
 
-      } catch (error){
-        if(error.message.includes('no encontrado')){
-          console.log('Insertando nuevo registro para usuario existente...');
-          const usuarioData={
-            id: userId,
-            nombre_completo: datosFiltrados.nombre_completo,
-            email: authUser.email,
-            telefono: datosFiltrados.telefono || '',
-            dni: datosFiltrados.dni,
-            password_hash: 'hashed_by_supabase',
-            rol: rol,
-            cuenta_activa: true,
-            created_at: new Date().toISOString()
-          };
-          userData=await UsuarioModel.create(usuarioData);
-        }else{
-          throw error;
-        }
-      }
-      await UsuarioController.insertarEnTablaEspecifica(rol, userId, datosFiltrados);
-      await UsuarioController.enviarEmailBienvenidaSiEsPosible(authUser.email, datosFiltrados.nombre_completo, rol);
-      res.status(201).json({
-        success:true,
-        message: 'Usuario registrado correctamente(cuenta reactivada)',
-        data:{
-          user:authUser,
-          profile: userData,
-          rol: rol
-        }
-      });
-    }catch(error){
-      throw error;
+    } catch (error) {
+        console.error('Error en completarRegistroNuevoUsuario:', error);
+        throw error;
     }
-  }
+}
+  
   static async reactivarUsuario(req, res, userId){
     const datosFiltrados= UsuarioController.filtrarCamposValidos(req.body, req.body.rol);
     const{rol='solicitante'}= datosFiltrados;
@@ -284,7 +302,7 @@ static validarCamposRegistro(data, rol) {
         dni: datosFiltrados.dni,
         rol: rol,
         cuenta_activa: true,
-        update_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
       });
       await UsuarioController.insertarEnTablaEspecifica(rol, userId, datosFiltrados);
       const {data: authUser, error: authError}= await supabaseAdmin.auth.admin.getUserById(userId);
@@ -314,7 +332,7 @@ static validarCamposRegistro(data, rol) {
         representante_legal: representante_legal || nombre_completo,
         domicilio: domicilio || `Direccion de ${nombre_completo.split('')[0]}`,
         created_at: new Date().toISOString(),
-        update_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
       };
       try{
         await SolicitanteModel.create(solicitanteData);
@@ -330,7 +348,7 @@ static validarCamposRegistro(data, rol) {
         nivel: 'analista',
         permisos: ['revision', 'aprobacion', 'rechazo'],
         created_at: new Date().toISOString(),
-        update_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
       };
       try{
         await OperadorModel.create(operadorData);

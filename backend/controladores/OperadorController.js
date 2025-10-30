@@ -365,7 +365,7 @@ static async calcularScoringDocumentos(documentos) {
             .from('solicitudes_credito')
             .update({
                 nivel_riesgo: nivel_riesgo,
-                update_at: new Date().toISOString
+                updated_at: new Date().toISOString
             })
             .eq('id', solicitudId);
             return scoring;
