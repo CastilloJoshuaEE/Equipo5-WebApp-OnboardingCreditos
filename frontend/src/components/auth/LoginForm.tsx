@@ -27,6 +27,9 @@ import type { LoginInput } from '@/types/auth.types';
 
 export default function LoginForm() {
   const [error, setError] = useState('');
+    const [redirectMessage, setRedirectMessage] = useState(''); // 🔹 Mensaje del overlay
+
+  const [redirecting, setRedirecting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [recuperarOpen, setRecuperarOpen] = useState(false);
   const [recuperarContrasenaOpen, setRecuperarContrasenaOpen] = useState(false);
@@ -61,6 +64,13 @@ export default function LoginForm() {
 
   const handleClickShowConfirmarContrasena = () => {
     setShowConfirmarContrasena(!showConfirmarContrasena);
+  };
+  const handleRedirectWithOverlay = (path: string, message: string) => {
+    setRedirectMessage(message);
+    setRedirecting(true);
+    setTimeout(() => {
+      router.push(path);
+    }, 1200);
   };
 
   const onSubmit: SubmitHandler<LoginInput> = async (data) => {
@@ -235,18 +245,20 @@ export default function LoginForm() {
     <>
       {/* Backdrop overlay que cubre la pantalla mientras isLoading = true */}
       <Backdrop
-        open={isLoading}
+        open={isLoading || redirecting}
         sx={{
           zIndex: (theme) => theme.zIndex.drawer + 1200,
           color: '#fff',
-          display: 'flex',
           flexDirection: 'column',
+          display: 'flex',
           gap: 2,
         }}
       >
         <CircularProgress />
-        <Typography variant="body1">Iniciando sesión...</Typography>
-      </Backdrop>
+    <Typography variant="body1">
+          {redirecting ? redirectMessage : 'Iniciando sesión...'}
+        </Typography>
+              </Backdrop>
 
       <Box
         sx={{
@@ -381,21 +393,17 @@ export default function LoginForm() {
           {isLoading ? 'Iniciando sesión...' : 'Inicia sesión'}
         </Button>
 
-        <Stack direction="column" spacing={1} sx={{ mt: 1, width: '100%' }}>
-          <Typography sx={{ textAlign: 'center', fontSize: '0.875rem', color: '#9ba39c' }}>
+     <Stack direction="column" spacing={1} sx={{ mt: 2, width: '100%' }}>
+          <Typography sx={{ textAlign: 'center', fontSize: '0.875rem' }}>
             ¿No tenés cuenta?{' '}
             <Box
               component="span"
               sx={{
                 color: '#DA68F2',
-                fontSize: '1rem',
-                letterSpacing: '0.15px',
                 cursor: 'pointer',
-                '&:hover': {
-                  textDecoration: 'underline'
-                }
+                '&:hover': { textDecoration: 'underline' }
               }}
-              onClick={() => !isLoading && router.push('/register')}
+              onClick={() => handleRedirectWithOverlay('/register', 'Redirigiendo al registro...')}
             >
               Registrate aquí
             </Box>
