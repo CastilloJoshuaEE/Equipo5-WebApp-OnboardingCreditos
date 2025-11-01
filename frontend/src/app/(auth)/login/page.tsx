@@ -1,14 +1,39 @@
 'use client';
+import { useState } from 'react';
 
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Backdrop, CircularProgress } from '@mui/material';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import LoginForm from '@/components/auth/LoginForm';
 
 export default function LoginPage() {
   const router = useRouter();
+    const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const handleVolverInicio = () => {
+    setIsRedirecting(true);
+
+    // Pequeña pausa visual antes de redirigir (puedes ajustar el tiempo)
+    setTimeout(() => {
+      router.push('/');
+    }, 800);
+  };
 
   return (
+        <>
+    {/* Overlay de carga */}
+      <Backdrop
+        open={isRedirecting}
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 2000,
+          color: '#fff',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        <CircularProgress color="inherit" />
+        <Typography variant="body1">Redirigiendo al inicio...</Typography>
+      </Backdrop>
     <Box
       sx={{
         backgroundColor: '#f3edf5',
@@ -136,19 +161,20 @@ export default function LoginPage() {
       </Box>
 
       {/* Footer con enlace de volver */}
-      <Box
-        sx={{
-          textAlign: 'center',
-          py: '15px',
-          cursor: 'pointer',
-          color: '#213126',
-          fontSize: '0.9rem',
-          '&:hover': { textDecoration: 'underline' },
-        }}
-        onClick={() => router.push('/')}
-      >
-        &larr; Volver al inicio
-      </Box>
+        <Box
+          sx={{
+            textAlign: 'center',
+            py: '15px',
+            cursor: 'pointer',
+            color: '#213126',
+            fontSize: '0.9rem',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+          onClick={handleVolverInicio}
+        >
+          &larr; Volver al inicio
+        </Box>
     </Box>
+    </>
   );
 }

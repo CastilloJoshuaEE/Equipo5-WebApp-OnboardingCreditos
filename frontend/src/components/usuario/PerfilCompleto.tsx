@@ -53,6 +53,7 @@ export default function PerfilCompleto() {
   const [modalDesactivarOpen, setModalDesactivarOpen] = useState<boolean>(false);
   const [modalCambiarContrasenaOpen, setModalCambiarContrasenaOpen] = useState<boolean>(false);
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
+  const [redirecting, setRedirecting] = useState<boolean>(false);
 
   useEffect(() => {
     cargarPerfilCompleto();
@@ -126,8 +127,12 @@ export default function PerfilCompleto() {
   };
 
   const handleEditarPerfil = (): void => {
-    window.location.href = '/usuario/editar-perfil';
+    setRedirecting(true); // mostrar overlay
+    setTimeout(() => {
+      window.location.href = '/usuario/editar-perfil';
+    }, 1000); // pequeña espera para mostrar la animación
   };
+
 
   const handleCloseSnackbar = (): void => {
     setSnackbarOpen(false);

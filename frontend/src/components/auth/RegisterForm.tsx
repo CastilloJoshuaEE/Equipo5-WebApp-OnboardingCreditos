@@ -36,6 +36,15 @@ export default function RegisterForm() {
   const formRef = useRef<HTMLDivElement>(null);
   const [isRedirecting, setIsRedirecting] = useState(false); // 👈 nuevo estado para redirecciones
 
+  const handleVolverInicio = () => {
+    setIsRedirecting(true);
+
+    // Pequeña pausa visual antes de redirigir (puedes ajustar el tiempo)
+    setTimeout(() => {
+      router.push('/');
+    }, 800);
+  };
+
   const {
     register,
     handleSubmit,
@@ -464,19 +473,19 @@ useEffect(() => {
       </Box>
 
       {/* Enlace para volver al inicio */}
-      <Typography
-        sx={{
-          textAlign: 'center',
-          fontSize: '0.85rem',
-          cursor: 'pointer',
-          mt: 1,
-          color: '#6b6b6b',
-          '&:hover': { textDecoration: 'underline' },
-        }}
-        onClick={() => handleRedirect('/')}
-      >
-        &larr; Volver al inicio
-      </Typography>
+        <Box
+          sx={{
+            textAlign: 'center',
+            py: '15px',
+            cursor: 'pointer',
+            color: '#213126',
+            fontSize: '0.9rem',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+          onClick={handleVolverInicio}
+        >
+          &larr; Volver al inicio
+        </Box>
       <Box sx={{ mt: 1, mb: 2 }}>
     
 </Box>

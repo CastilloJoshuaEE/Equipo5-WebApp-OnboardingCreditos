@@ -8,9 +8,10 @@ import {
   DialogTitle, 
   Alert,
   Typography,
-  Box 
+  Box,
+  Tooltip
 } from '@mui/material';
-import { EditDocument, WarningAmber } from '@mui/icons-material';
+import { EditDocument, WarningAmber, Info } from '@mui/icons-material';
 import { getSession } from 'next-auth/react';
 
 interface BotonIniciarFirmaProps {
@@ -26,29 +27,153 @@ interface SessionUser {
   accessToken?: string;
 }
 
+interface TransferenciaEstado {
+  habilitado: boolean;
+  existe_transferencia: boolean;
+  transferencia_existente?: any;
+  estado_firma?: string;
+  motivo?: string;
+}
+
 const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [firmaExistente, setFirmaExistente] = useState<any>(null);
   const [userRol, setUserRol] = useState<string>('');
+  const [transferenciaEstado, setTransferenciaEstado] = useState<TransferenciaEstado | null>(null);
+  const [firmaExpirada, setFirmaExpirada] = useState(false);
 
-  // Obtener el rol del usuario al cargar el componente
+  // Obtener el rol del usuario y verificar transferencia al cargar el componente
   useEffect(() => {
-    const obtenerRolUsuario = async () => {
+    const obtenerDatosIniciales = async () => {
       try {
         const session = await getSession();
         if (session?.user) {
           const user = session.user as SessionUser;
           setUserRol(user.rol || '');
+          
+          // Verificar estado de transferencia
+          await verificarEstadoTransferencia(solicitudId, session.accessToken);
         }
       } catch (error) {
-        console.error('Error obteniendo rol del usuario:', error);
+        console.error('Error obteniendo datos iniciales:', error);
       }
     };
 
-    obtenerRolUsuario();
-  }, []);
+    if (solicitudId) {
+      obtenerDatosIniciales();
+    }
+  }, [solicitudId]);
+
+  // Verificar si existe transferencia bancaria
+  const verificarEstadoTransferencia = async (solicitudId: string, token?: string) => {
+    try {
+      if (!token) return;
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitudId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setTransferenciaEstado(result.data);
+        
+        // Verificar si la firma está expirada
+        if (result.data.estado_firma === 'expirado') {
+          setFirmaExpirada(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error verificando estado de transferencia:', error);
+    }
+  };
+
+  // Verificar si el botón debe estar deshabilitado
+  const botonDeshabilitado = () => {
+    // Deshabilitar si existe transferencia
+    if (transferenciaEstado?.existe_transferencia) {
+      return true;
+    }
+    
+    // Deshabilitar si está cargando o no hay solicitudId
+    return loading || !solicitudId;
+  };
+
+  // Obtener el mensaje para el tooltip
+  const getTooltipMessage = () => {
+    if (transferenciaEstado?.existe_transferencia) {
+      return "La transferencia bancaria ya fue realizada - Proceso completado";
+    }
+    
+    if (firmaExpirada) {
+      return "El proceso de firma ha expirado. Contacte para reactivar.";
+    }
+    
+    return "Iniciar proceso de firma digital del contrato";
+  };
+
+  // Mensaje de expiración para mostrar en el diálogo - SOLO PARA SOLICITANTE
+  const MensajeExpiracion = () => {
+    // Solo mostrar si el usuario es solicitante
+    if (userRol !== 'solicitante') {
+      return null;
+    }
+
+    return (
+      <Alert severity="warning" sx={{ mt: 2, mb: 2 }}>
+        <Typography variant="body2" fontWeight="bold">
+          ⚠️ Importante - Plazo de Firma Digital
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          • Tienes <strong>7 días</strong> para completar la firma digital del contrato
+        </Typography>
+        <Typography variant="body2">
+          • Si no se completa la firma en este plazo, la solicitud de crédito será cancelada automáticamente
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          • Para reactivar el proceso después de la expiración, contacta con:
+        </Typography>
+        <Box sx={{ pl: 2, mt: 1 }}>
+          <Typography variant="body2">
+            📞 <strong>Teléfono:</strong> +51 987 654 321
+          </Typography>
+          <Typography variant="body2">
+            📧 <strong>Email:</strong> contacto@nexia.com
+          </Typography>
+        </Box>
+      </Alert>
+    );
+  };
+
+  // Mensaje informativo para operadores
+  const MensajeOperador = () => {
+    // Solo mostrar si el usuario es operador
+    if (userRol !== 'operador') {
+      return null;
+    }
+
+    return (
+      <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
+        <Typography variant="body2" fontWeight="bold">
+          ℹ️ Información - Proceso de Firma Digital
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          • El solicitante tiene <strong>7 días</strong> para completar la firma digital
+        </Typography>
+        <Typography variant="body2">
+          • Pasado este plazo, la solicitud se marcará como expirada automáticamente
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          • Puedes reiniciar el proceso de firma si es necesario
+        </Typography>
+      </Alert>
+    );
+  };
 
   const verificarFirmaExistente = async () => {
     try {
@@ -217,6 +342,11 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
   };
 
   const handleClick = async () => {
+    // Si ya existe transferencia, no hacer nada
+    if (transferenciaEstado?.existe_transferencia) {
+      return;
+    }
+
     const existeFirma = await verificarFirmaExistente();
     
     if (existeFirma && firmaExistente) {
@@ -233,18 +363,38 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
     return userRol === 'operador';
   };
 
+  // Función para verificar si el usuario es solicitante
+  const esSolicitante = () => {
+    return userRol === 'solicitante';
+  };
+
   return (
     <>
-      <Button
-        variant="contained"
-        startIcon={<EditDocument />}
-        onClick={handleClick}
-        color="primary"
-        size="small"
-        disabled={!solicitudId}
-      >
-        Iniciar Firma Digital
-      </Button>
+      <Tooltip title={getTooltipMessage()} arrow>
+        <span>
+          <Button
+            variant="contained"
+            startIcon={<EditDocument />}
+            onClick={handleClick}
+            color="primary"
+            size="small"
+            disabled={botonDeshabilitado()}
+            sx={{
+              opacity: transferenciaEstado?.existe_transferencia ? 0.6 : 1,
+              position: 'relative'
+            }}
+          >
+            {transferenciaEstado?.existe_transferencia ? (
+              <>
+                <Info sx={{ fontSize: 16, mr: 0.5 }} />
+                Transferencia Realizada
+              </>
+            ) : (
+              'Iniciar Firma Digital'
+            )}
+          </Button>
+        </span>
+      </Tooltip>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
@@ -263,6 +413,12 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
               No se pudo obtener el ID de la solicitud. Por favor, recarga la página.
             </Alert>
           )}
+
+          {/* Mostrar mensaje de expiración SOLO para solicitantes */}
+          <MensajeExpiracion />
+          
+          {/* Mostrar mensaje informativo para operadores */}
+          <MensajeOperador />
 
           {firmaExistente ? (
             <Box>
