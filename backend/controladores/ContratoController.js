@@ -1,34 +1,23 @@
-const SolicitudModel=require('../modelos/SolicitudModel');
-const DocumentoModel=require('../modelos/DocumentoModel');
-const VerificacionKycModel = require('../modelos/VerificacionKycModel');
-const OperadorController=require('../controladores/OperadorController')
-const NotificacionService = require('../servicios/NotificacionService');
 const { Document, Paragraph, TextRun, HeadingLevel, AlignmentType } = require('docx');
-
-const { supabase } = require('../config/conexion');
-const { supabaseAdmin } = require('../config/supabaseAdmin');
-const diditService = require('../servicios/diditService');
+const ContratoModel = require('../modelos/ContratoModel');
 
 class ContratoController {
+    
+    /**
+     * Generar contenido DOCX del contrato
+     */
     static async crearDOCXContrato(solicitud) {
         try {
-            // Obtener información de firmas si existen
+            // Obtener información de firmas usando el modelo
             let firmaSolicitante = null;
             let firmaOperador = null;
-            let emailSolicitante = solicitud.solicitantes?.usuarios?.email || 'No disponible';
-            let emailOperador = solicitud.operadores?.usuarios?.email || 'No disponible';
+            
             let fechaSolicitante = null;
             let fechaOperador = null;
             let hashDocumento = 'Pendiente de firma';
 
-            // Intentar obtener información de firmas existentes
             try {
-                const { data: firmas } = await supabase
-                    .from('firmas_digitales')
-                    .select('fecha_firma_solicitante, fecha_firma_operador, hash_documento_firmado')
-                    .eq('solicitud_id', solicitud.id)
-                    .single();
-
+                const firmas = await ContratoModel.obtenerInformacionFirmas(solicitud.id);
                 if (firmas) {
                     fechaSolicitante = firmas.fecha_firma_solicitante ? 
                         new Date(firmas.fecha_firma_solicitante).toLocaleString() : null;
@@ -206,8 +195,6 @@ class ContratoController {
                             size: 16,
                             spacing: { after: 400 }
                         }),
-                        
-                       
                     ]
                 }]
             });
@@ -219,97 +206,105 @@ class ContratoController {
 
         } catch (error) {
             console.error('Error generando DOCX del contrato:', error);
-          
+            throw error;
         }
     }
 
-    static async generarContratoParaSolicitud(solicitudId) {
+    /**
+     * Generar contrato para solicitud
+     */
+   static async generarContratoParaSolicitud(solicitudId) {
+    try {
+        // Obtener solicitud usando el modelo
+        const solicitud = await ContratoModel.obtenerSolicitudAprobada(solicitudId);
+
+        // VERIFICAR SI YA EXISTE UN CONTRATO PARA ESTA SOLICITUD
+        let contratoExistente;
         try {
-            const { data: solicitud, error } = await supabaseAdmin
-                .from('solicitudes_credito')
-                .select(`
-                    *,
-                    solicitantes: solicitantes!solicitante_id(
-                        usuarios(*),
-                        nombre_empresa,
-                        cuit,
-                        representante_legal,
-                        domicilio
-                    )
-                `)
-                .eq('id', solicitudId)
-                .eq('estado', 'aprobado')
-                .single();
-
-            if (error || !solicitud) {
-                throw new Error('Solicitud no encontrada o no aprobada');
-            }
-
-            // Generar número de contrato único
-            const numeroContrato = `CONTR-${solicitud.numero_solicitud}-${Date.now()}`;
-
-            // Datos del contrato
-            const contratoData = {
-                solicitud_id: solicitudId,
+            contratoExistente = await ContratoModel.obtenerPorSolicitud(solicitudId);
+        } catch (error) {
+            // Si hay error, asumir que no existe contrato
+            console.log('. No se pudo verificar contrato existente, creando uno nuevo...');
+            contratoExistente = null;
+        }
+        
+        if (contratoExistente) {
+            console.log('. Contrato existente encontrado, actualizando:', contratoExistente.id);
+            
+            // Actualizar contrato existente
+            const numeroContrato = ContratoModel.generarNumeroContrato(solicitud.numero_solicitud);
+            
+            const updateData = {
                 numero_contrato: numeroContrato,
                 monto_aprobado: solicitud.monto,
                 tasa_interes: 24.50,
                 plazo_meses: solicitud.plazo_meses,
                 estado: 'generado',
-                tipo: 'credito_standard',
-                created_at: new Date().toISOString()
+                updated_at: new Date().toISOString()
             };
 
-            // USAR supabaseAdmin PARA INSERTAR
-            const { data: contrato, error: contratoError } = await supabaseAdmin
-                .from('contratos')
-                .insert([contratoData])
-                .select()
-                .single();
+            const contratoActualizado = await ContratoModel.actualizar(contratoExistente.id, updateData);
+            
+            // Generar Word del contrato actualizado
+            await ContratoController.generarWordContrato(contratoActualizado.id, solicitud);
 
-            if (contratoError) throw contratoError;
-
-            // Generar Word del contrato
-            await ContratoController.generarWordContrato(contrato.id, solicitud);
-
-            console.log('. Contrato generado para solicitud:', solicitudId);
-            return contrato;
-
-        } catch (error) {
-            console.error('. Error generando contrato:', error);
-            throw error;
+            console.log('. Contrato existente actualizado para solicitud:', solicitudId);
+            return contratoActualizado;
         }
-    }
 
+        // Si no existe, crear uno nuevo
+        const numeroContrato = ContratoModel.generarNumeroContrato(solicitud.numero_solicitud);
+
+        // Datos del contrato
+        const contratoData = {
+            solicitud_id: solicitudId,
+            numero_contrato: numeroContrato,
+            monto_aprobado: solicitud.monto,
+            tasa_interes: 24.50,
+            plazo_meses: solicitud.plazo_meses,
+            estado: 'generado',
+            tipo: 'credito_standard',
+            created_at: new Date().toISOString()
+        };
+
+        // Validar datos
+        const erroresValidacion = ContratoModel.validarDatosContrato(contratoData);
+        if (erroresValidacion.length > 0) {
+            throw new Error(`Datos de contrato inválidos: ${erroresValidacion.join(', ')}`);
+        }
+
+        // Crear contrato usando el modelo
+        const contrato = await ContratoModel.crear(contratoData);
+
+        // Generar Word del contrato
+        await ContratoController.generarWordContrato(contrato.id, solicitud);
+
+        console.log('. Nuevo contrato generado para solicitud:', solicitudId);
+        return contrato;
+
+    } catch (error) {
+        console.error('. Error generando contrato:', error);
+        throw error;
+    }
+}
+    /**
+     * Generar archivo Word del contrato
+     */
     static async generarWordContrato(contratoId, solicitud) {
         try {
             console.log('📄 Generando word para contrato:', contratoId);
 
+            // Generar contenido DOCX
             const pdfBuffer = await ContratoController.crearDOCXContrato(solicitud);
             
-            // Subir a Supabase Storage
+            // Subir a Supabase Storage usando el modelo
             const nombreArchivo = `contrato-${contratoId}.docx`;
             const rutaStorage = `contratos/${nombreArchivo}`;
 
-            const { error: uploadError } = await supabase.storage
-                .from('kyc-documents')
-                .upload(rutaStorage, pdfBuffer, {
-                    contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    upsert: true
-                });
+            await ContratoModel.subirDocumento(rutaStorage, pdfBuffer);
 
-            if (uploadError) throw uploadError;
-
-            // Actualizar contrato con ruta del word
-            const { error: updateError } = await supabase
-                .from('contratos')
-                .update({ 
-                    ruta_documento: rutaStorage,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', contratoId);
-
-            if (updateError) throw updateError;
+            // Actualizar contrato con ruta del word usando el modelo
+            await ContratoModel.actualizarRutaDocumento(contratoId, rutaStorage);
 
             console.log('. word de contrato generado y guardado:', rutaStorage);
             return rutaStorage;
@@ -329,21 +324,10 @@ class ContratoController {
 
             console.log('. Verificando estado del contrato para firma:', firma_id);
 
-            // Consulta optimizada solo para verificar el contrato
-            const { data: firma, error } = await supabase
-                .from('firmas_digitales')
-                .select(`
-                    id,
-                    estado,
-                    contratos!inner(
-                        ruta_documento,
-                        estado
-                    )
-                `)
-                .eq('id', firma_id)
-                .single();
+            // Consultar estado usando el modelo
+            const firma = await ContratoModel.verificarEstadoParaFirma(firma_id);
 
-            if (error || !firma) {
+            if (!firma) {
                 return res.status(404).json({
                     success: false,
                     message: 'Proceso de firma no encontrado'
@@ -370,44 +354,30 @@ class ContratoController {
         }
     }
 
-    // En tu ContratoController.js
+    /**
+     * Obtener contenido del contrato
+     */
     static async obtenerContenidoContrato(req, res) {
         try {
             const { firma_id } = req.params;
 
-            const { data: firma, error } = await supabase
-                .from('firmas_digitales')
-                .select(`
-                    id,
-                    ruta_documento,
-                    contratos!inner(
-                        ruta_documento,
-                        solicitud_id
-                    )
-                `)
-                .eq('id', firma_id)
-                .single();
+            // Obtener información de la firma usando el modelo
+            const firma = await ContratoModel.obtenerParaFirma(firma_id);
 
-            if (error || !firma) {
+            if (!firma) {
                 return res.status(404).json({
                     success: false,
                     message: 'Proceso de firma no encontrado'
                 });
             }
 
-            // Descargar el documento
-            const { data: fileData, error: fileError } = await supabase.storage
-                .from('kyc-documents')
-                .download(firma.ruta_documento || firma.contratos.ruta_documento);
-
-            if (fileError) {
-                throw new Error('No se pudo acceder al documento');
-            }
+            // Descargar el documento usando el modelo
+            const fileData = await ContratoModel.descargarDocumento(
+                firma.ruta_documento || firma.contratos.ruta_documento
+            );
 
             const buffer = Buffer.from(await fileData.arrayBuffer());
             
-            // Para Word documents, podrías usar una librería como mammoth para extraer texto
-            // Por ahora devolvemos información básica
             res.json({
                 success: true,
                 data: {
@@ -423,6 +393,59 @@ class ContratoController {
             res.status(500).json({
                 success: false,
                 message: 'Error obteniendo contenido del contrato'
+            });
+        }
+    }
+
+    /**
+     * Obtener contratos del usuario
+     */
+    static async obtenerContratosUsuario(req, res) {
+        try {
+            const usuarioId = req.usuario.id;
+            const usuarioRol = req.usuario.rol;
+            const { estado, tipo } = req.query;
+
+            const filtros = {};
+            if (estado) filtros.estado = estado;
+            if (tipo) filtros.tipo = tipo;
+
+            const contratos = await ContratoModel.obtenerPorUsuario(usuarioId, usuarioRol, filtros);
+
+            res.json({
+                success: true,
+                data: contratos
+            });
+
+        } catch (error) {
+            console.error('. Error obteniendo contratos del usuario:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener contratos'
+            });
+        }
+    }
+
+    /**
+     * Obtener estadísticas de contratos
+     */
+    static async obtenerEstadisticas(req, res) {
+        try {
+            const usuarioId = req.usuario.id;
+            const usuarioRol = req.usuario.rol;
+
+            const estadisticas = await ContratoModel.obtenerEstadisticas(usuarioId, usuarioRol);
+
+            res.json({
+                success: true,
+                data: estadisticas
+            });
+
+        } catch (error) {
+            console.error('. Error obteniendo estadísticas de contratos:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener estadísticas'
             });
         }
     }

@@ -184,7 +184,7 @@ export default function PerfilCompleto() {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                   <Typography variant="h4" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
                     <Person sx={{ mr: 2 }} />
-                    Mi Perfil
+                    Mi perfil
                   </Typography>
                   <Button 
                     variant="contained" 
@@ -192,7 +192,7 @@ export default function PerfilCompleto() {
                     onClick={handleEditarPerfil}
                     className="btn-primary"
                   >
-                    Editar Perfil
+                    Editar perfil
                   </Button>
                 </Box>
 
@@ -204,7 +204,7 @@ export default function PerfilCompleto() {
                         <CardContent>
                           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
                             <Badge sx={{ mr: 1 }} />
-                            Información Personal
+                            Información personal
                           </Typography>
                           
                           <Box className="form-group">
@@ -219,7 +219,7 @@ export default function PerfilCompleto() {
 
                           <Box sx={{ mb: 2 }}>
                             <Typography variant="subtitle2" color="textSecondary">
-                              Nombre Completo
+                              Nombre completo
                             </Typography>
                             <Typography variant="body1">{perfil.nombre_completo}</Typography>
                           </Box>
@@ -251,7 +251,7 @@ export default function PerfilCompleto() {
 
                           <Box>
                             <Typography variant="subtitle2" color="textSecondary">
-                              Estado de Cuenta
+                              Estado de cuenta
                             </Typography>
                             <Chip 
                               label={perfil.cuenta_activa ? 'Activa' : 'Inactiva'} 
@@ -328,12 +328,12 @@ export default function PerfilCompleto() {
                       <Card variant="outlined" sx={{ mt: 3 }}>
                         <CardContent>
                           <Typography variant="h6" gutterBottom>
-                            Información del Sistema
+                            Información del sistema
                           </Typography>
                           <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6}}>
                               <Typography variant="subtitle2" color="textSecondary">
-                                Fecha de Registro
+                                Fecha de registro
                               </Typography>
                               <Typography variant="body2">
                                 {new Date(perfil.created_at).toLocaleDateString('es-ES')}
@@ -341,7 +341,7 @@ export default function PerfilCompleto() {
                             </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
                               <Typography variant="subtitle2" color="textSecondary">
-                                Última Actualización
+                                Última actualización
                               </Typography>
                               <Typography variant="body2">
                                 {new Date(perfil.updated_at).toLocaleDateString('es-ES')}
@@ -349,7 +349,7 @@ export default function PerfilCompleto() {
                             </Grid>
         <Grid size={{ xs: 12}}>
                               <Typography variant="subtitle2" color="textSecondary">
-                                ID de Usuario
+                                ID de usuario
                               </Typography>
                               <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                                 {perfil.id}
@@ -368,7 +368,7 @@ export default function PerfilCompleto() {
           {activeTab === 'account-settings' && (
             <Box id="account-settings" className="tab-section active">
               <Card className="content-box">
-                <Typography variant="h6" gutterBottom>Configuración de Cuenta</Typography>
+                <Typography variant="h6" gutterBottom>Configuración de cuenta</Typography>
                 <Typography className="page-subtitle">
                   Gestiona la configuración de seguridad y preferencias de tu cuenta.
                 </Typography>
@@ -385,7 +385,7 @@ export default function PerfilCompleto() {
                     variant="outlined" 
                     onClick={() => setModalCambiarContrasenaOpen(true)}
                   >
-                    Cambiar Contraseña
+                    Cambiar contraseña
                   </Button>
                 </Box>
 
@@ -394,7 +394,7 @@ export default function PerfilCompleto() {
                 {/* Email de recuperación */}
                 <Box sx={{ mb: 4 }}>
                   <Typography variant="h6" gutterBottom>
-                    Email de Recuperación
+                    Email de recuperación
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Configura un email alternativo para recuperar tu cuenta en caso de problemas.
@@ -407,7 +407,7 @@ export default function PerfilCompleto() {
                 {/* Zona de peligro */}
                 <Box>
                   <Typography variant="h6" gutterBottom color="error">
-                    Zona de Peligro
+                    Zona de peligro
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
                     Una vez que desactives tu cuenta, no podrás acceder al sistema hasta que la reactives.
@@ -418,7 +418,7 @@ export default function PerfilCompleto() {
                     color="error"
                     onClick={() => setModalDesactivarOpen(true)}
                   >
-                    Desactivar Mi Cuenta
+                    Desactivar mi cuenta
                   </Button>
                 </Box>
               </Card>

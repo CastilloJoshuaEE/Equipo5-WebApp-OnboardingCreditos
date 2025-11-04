@@ -1,35 +1,16 @@
 const brevoAPIService = require('./emailBrevoAPIService');
 
 const getFrontendUrl = () => {
-  // URLs posibles en producción
-  const renderFrontend = 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
-  const vercelFrontend = 'https://equipo5-web-app-onboarding-creditos.vercel.app';
-
+  // En producción, usar siempre el dominio de Render
   if (process.env.NODE_ENV === 'production') {
-    // Si existe una variable FRONTEND_URL personalizada, úsala
-    if (process.env.FRONTEND_URL) {
-      return process.env.FRONTEND_URL;
-    }
-
-    // Si la app se está ejecutando en Render, usa la URL de Render
-    if (process.env.RENDER === 'true' || process.env.RENDER_SERVICE_ID) {
-      return renderFrontend;
-    }
-
-    // Si detecta entorno Vercel, usa la URL de Vercel
-    if (process.env.VERCEL === '1' || process.env.VERCEL_URL) {
-      return vercelFrontend;
-    }
-
-    // Fallback: por defecto usa la de Render
-    return renderFrontend;
+    return 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
   }
-
-  // En desarrollo local
+  
+  // En desarrollo
   return process.env.FRONTEND_URL || 'http://localhost:3000';
 };
 
-// Generar token de confirmación (mantener igual)
+// Generar token de confirmación
 const generarTokenConfirmacion = (userId, email) => {
   const timestamp = Date.now();
   return Buffer.from(`${userId}:${email}:${timestamp}`).toString('base64');
@@ -42,9 +23,10 @@ const enviarEmailConfirmacion = async (email, nombre, userId) => {
     
     const tokenConfirmacion = generarTokenConfirmacion(userId, email);
     
-    // .: Usar FRONTEND_URL en lugar de BACKEND_URL
     const frontendUrl = getFrontendUrl();
-    const enlaceConfirmacion = `${frontendUrl}/api/auth/confirmar?token=${tokenConfirmacion}&email=${encodeURIComponent(email)}`;
+    const enlaceConfirmacion = `${frontendUrl}/email_confirmado?token=${tokenConfirmacion}&email=${encodeURIComponent(email)}`;
+    
+    console.log(`. [CONFIRMACIÓN] Enlace de confirmación generado: ${enlaceConfirmacion}`);
     
     const resultado = await brevoAPIService.enviarEmailConfirmacion(email, nombre, enlaceConfirmacion);
     

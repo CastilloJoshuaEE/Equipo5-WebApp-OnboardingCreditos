@@ -1,9 +1,10 @@
 const { supabase } = require('../config/conexion');
+const { supabaseAdmin } = require('../config/supabaseAdmin');
 
 class SolicitudModel {
   // Crear solicitud
   static async create(solicitudData) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('solicitudes_credito')
       .insert([solicitudData])
       .select();
@@ -11,12 +12,11 @@ class SolicitudModel {
     if (error) throw new Error(`Error creando solicitud: ${error.message}`);
     return data[0];
   }
-// En backend/modelos/SolicitudModel.js
 static async findById(id) {
   try {
     console.log(`🔍 Buscando solicitud con ID: ${id}`);
     
-    const { data: solicitud, error } = await supabase
+    const { data: solicitud, error } = await supabaseAdmin
       .from('solicitudes_credito')
       .select(`
         *,
@@ -122,7 +122,7 @@ static async findById(id) {
 
   // Actualizar solicitud
   static async update(id, updates) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('solicitudes_credito')
       .update(updates)
       .eq('id', id)

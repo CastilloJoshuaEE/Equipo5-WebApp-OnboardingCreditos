@@ -45,7 +45,7 @@ export default function ConfiguracionPage() {
   return (
     <Box sx={{ p: 3, maxWidth: 800, margin: '0 auto' }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Configuración de Cuenta
+        Configuración de cuenta
       </Typography>
 
       {message && (
@@ -65,7 +65,7 @@ export default function ConfiguracionPage() {
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom color="error">
-            Zona de Peligro
+            Zona de peligro
           </Typography>
           
           <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -78,7 +78,7 @@ export default function ConfiguracionPage() {
             onClick={() => setModalOpen(true)}
             sx={{ mt: 2 }}
           >
-            Desactivar Mi Cuenta
+            Desactivar mi cuenta
           </Button>
         </CardContent>
       </Card>

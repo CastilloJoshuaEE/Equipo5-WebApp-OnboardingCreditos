@@ -214,7 +214,7 @@ useEffect(() => {
             variant="h1"
             sx={{ fontSize: '1.6rem', textAlign: 'center', fontWeight: 'bold', mb: 2 }}
           >
-            Registro de Usuario
+            Registro de usuario
           </Typography>
 
           {error && (
@@ -320,7 +320,7 @@ useEffect(() => {
           >
             <TextField 
               {...register('nombre_completo')} 
-              label="Nombre Completo"
+              label="Nombre completo"
               placeholder="Nombre" 
               fullWidth 
               error={!!errors.nombre_completo}
@@ -339,7 +339,7 @@ useEffect(() => {
           {/* Solo PYME */}
           {rol === UserRole.SOLICITANTE && (
             <>
-              <Typography sx={{ fontSize: '1.25rem', mt: 2, fontWeight: 'bold' }}>Datos de la Empresa</Typography>
+              <Typography sx={{ fontSize: '1.25rem', mt: 2, fontWeight: 'bold' }}>Datos de la empresa</Typography>
               <Box
                 sx={{
                   display: 'flex',
@@ -351,8 +351,8 @@ useEffect(() => {
               >
                 <TextField 
                   {...register('nombre_empresa')} 
-                  label="Nombre de la Empresa"
-                  placeholder="Nombre de la Empresa" 
+                  label="Nombre de la empresa"
+                  placeholder="Nombre de la empresa" 
                   fullWidth 
                   error={!!errors.nombre_empresa}
                   helperText={errors.nombre_empresa?.message}
@@ -369,19 +369,19 @@ useEffect(() => {
               <Box sx={{ mt: 2 }}>
                 <TextField 
                   {...register('domicilio')} 
-                  label="Domicilio de la Empresa"
-                  placeholder="Domicilio de la Empresa" 
+                  label="Domicilio de la empresa"
+                  placeholder="Domicilio de la empresa" 
                   fullWidth 
                   error={!!errors.domicilio}
                   helperText={errors.domicilio?.message}
                 />
               </Box>
 
-              <Typography sx={{ fontSize: '1.25rem', mt: 2, fontWeight: 'bold' }}>Representante Legal</Typography>
+              <Typography sx={{ fontSize: '1.25rem', mt: 2, fontWeight: 'bold' }}>Representante legal</Typography>
               <TextField 
                 {...register('representante_legal')} 
-                label="Representante Legal"
-                placeholder="Representante Legal" 
+                label="Representante legal"
+                placeholder="Representante legal" 
                 fullWidth 
                 error={!!errors.representante_legal}
                 helperText={errors.representante_legal?.message}
@@ -434,7 +434,7 @@ useEffect(() => {
               sx={{ color: '#da68f2', cursor: 'pointer' }}
               onClick={() => handleRedirect('/login')}
             >
-              Iniciar Sesión
+              Iniciar sesión
             </Box>
           </Typography>
         </Box>

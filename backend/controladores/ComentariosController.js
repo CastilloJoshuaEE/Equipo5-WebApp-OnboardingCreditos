@@ -1,5 +1,4 @@
-// controladores/ComentariosController.js
-const { supabase } = require('../config/conexion');
+const ComentariosModel = require('../modelos/ComentariosModel');
 const NotificacionesController = require('./NotificacionesController');
 
 class ComentariosController {
@@ -11,6 +10,7 @@ class ComentariosController {
         try {
             const { solicitud_id, comentario, tipo = 'operador_a_solicitante' } = req.body;
             const usuario_id = req.usuario.id;
+            const usuario_rol = req.usuario.rol;
 
             console.log(`💬 Creando comentario para solicitud: ${solicitud_id}`, {
                 usuario_id,
@@ -26,40 +26,19 @@ class ComentariosController {
                 });
             }
 
-            // Verificar que la solicitud existe y el usuario tiene permisos
-            const { data: solicitud, error: solError } = await supabase
-                .from('solicitudes_credito')
-                .select('id, solicitante_id, operador_id, estado')
-                .eq('id', solicitud_id)
-                .single();
+            // Verificar permisos sobre la solicitud
+            const tienePermisos = await ComentariosModel.verificarPermisosSolicitud(
+                solicitud_id, usuario_id, usuario_rol
+            );
 
-            if (solError || !solicitud) {
-                return res.status(404).json({
+            if (!tienePermisos) {
+                return res.status(403).json({
                     success: false,
-                    message: 'Solicitud no encontrada'
+                    message: 'No tienes permisos para comentar en esta solicitud'
                 });
             }
 
-            // Verificar permisos según el rol
-            if (req.usuario.rol === 'operador') {
-                // Operador solo puede comentar en solicitudes asignadas
-                if (solicitud.operador_id !== usuario_id) {
-                    return res.status(403).json({
-                        success: false,
-                        message: 'No tienes permisos para comentar en esta solicitud'
-                    });
-                }
-            } else if (req.usuario.rol === 'solicitante') {
-                // Solicitante solo puede comentar en sus propias solicitudes
-                if (solicitud.solicitante_id !== usuario_id) {
-                    return res.status(403).json({
-                        success: false,
-                        message: 'No tienes permisos para comentar en esta solicitud'
-                    });
-                }
-            }
-
-            // Insertar comentario
+            // Preparar datos del comentario
             const comentarioData = {
                 solicitud_id,
                 usuario_id,
@@ -70,23 +49,25 @@ class ComentariosController {
                 updated_at: new Date().toISOString()
             };
 
-            const { data: nuevoComentario, error: insertError } = await supabase
-                .from('comentarios_solicitud')
-                .insert([comentarioData])
-                .select()
+            // Crear comentario usando el modelo
+            const nuevoComentario = await ComentariosModel.crear(comentarioData);
+
+            // Obtener información de la solicitud para la notificación
+            const { supabase } = require('../config/conexion');
+            const { data: solicitud } = await supabase
+                .from('solicitudes_credito')
+                .select('id, solicitante_id, operador_id, estado')
+                .eq('id', solicitud_id)
                 .single();
 
-            if (insertError) {
-                console.error('. Error insertando comentario:', insertError);
-                throw insertError;
+            // Crear notificación
+            if (solicitud) {
+                await NotificacionesController.crearNotificacionComentario(
+                    solicitud, 
+                    nuevoComentario, 
+                    req.usuario
+                );
             }
-
-            // . CREAR NOTIFICACIÓN PARA EL DESTINATARIO
-            await NotificacionesController.crearNotificacionComentario(
-                solicitud, 
-                nuevoComentario, 
-                req.usuario
-            );
 
             console.log(`. Comentario creado exitosamente: ${nuevoComentario.id}`);
 
@@ -112,46 +93,41 @@ class ComentariosController {
         try {
             const { solicitud_id } = req.params;
             const { tipo, limit = 50, offset = 0 } = req.query;
+            const usuario_id = req.usuario.id;
+            const usuario_rol = req.usuario.rol;
 
             console.log(`. Obteniendo comentarios para solicitud: ${solicitud_id}`);
 
-            let query = supabase
-                .from('comentarios_solicitud')
-                .select(`
-                    *,
-                    usuarios:usuario_id(
-                        nombre_completo,
-                        email,
-                        rol
-                    )
-                `)
-                .eq('solicitud_id', solicitud_id)
-                .order('created_at', { ascending: false })
-                .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+            // Verificar permisos
+            const tienePermisos = await ComentariosModel.verificarPermisosSolicitud(
+                solicitud_id, usuario_id, usuario_rol
+            );
 
-            // Filtrar por tipo si se especifica
-            if (tipo) {
-                query = query.eq('tipo', tipo);
+            if (!tienePermisos) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No tienes permisos para ver los comentarios de esta solicitud'
+                });
             }
 
-            const { data: comentarios, error } = await query;
+            // Obtener comentarios usando el modelo
+            const comentarios = await ComentariosModel.obtenerPorSolicitud(solicitud_id, {
+                tipo,
+                limit: parseInt(limit),
+                offset: parseInt(offset)
+            });
 
-            if (error) {
-                console.error('. Error obteniendo comentarios:', error);
-                throw error;
+            // Marcar como leídos si hay comentarios
+            if (comentarios.length > 0) {
+                await ComentariosModel.marcarComoLeidos(solicitud_id, usuario_id);
             }
 
-            // Marcar como leídos si el usuario actual es el destinatario
-            if (comentarios && comentarios.length > 0) {
-                await ComentariosController.marcarComentariosLeidos(solicitud_id, req.usuario.id);
-            }
-
-            console.log(`. Comentarios obtenidos: ${comentarios?.length || 0}`);
+            console.log(`. Comentarios obtenidos: ${comentarios.length}`);
 
             res.json({
                 success: true,
-                data: comentarios || [],
-                total: comentarios?.length || 0
+                data: comentarios,
+                total: comentarios.length
             });
 
         } catch (error) {
@@ -164,58 +140,18 @@ class ComentariosController {
     }
 
     /**
-     * Marcar comentarios como leídos
-     */
-    static async marcarComentariosLeidos(solicitud_id, usuario_id) {
-        try {
-            const { error } = await supabase
-                .from('comentarios_solicitud')
-                .update({ 
-                    leido: true,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('solicitud_id', solicitud_id)
-                .eq('leido', false)
-                .neq('usuario_id', usuario_id); // No marcar los propios comentarios
-
-            if (error) {
-                console.error('. Error marcando comentarios como leídos:', error);
-            } else {
-                console.log(`. Comentarios marcados como leídos para usuario: ${usuario_id}`);
-            }
-        } catch (error) {
-            console.error('. Error en marcarComentariosLeidos:', error);
-        }
-    }
-
-    /**
      * Obtener contador de comentarios no leídos
      */
     static async obtenerContadorNoLeidos(req, res) {
         try {
             const usuario_id = req.usuario.id;
 
-            const { count, error } = await supabase
-                .from('comentarios_solicitud')
-                .select('*', { count: 'exact', head: true })
-                .eq('leido', false)
-                .neq('usuario_id', usuario_id) // No contar los propios comentarios
-                .in('solicitud_id', 
-                    supabase
-                        .from('solicitudes_credito')
-                        .select('id')
-                        .or(`solicitante_id.eq.${usuario_id},operador_id.eq.${usuario_id}`)
-                );
-
-            if (error) {
-                console.error('. Error obteniendo contador de comentarios:', error);
-                throw error;
-            }
+            const count = await ComentariosModel.obtenerContadorNoLeidos(usuario_id);
 
             res.json({
                 success: true,
                 data: {
-                    count: count || 0
+                    count
                 }
             });
 
@@ -229,45 +165,30 @@ class ComentariosController {
     }
 
     /**
-     * Eliminar comentario (solo el propio o por operadores)
+     * Eliminar comentario
      */
     static async eliminarComentario(req, res) {
         try {
             const { id } = req.params;
             const usuario_id = req.usuario.id;
+            const usuario_rol = req.usuario.rol;
 
             console.log(`🗑️ Eliminando comentario: ${id}`);
 
-            // Verificar que el comentario existe y pertenece al usuario
-            const { data: comentario, error: comError } = await supabase
-                .from('comentarios_solicitud')
-                .select('*')
-                .eq('id', id)
-                .single();
+            // Verificar permisos
+            const tienePermisos = await ComentariosModel.verificarPermisos(
+                id, usuario_id, usuario_rol
+            );
 
-            if (comError || !comentario) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Comentario no encontrado'
-                });
-            }
-
-            // Verificar permisos: solo el autor o un operador puede eliminar
-            if (comentario.usuario_id !== usuario_id && req.usuario.rol !== 'operador') {
+            if (!tienePermisos) {
                 return res.status(403).json({
                     success: false,
                     message: 'No tienes permisos para eliminar este comentario'
                 });
             }
 
-            const { error: deleteError } = await supabase
-                .from('comentarios_solicitud')
-                .delete()
-                .eq('id', id);
-
-            if (deleteError) {
-                throw deleteError;
-            }
+            // Eliminar comentario usando el modelo
+            await ComentariosModel.eliminar(id);
 
             console.log(`. Comentario eliminado: ${id}`);
 
@@ -281,6 +202,68 @@ class ComentariosController {
             res.status(500).json({
                 success: false,
                 message: 'Error al eliminar comentario'
+            });
+        }
+    }
+
+    /**
+     * Obtener estadísticas de comentarios
+     */
+    static async obtenerEstadisticas(req, res) {
+        try {
+            const usuario_id = req.usuario.id;
+            const usuario_rol = req.usuario.rol;
+
+            const estadisticas = await ComentariosModel.obtenerEstadisticas(usuario_id, usuario_rol);
+
+            res.json({
+                success: true,
+                data: estadisticas
+            });
+
+        } catch (error) {
+            console.error('. Error en obtenerEstadisticas:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener estadísticas de comentarios'
+            });
+        }
+    }
+
+    /**
+     * Buscar comentarios
+     */
+    static async buscarComentarios(req, res) {
+        try {
+            const { q: query, limit = 20 } = req.query;
+            const usuario_id = req.usuario.id;
+            const usuario_rol = req.usuario.rol;
+
+            if (!query || query.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Término de búsqueda es requerido'
+                });
+            }
+
+            const resultados = await ComentariosModel.buscar(
+                query.trim(), 
+                usuario_id, 
+                usuario_rol, 
+                parseInt(limit)
+            );
+
+            res.json({
+                success: true,
+                data: resultados,
+                total: resultados.length
+            });
+
+        } catch (error) {
+            console.error('. Error en buscarComentarios:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al buscar comentarios'
             });
         }
     }

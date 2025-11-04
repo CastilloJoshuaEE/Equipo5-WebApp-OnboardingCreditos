@@ -533,7 +533,7 @@ export default function LoginForm() {
             variant="contained"
             disabled={recuperarLoading || !recuperarContrasenaData.email || !recuperarContrasenaData.nueva_contrasena || !recuperarContrasenaData.confirmar_contrasena}
           >
-            {recuperarLoading ? 'Procesando...' : 'Restablecer Contraseña'}
+            {recuperarLoading ? 'Procesando...' : 'Restablecer contraseña'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -542,7 +542,7 @@ export default function LoginForm() {
       <Dialog open={recuperarOpen} onClose={() => setRecuperarOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Typography variant="h6" component="div">
-            Recuperar Cuenta Inactiva
+            Recuperar cuenta inactiva
           </Typography>
         </DialogTitle>
         <DialogContent>

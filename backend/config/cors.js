@@ -1,8 +1,8 @@
 const allowedOrigins = [
   'http://localhost:3000',
   'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com',
-  'https://equipo5-web-app-onboarding-creditos.vercel.app',
-  'https://equipo5-web-app-onboarding-creditos-git-main-josue-avilas-projects-3ce1d2e2.vercel.app'
+  'https://nexia-sigma.vercel.app',
+  'https://nexia-sigma.vercel.app/'
 ];
 
 const corsOptions = {

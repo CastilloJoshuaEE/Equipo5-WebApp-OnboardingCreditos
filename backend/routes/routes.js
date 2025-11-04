@@ -10,7 +10,6 @@ const OperadorController = require('../controladores/OperadorController');
 const DocumentoController = require('../controladores/DocumentoController');
 const reactivacionController = require('../controladores/reactivacionController');
 const webhooksController = require('../controladores/webhooksController'); 
-const EmailValidationMiddleware = require("../middleware/emailValidation");
 const ComentariosController = require('../controladores/ComentariosController');
 const PlantillasDocumentoController = require('../controladores/PlantillasDocumentosController');
 const ChatbotController = require('../controladores/ChatbotController');
@@ -20,6 +19,7 @@ const ContactosBancariosController= require("../controladores/ContactosBancarios
 
 const TransferenciasBancariasController= require("../controladores/TransferenciasBancariasController");
 const WordService= require("../servicios/WordService");
+const emailValidator = require("../servicios/emailValidarServicio");
 
 // Middleware existentes
 const router = express.Router();
@@ -567,7 +567,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/usuarios/verificar-email",  EmailValidationMiddleware.verifyEmailOnly, (req, res) => {
+router.post("/usuarios/verificar-email",  emailValidator.verifyEmailOnly, (req, res) => {
   res.json({
     success: true,
     message: "Verificación de email completada",
@@ -637,7 +637,7 @@ router.post("/usuarios/verificar-email",  EmailValidationMiddleware.verifyEmailO
  */
 router.post(
   "/usuarios/registro",
-  EmailValidationMiddleware.validateEmailBeforeAuth,
+  emailValidator.validateEmailBeforeAuth,
   usuariosController.registrar
 );
 
@@ -4030,6 +4030,8 @@ router.get('/firmas/diagnostico/:firma_id',
  *       404:
  *         description: Contrato no encontrado
  */
+const mammoth = require('mammoth');
+
 router.get('/firmas/ver-contrato-firmado/:firma_id', 
     AuthMiddleware.proteger,
     AuthMiddleware.autorizar('operador', 'solicitante'),
@@ -4037,7 +4039,7 @@ router.get('/firmas/ver-contrato-firmado/:firma_id',
         try {
             const { firma_id } = req.params;
             
-            console.log('. Solicitando visualización de contrato firmado:', firma_id);
+            console.log('🔍 Solicitando visualización de contrato firmado:', firma_id);
 
             // Obtener información de la firma
             const { data: firma, error } = await supabase
@@ -4046,29 +4048,38 @@ router.get('/firmas/ver-contrato-firmado/:firma_id',
                     id,
                     estado,
                     url_documento_firmado,
-                    contratos(ruta_documento)
+                    ruta_documento,
+                    contratos(
+                        id,
+                        numero_contrato,
+                        ruta_documento
+                    )
                 `)
                 .eq('id', firma_id)
                 .single();
 
             if (error || !firma) {
+                console.error('❌ Firma no encontrada:', error);
                 return res.status(404).json({
                     success: false,
                     message: 'Proceso de firma no encontrado'
                 });
             }
 
-            // Determinar qué documento mostrar (preferir el firmado, sino el original)
-            let rutaDocumento = firma.url_documento_firmado || firma.contratos?.ruta_documento;
+            // Determinar qué documento mostrar (preferir el firmado)
+            let rutaDocumento = firma.url_documento_firmado || 
+                               firma.ruta_documento || 
+                               firma.contratos?.ruta_documento;
 
             if (!rutaDocumento) {
+                console.error('❌ No hay ruta de documento disponible');
                 return res.status(404).json({
                     success: false,
                     message: 'Documento no encontrado'
                 });
             }
 
-            console.log('. Mostrando documento desde:', rutaDocumento);
+            console.log('📄 Mostrando documento desde:', rutaDocumento);
 
             // Descargar archivo
             const { data: fileData, error: downloadError } = await supabase.storage
@@ -4076,23 +4087,149 @@ router.get('/firmas/ver-contrato-firmado/:firma_id',
                 .download(rutaDocumento);
 
             if (downloadError) {
+                console.error('❌ Error descargando archivo:', downloadError);
                 throw new Error('Error accediendo al documento: ' + downloadError.message);
             }
 
             const arrayBuffer = await fileData.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
 
-            // Configurar headers para visualización en navegador
-            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-            res.setHeader('Content-Disposition', `inline; filename="contrato-firmado-${firma_id}.docx"`);
-            res.setHeader('Content-Length', buffer.length);
-            res.setHeader('Cache-Control', 'no-cache');
+            // Verificar si es un archivo Word
+            const esWord = rutaDocumento.toLowerCase().endsWith('.docx');
+            
+            if (esWord) {
+                console.log('🔄 Convirtiendo Word a HTML para visualización...');
+                
+                try {
+                    // Convertir Word a HTML usando mammoth
+                    const result = await mammoth.convertToHtml({ buffer: buffer });
+                    const html = result.value;
+                    
+                    // Crear un HTML completo con estilos
+                    const htmlCompleto = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contrato Firmado - ${firma.contratos?.numero_contrato || firma_id}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 40px;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        .documento-container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #1976d2;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #1976d2;
+            margin: 0;
+        }
+        .metadata {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .contenido-documento {
+            line-height: 1.8;
+        }
+        .contenido-documento p {
+            margin-bottom: 16px;
+        }
+        .contenido-documento table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .contenido-documento table, 
+        .contenido-documento th, 
+        .contenido-documento td {
+            border: 1px solid #ddd;
+        }
+        .contenido-documento th, 
+        .contenido-documento td {
+            padding: 12px;
+            text-align: left;
+        }
+        .contenido-documento th {
+            background-color: #f8f9fa;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="documento-container">
+        <div class="header">
+            <h1>📄 CONTRATO FIRMADO</h1>
+            <p><strong>Número de Contrato:</strong> ${firma.contratos?.numero_contrato || 'No disponible'}</p>
+            <p><strong>Estado:</strong> ${firma.estado || 'No disponible'}</p>
+        </div>
+        
+        <div class="metadata">
+            <p><strong>ID de Firma:</strong> ${firma_id}</p>
+            <p><strong>Fecha de visualización:</strong> ${new Date().toLocaleString('es-ES')}</p>
+            <p><strong>Documento:</strong> ${rutaDocumento.split('/').pop()}</p>
+        </div>
+        
+        <div class="contenido-documento">
+            ${html}
+        </div>
+        
+        <div class="footer">
+            <p>Documento generado el ${new Date().toLocaleString('es-ES')} | Sistema de Gestión de Contratos</p>
+        </div>
+    </div>
+</body>
+</html>`;
 
-            console.log('. Contrato firmado enviado para visualización');
-            res.send(buffer);
+                    // Enviar como HTML
+                    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                    res.send(htmlCompleto);
+                    
+                } catch (conversionError) {
+                    console.error('❌ Error convirtiendo Word a HTML:', conversionError);
+                    
+                    // Fallback: ofrecer descarga del documento original
+                    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+                    res.setHeader('Content-Disposition', `attachment; filename="contrato-${firma.contratos?.numero_contrato || firma_id}.docx"`);
+                    res.setHeader('Content-Length', buffer.length);
+                    res.send(buffer);
+                }
+                
+            } else {
+                // Si ya es PDF, enviar directamente
+                console.log('📊 Enviando PDF directamente');
+                res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', `inline; filename="contrato-${firma.contratos?.numero_contrato || firma_id}.pdf"`);
+                res.setHeader('Content-Length', buffer.length);
+                res.send(buffer);
+            }
 
         } catch (error) {
-            console.error('. Error mostrando contrato firmado:', error);
+            console.error('❌ Error mostrando contrato firmado:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al mostrar el contrato: ' + error.message
@@ -4630,7 +4767,6 @@ router.post('/contactos-bancarios',
 );
 router.get('/transferencias/habilitacion/:solicitud_id', 
   AuthMiddleware.proteger, 
-  AuthMiddleware.autorizar('operador'), 
   TransferenciasBancariasController.verificarHabilitacionTransferencia
 );
 
@@ -4729,7 +4865,37 @@ router.get('/solicitudes/:solicitud_id/comprobantes', AuthMiddleware.proteger, D
 router.get('/contratos/:contrato_id/descargar', AuthMiddleware.proteger, DocumentoController.descargarContrato);
 router.get('/transferencias/:transferencia_id/comprobante/descargar', AuthMiddleware.proteger, DocumentoController.descargarComprobante);
 router.get('/documentos/:tipo/:id/ver', AuthMiddleware.proteger, DocumentoController.verDocumento);
-
+/**
+ * @swagger
+ * /api/firmas/descargar-contrato-firmado/{firma_id}:
+ *   get:
+ *     summary: Descargar contrato firmado específico
+ *     tags: [Firmas Digitales]
+ *     description: Descarga específicamente el contrato firmado, no el original
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: firma_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Contrato firmado descargado exitosamente
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Contrato firmado no encontrado
+ */
+router.get('/firmas/descargar-contrato-firmado/:firma_id', 
+    AuthMiddleware.proteger,
+    AuthMiddleware.autorizar('operador', 'solicitante'),
+    FirmaDigitalController.descargarContratoFirmadoEspecifico
+);
 
 /**
  * @swagger

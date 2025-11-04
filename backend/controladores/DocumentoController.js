@@ -1,3 +1,4 @@
+const DocumentoModel = require('../modelos/DocumentoModel');
 const { supabase } = require('../config/conexion');
 const { supabaseAdmin } = require('../config/supabaseAdmin');
 const diditService = require('../servicios/diditService');
@@ -10,95 +11,81 @@ const { createCanvas } = require('canvas');
 
 class DocumentoController {
   // Subir documento - .
-static async subirDocumento(req, res) {
-  try {
-    const { tipo } = req.body;
-    const { solicitud_id } = req.params;
-    const archivo = req.file;
+    static async subirDocumento(req, res) {
+        try {
+            const { tipo } = req.body;
+            const { solicitud_id } = req.params;
+            const archivo = req.file;
 
-    console.log('. Datos recibidos:', { solicitud_id, tipo, archivo: archivo ? archivo.originalname : 'NO ARCHIVO' });
+            console.log('. Datos recibidos:', { solicitud_id, tipo, archivo: archivo ? archivo.originalname : 'NO ARCHIVO' });
 
-    if (!solicitud_id || !tipo || !archivo) {
-      return res.status(400).json({
-        success: false,
-        message: 'Solicitud ID, tipo y archivo son requeridos'
-      });
+            // Validaciones básicas
+            if (!solicitud_id || !tipo || !archivo) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Solicitud ID, tipo y archivo son requeridos'
+                });
+            }
+
+            console.log(`. Subiendo documento ${tipo} para solicitud: ${solicitud_id}`);
+
+            // Validar tipo de documento usando el modelo
+            DocumentoModel.validarTipoDocumento(tipo);
+
+            // Generar ruta de storage usando el modelo
+            const rutaStorage = DocumentoModel.generarRutaStorage(solicitud_id, tipo, archivo.originalname);
+            
+            // Subir archivo al storage usando el modelo
+            await DocumentoModel.subirArchivoStorage(rutaStorage, archivo.buffer, archivo.mimetype);
+
+            // Obtener URL pública usando el modelo
+            const urlPublica = await DocumentoModel.obtenerUrlPublica(rutaStorage);
+
+            // Extraer información del documento
+            let informacionExtraida = null;
+            if (archivo.originalname.toLowerCase().endsWith('.pdf')) {
+                informacionExtraida = await DocumentoController.extraerInformacionDocumento(urlPublica, tipo, archivo.buffer);
+            }
+
+            // Guardar en base de datos usando el modelo
+            const documentoData = {
+                solicitud_id,
+                tipo,
+                nombre_archivo: archivo.originalname,
+                ruta_storage: rutaStorage,
+                tamanio_bytes: archivo.size,
+                estado: 'pendiente',
+                informacion_extraida: informacionExtraida,
+                created_at: new Date().toISOString()
+            };
+
+            const documento = await DocumentoModel.crear(documentoData);
+
+            console.log(`. Documento ${tipo} guardado en BD con ID:`, documento.id);
+
+            // Iniciar verificación automática si es DNI
+            if (tipo === 'dni') {
+                await DocumentoController.iniciarVerificacionDidit(solicitud_id, documento.id, archivo.buffer);
+            }
+
+            res.status(201).json({
+                success: true,
+                message: 'Documento subido exitosamente',
+                data: {
+                    documento,
+                    url_publica: urlPublica,
+                    informacion_extraida: informacionExtraida 
+                }
+            });
+
+        } catch (error) {
+            console.error('. Error en subirDocumento:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Error interno al subir documento'
+            });
+        }
     }
-
-    console.log(`. Subiendo documento ${tipo} para solicitud: ${solicitud_id}`);
-
-    // Validaciones
-    const tiposPermitidos = ['dni', 'cuit', 'comprobante_domicilio', 'balance_contable', 'estado_financiero', 'declaracion_impuestos'];
-    if (!tiposPermitidos.includes(tipo)) {
-      return res.status(400).json({
-        success: false,
-        message: `Tipo de documento no válido. Permitidos: ${tiposPermitidos.join(', ')}`
-      });
-    }
-
-    // Subir a supabase storage
-    const nombreArchivo = await DocumentoController.subirArchivoStorage(archivo, solicitud_id, tipo);
-    const rutaStorage = `documentos/${solicitud_id}/${nombreArchivo}`;
-    
-    const { data: urlData } = supabase.storage
-      .from('kyc-documents')
-      .getPublicUrl(rutaStorage);
-
-    // Extraer información del documento - .: usar await y manejar correctamente
-    let informacionExtraida = null;
-    if (archivo.originalname.toLowerCase().endsWith('.pdf')) {
-      informacionExtraida = await DocumentoController.extraerInformacionDocumento(urlData.publicUrl, tipo, archivo.buffer);
-    }
-
-    // Guardar en base de datos - .: construir objeto correctamente
-    const documentoData = {
-      solicitud_id,
-      tipo,
-      nombre_archivo: nombreArchivo,
-      ruta_storage: rutaStorage,
-      tamanio_bytes: archivo.size,
-      estado: 'pendiente',
-      informacion_extraida: informacionExtraida, // .: usar la variable definida
-      created_at: new Date().toISOString()
-    };
-
-    const { data: documento, error: docError } = await supabase
-      .from('documentos')
-      .insert([documentoData])
-      .select()
-      .single();
-
-    if (docError) {
-      console.error('. Error guardando documento en BD:', docError);
-      throw docError;
-    }
-
-    console.log(`. Documento ${tipo} guardado en BD con ID:`, documento.id);
-
-    // Iniciar verificación automática si es DNI
-    if (tipo === 'dni') {
-      await DocumentoController.iniciarVerificacionDidit(solicitud_id, documento.id, archivo.buffer);
-    }
-
-    res.status(201).json({
-      success: true,
-      message: 'Documento subido exitosamente',
-      data: {
-        documento,
-        url_publica: urlData.publicUrl,
-        informacion_extraida: informacionExtraida 
-      }
-    });
-
-  } catch (error) {
-    console.error('. Error en subirDocumento:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Error interno al subir documento'
-    });
-  }
-}
-
   // Métodos auxiliares privados - .S (static)
   static async subirArchivoStorage(archivo, solicitudId, tipo) {
     const extension = archivo.originalname.toLowerCase().split('.').pop();
@@ -123,26 +110,24 @@ static async subirDocumento(req, res) {
     console.log('. Archivo subido exitosamente');
     return nombreArchivo;
   }
-
-
-static async extraerInformacionDocumento(pdfUrl, tipo, buffer) {
-  try {
-    let texto = '';
-    if (tipo === 'dni') {
-      texto = await DocumentoController.procesarDNIconOCR(pdfUrl);
-    } else {
-      texto = await DocumentoController.extraerTextoDePDF(pdfUrl);
+   static async extraerInformacionDocumento(pdfUrl, tipo, buffer) {
+        try {
+            let texto = '';
+            if (tipo === 'dni') {
+                texto = await DocumentoController.procesarDNIconOCR(pdfUrl);
+            } else {
+                texto = await DocumentoController.extraerTextoDePDF(pdfUrl);
+            }
+            
+            const informacionExtraida = DocumentoController.extraerInformacionEspecifica(tipo, texto);
+            return informacionExtraida || null;
+            
+        } catch (error) {
+            console.warn('. No se pudo extraer información del documento:', error.message);
+            return null;
+        }
     }
-    
-    // Asegurar que siempre retorne un valor válido
-    const informacionExtraida = DocumentoController.extraerInformacionEspecifica(tipo, texto);
-    return informacionExtraida || null; // Siempre retornar null si no hay información
-    
-  } catch (error) {
-    console.warn('. No se pudo extraer información del documento:', error.message);
-    return null; // Siempre retornar null en caso de error
-  }
-}
+
 
   static async extraerTextoDePDF(pdfUrl) {
     try {
@@ -415,407 +400,340 @@ static async extraerInformacionDocumento(pdfUrl, tipo, buffer) {
 
 
   // Obtener documentos de una solicitud
-  static async obtenerDocumentosSolicitud(req, res) {
-    try {
-      const { solicitud_id } = req.params;
-      
-      const { data: documentos, error } = await supabase
-        .from('documentos')
-        .select('*')
-        .eq('solicitud_id', solicitud_id)
-        .order('created_at', { ascending: false });
+   static async obtenerDocumentosSolicitud(req, res) {
+        try {
+            const { solicitud_id } = req.params;
+            
+            const documentos = await DocumentoModel.obtenerPorSolicitud(solicitud_id);
 
-      if (error) throw error;
-
-      res.json({
-        success: true,
-        data: documentos
-      });
-    } catch (error) {
-      console.error('. Error obteniendo documentos:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error al obtener documentos'
-      });
+            res.json({
+                success: true,
+                data: documentos
+            });
+        } catch (error) {
+            console.error('. Error obteniendo documentos:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener documentos'
+            });
+        }
     }
-  }
 
   // Validar documento (para operadores)
-  static async validarDocumento(req, res) {
-    try {
-      const { documento_id } = req.params;
-      const { estado, comentarios } = req.body;
-      
-      if (!['validado', 'rechazado'].includes(estado)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Estado debe ser "validado" o "rechazado"'
-        });
-      }
+     static async validarDocumento(req, res) {
+        try {
+            const { documento_id } = req.params;
+            const { estado, comentarios } = req.body;
+            
+            if (!['validado', 'rechazado'].includes(estado)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Estado debe ser "validado" o "rechazado"'
+                });
+            }
 
-      const { data: documento, error } = await supabase
-        .from('documentos')
-        .update({
-          estado,
-          comentarios,
-          validado_en: new Date().toISOString()
-        })
-        .eq('id', documento_id)
-        .select()
-        .single();
+            // Verificar permisos usando el modelo
+            const tienePermisos = await DocumentoModel.verificarPermisos(
+                documento_id, 
+                req.usuario.id, 
+                req.usuario.rol
+            );
 
-      if (error) throw error;
+            if (!tienePermisos) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No tiene permisos para validar este documento'
+                });
+            }
 
-      console.log(`. Documento ${documento_id} ${estado} por operador`);
+            const documento = await DocumentoModel.actualizar(documento_id, {
+                estado,
+                comentarios,
+                validado_en: new Date().toISOString()
+            });
 
-      res.json({
-        success: true,
-        message: `Documento ${estado} exitosamente`,
-        data: documento
-      });
-    } catch (error) {
-      console.error('. Error validando documento:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error al validar documento'
-      });
-    }
-  }
+            console.log(`. Documento ${documento_id} ${estado} por operador`);
 
-  // Descargar documento
-  static async descargarDocumento(req, res) {
-    try {
-      const { documento_id } = req.params;
-      
-      console.log(`. Descargando documento: ${documento_id}`);
-
-      // Obtener información del documento
-      const { data: documento, error: docError } = await supabase
-        .from('documentos')
-        .select('*')
-        .eq('id', documento_id)
-        .single();
-
-      if (docError || !documento) {
-        return res.status(404).json({
-          success: false,
-          message: 'Documento no encontrado'
-        });
-      }
-
-      // Verificar permisos
-      if (req.usuario.rol === 'solicitante') {
-        const { data: solicitud, error: solError } = await supabase
-          .from('solicitudes_credito')
-          .select('solicitante_id')
-          .eq('id', documento.solicitud_id)
-          .single();
-
-        if (solError || solicitud.solicitante_id !== req.usuario.id) {
-          return res.status(403).json({
-            success: false,
-            message: 'No tienes permisos para acceder a este documento'
-          });
+            res.json({
+                success: true,
+                message: `Documento ${estado} exitosamente`,
+                data: documento
+            });
+        } catch (error) {
+            console.error('. Error validando documento:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al validar documento'
+            });
         }
-      }
-
-      // Descargar archivo
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from('kyc-documents')
-        .download(documento.ruta_storage);
-
-      if (downloadError) {
-        console.error('. Error descargando archivo:', downloadError);
-        return res.status(404).json({
-          success: false,
-          message: 'Archivo no encontrado en storage'
-        });
-      }
-
-      const arrayBuffer = await fileData.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      // Configurar headers para descarga
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${documento.nombre_archivo}"`);
-      res.setHeader('Content-Length', buffer.length);
-
-      console.log(`. Documento descargado: ${documento.nombre_archivo}`);
-      res.send(buffer);
-
-    } catch (error) {
-      console.error('. Error en descargarDocumento:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error al descargar el documento'
-      });
     }
-  }
-  // Actualizar documento existente
-static async actualizarDocumento(req, res) {
-  try {
-    const { documento_id } = req.params;
-    const { tipo } = req.body;
-    const archivo = req.file;
+  static async descargarDocumento(req, res) {
+        try {
+            const { documento_id } = req.params;
+            
+            console.log(`. Descargando documento: ${documento_id}`);
 
-    console.log('. Actualizando documento:', { documento_id, tipo, archivo: archivo ? archivo.originalname : 'NO ARCHIVO' });
+            // Verificar permisos usando el modelo
+            const tienePermisos = await DocumentoModel.verificarPermisos(
+                documento_id, 
+                req.usuario.id, 
+                req.usuario.rol
+            );
 
-    if (!documento_id || !tipo || !archivo) {
-      return res.status(400).json({
-        success: false,
-        message: 'Documento ID, tipo y archivo son requeridos'
-      });
+            if (!tienePermisos) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No tienes permisos para acceder a este documento'
+                });
+            }
+
+            // Obtener información del documento usando el modelo
+            const documento = await DocumentoModel.obtenerPorId(documento_id);
+
+            if (!documento) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Documento no encontrado'
+                });
+            }
+
+            // Descargar archivo usando el modelo
+            const fileData = await DocumentoModel.descargarArchivo(documento.ruta_storage);
+            const arrayBuffer = await fileData.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+
+            // Configurar headers para descarga
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${documento.nombre_archivo}"`);
+            res.setHeader('Content-Length', buffer.length);
+
+            console.log(`. Documento descargado: ${documento.nombre_archivo}`);
+            res.send(buffer);
+
+        } catch (error) {
+            console.error('. Error en descargarDocumento:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al descargar el documento'
+            });
+        }
+    }
+    /**
+     * Actualizar documento existente
+     */
+    static async actualizarDocumento(req, res) {
+        try {
+            const { documento_id } = req.params;
+            const { tipo } = req.body;
+            const archivo = req.file;
+
+            console.log('. Actualizando documento:', { documento_id, tipo, archivo: archivo ? archivo.originalname : 'NO ARCHIVO' });
+
+            if (!documento_id || !tipo || !archivo) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Documento ID, tipo y archivo son requeridos'
+                });
+            }
+
+            // Obtener documento actual usando el modelo
+            const documentoActual = await DocumentoModel.obtenerPorId(documento_id);
+
+            if (!documentoActual) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Documento no encontrado'
+                });
+            }
+
+            console.log(`. Actualizando documento ${tipo} con ID: ${documento_id}`);
+
+            // Eliminar archivo anterior del storage usando el modelo
+            try {
+                await DocumentoModel.eliminarArchivoStorage(documentoActual.ruta_storage);
+                console.log('. Archivo anterior eliminado:', documentoActual.ruta_storage);
+            } catch (storageError) {
+                console.warn('. Error eliminando archivo anterior:', storageError.message);
+            }
+
+            // Generar nueva ruta de storage usando el modelo
+            const rutaStorage = DocumentoModel.generarRutaStorage(documentoActual.solicitud_id, tipo, archivo.originalname);
+            
+            // Subir nuevo archivo usando el modelo
+            await DocumentoModel.subirArchivoStorage(rutaStorage, archivo.buffer, archivo.mimetype);
+
+            // Obtener URL pública usando el modelo
+            const urlPublica = await DocumentoModel.obtenerUrlPublica(rutaStorage);
+
+            // Extraer información del nuevo documento
+            let informacionExtraida = null;
+            if (archivo.originalname.toLowerCase().endsWith('.pdf')) {
+                informacionExtraida = await DocumentoController.extraerInformacionDocumento(urlPublica, tipo, archivo.buffer);
+            }
+
+            // Actualizar documento en base de datos usando el modelo
+            const documentoData = {
+                tipo,
+                nombre_archivo: archivo.originalname,
+                ruta_storage: rutaStorage,
+                tamanio_bytes: archivo.size,
+                estado: 'pendiente',
+                informacion_extraida: informacionExtraida,
+                validado_en: null,
+                comentarios: null
+            };
+
+            const documento = await DocumentoModel.actualizar(documento_id, documentoData);
+
+            console.log(`. Documento ${tipo} actualizado en BD con ID:`, documento.id);
+
+            // Si es DNI, iniciar nueva verificación
+            if (tipo === 'dni') {
+                await DocumentoController.iniciarVerificacionDidit(documentoActual.solicitud_id, documento.id, archivo.buffer);
+            }
+
+            res.json({
+                success: true,
+                message: 'Documento actualizado exitosamente',
+                data: {
+                    documento,
+                    url_publica: urlPublica,
+                    informacion_extraida: informacionExtraida
+                }
+            });
+
+        } catch (error) {
+            console.error('. Error en actualizarDocumento:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Error interno al actualizar documento'
+            });
+        }
+    }
+    /**
+     * Eliminar documento
+     */
+    static async eliminarDocumento(req, res) {
+        try {
+            const { documento_id } = req.params;
+
+            console.log('🗑️ Eliminando documento:', documento_id);
+
+            if (!documento_id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Documento ID es requerido'
+                });
+            }
+
+            // Obtener documento usando el modelo
+            const documento = await DocumentoModel.obtenerPorId(documento_id);
+
+            if (!documento) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Documento no encontrado'
+                });
+            }
+
+            // Eliminar archivo del storage usando el modelo
+            try {
+                await DocumentoModel.eliminarArchivoStorage(documento.ruta_storage);
+                console.log('. Archivo eliminado:', documento.ruta_storage);
+            } catch (storageError) {
+                console.warn('. Error eliminando archivo:', storageError.message);
+            }
+
+            // Eliminar registro de la base de datos usando el modelo
+            await DocumentoModel.eliminar(documento_id);
+
+            console.log(`. Documento eliminado: ${documento_id}`);
+
+            res.json({
+                success: true,
+                message: 'Documento eliminado exitosamente'
+            });
+
+        } catch (error) {
+            console.error('. Error en eliminarDocumento:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Error interno al eliminar documento'
+            });
+        }
     }
 
-    // Obtener documento actual
-    const { data: documentoActual, error: docError } = await supabase
-      .from('documentos')
-      .select('*')
-      .eq('id', documento_id)
-      .single();
-
-    if (docError || !documentoActual) {
-      return res.status(404).json({
-        success: false,
-        message: 'Documento no encontrado'
-      });
-    }
-
-    console.log(`.Actualizando documento ${tipo} con ID: ${documento_id}`);
-
-    // Eliminar archivo anterior del storage
-    try {
-      const { error: deleteError } = await supabase.storage
-        .from('kyc-documents')
-        .remove([documentoActual.ruta_storage]);
-
-      if (deleteError) {
-        console.warn('. No se pudo eliminar archivo anterior:', deleteError.message);
-      } else {
-        console.log('. Archivo anterior eliminado:', documentoActual.ruta_storage);
-      }
-    } catch (storageError) {
-      console.warn('. Error eliminando archivo anterior:', storageError.message);
-    }
-
-    // Subir nuevo archivo
-    const nombreArchivo = await DocumentoController.subirArchivoStorage(archivo, documentoActual.solicitud_id, tipo);
-    const rutaStorage = `documentos/${documentoActual.solicitud_id}/${nombreArchivo}`;
-    
-    const { data: urlData } = supabase.storage
-      .from('kyc-documents')
-      .getPublicUrl(rutaStorage);
-
-    // Extraer información del nuevo documento
-    let informacionExtraida = null;
-    if (archivo.originalname.toLowerCase().endsWith('.pdf')) {
-      informacionExtraida = await DocumentoController.extraerInformacionDocumento(urlData.publicUrl, tipo, archivo.buffer);
-    }
-
-    // Actualizar documento en base de datos
-    const documentoData = {
-      tipo,
-      nombre_archivo: nombreArchivo,
-      ruta_storage: rutaStorage,
-      tamanio_bytes: archivo.size,
-      estado: 'pendiente', // Resetear estado a pendiente
-      informacion_extraida: informacionExtraida,
-      validado_en: null,
-      comentarios: null,
-      updated_at: new Date().toISOString()
-    };
-
-    const { data: documento, error: updateError } = await supabase
-      .from('documentos')
-      .update(documentoData)
-      .eq('id', documento_id)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error('. Error actualizando documento en BD:', updateError);
-      throw updateError;
-    }
-
-    console.log(`. Documento ${tipo} actualizado en BD con ID:`, documento.id);
-
-    // Si es DNI, iniciar nueva verificación
-    if (tipo === 'dni') {
-      await DocumentoController.iniciarVerificacionDidit(documentoActual.solicitud_id, documento.id, archivo.buffer);
-    }
-
-    res.json({
-      success: true,
-      message: 'Documento actualizado exitosamente',
-      data: {
-        documento,
-        url_publica: urlData.publicUrl,
-        informacion_extraida: informacionExtraida
-      }
-    });
-
-  } catch (error) {
-    console.error('. Error en actualizarDocumento:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Error interno al actualizar documento'
-    });
-  }
-}
-// Eliminar documento
-static async eliminarDocumento(req, res) {
-  try {
-    const { documento_id } = req.params;
-
-    console.log('🗑️ Eliminando documento:', documento_id);
-
-    if (!documento_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Documento ID es requerido'
-      });
-    }
-
-    // Obtener documento
-    const { data: documento, error: docError } = await supabase
-      .from('documentos')
-      .select('*')
-      .eq('id', documento_id)
-      .single();
-
-    if (docError || !documento) {
-      return res.status(404).json({
-        success: false,
-        message: 'Documento no encontrado'
-      });
-    }
-
-    // Eliminar archivo del storage
-    try {
-      const { error: deleteError } = await supabase.storage
-        .from('kyc-documents')
-        .remove([documento.ruta_storage]);
-
-      if (deleteError) {
-        console.warn('. No se pudo eliminar archivo:', deleteError.message);
-      } else {
-        console.log('. Archivo eliminado:', documento.ruta_storage);
-      }
-    } catch (storageError) {
-      console.warn('. Error eliminando archivo:', storageError.message);
-    }
-
-    // Eliminar registro de la base de datos
-    const { error: deleteDbError } = await supabase
-      .from('documentos')
-      .delete()
-      .eq('id', documento_id);
-
-    if (deleteDbError) {
-      throw deleteDbError;
-    }
-
-    console.log(`. Documento eliminado: ${documento_id}`);
-
-    res.json({
-      success: true,
-      message: 'Documento eliminado exitosamente'
-    });
-
-  } catch (error) {
-    console.error('. Error en eliminarDocumento:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Error interno al eliminar documento'
-    });
-  }
-}
 /**
  * Evaluar documento con criterios específicos
  */
-static async evaluarDocumento(req, res) {
-    try {
-        const { documento_id } = req.params;
-        const { criterios, comentarios, estado } = req.body;
-        
-        console.log(`. Evaluando documento ${documento_id}`, { criterios, estado, comentarios });
 
-        // Obtener documento actual
-        const { data: documento, error: docError } = await supabase
-            .from('documentos')
-            .select('*')
-            .eq('id', documento_id)
-            .single();
+    /**
+     * Evaluar documento con criterios específicos
+     */
+    static async evaluarDocumento(req, res) {
+        try {
+            const { documento_id } = req.params;
+            const { criterios, comentarios, estado } = req.body;
+            
+            console.log(`. Evaluando documento ${documento_id}`, { criterios, estado, comentarios });
 
-        if (docError || !documento) {
-            return res.status(404).json({
-                success: false,
-                message: 'Documento no encontrado'
-            });
-        }
+            // Obtener documento actual usando el modelo
+            const documento = await DocumentoModel.obtenerPorId(documento_id);
 
-        // Calcular scoring basado en criterios aprobados
-        const criteriosAprobados = Object.values(criterios).filter(Boolean).length;
-        const totalCriterios = Object.keys(criterios).length;
-        const porcentajeAprobado = (criteriosAprobados / totalCriterios) * 100;
-
-        // Determinar estado automáticamente si no se proporciona
-        let estadoFinal = estado;
-        if (!estadoFinal) {
-            if (porcentajeAprobado >= 80) {
-                estadoFinal = 'validado';
-            } else if (porcentajeAprobado >= 60) {
-                estadoFinal = 'pendiente';
-            } else {
-                estadoFinal = 'rechazado';
+            if (!documento) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Documento no encontrado'
+                });
             }
-        }
 
-        // CORRECCIÓN: Guardar evaluación en tabla condiciones_aprobacion
-        const evaluacionData = {
-            criterios_aprobados: criteriosAprobados,
-            total_criterios: totalCriterios,
-            porcentaje_aprobado: porcentajeAprobado,
-            fecha_evaluacion: new Date().toISOString(),
-            criterios_detallados: criterios,
-            estado_final: estadoFinal,
-            comentarios: comentarios,
-            evaluado_por: req.usuario.id
-        };
+            // Calcular scoring basado en criterios aprobados
+            const criteriosAprobados = Object.values(criterios).filter(Boolean).length;
+            const totalCriterios = Object.keys(criterios).length;
+            const porcentajeAprobado = (criteriosAprobados / totalCriterios) * 100;
 
-        // Guardar en condiciones_aprobacion
-        const { data: condicionAprobacion, error: condError } = await supabase
-            .from('condiciones_aprobacion')
-            .insert([{
+            // Determinar estado automáticamente si no se proporciona
+            let estadoFinal = estado;
+            if (!estadoFinal) {
+                if (porcentajeAprobado >= 80) {
+                    estadoFinal = 'validado';
+                } else if (porcentajeAprobado >= 60) {
+                    estadoFinal = 'pendiente';
+                } else {
+                    estadoFinal = 'rechazado';
+                }
+            }
+
+            // Guardar evaluación usando el modelo
+            const evaluacionData = {
+                criterios_aprobados: criteriosAprobados,
+                total_criterios: totalCriterios,
+                porcentaje_aprobado: porcentajeAprobado,
+                fecha_evaluacion: new Date().toISOString(),
+                criterios_detallados: criterios,
+                estado_final: estadoFinal,
+                comentarios: comentarios,
+                evaluado_por: req.usuario.id
+            };
+
+            const condicionAprobacion = await DocumentoModel.registrarEvaluacion({
                 solicitud_id: documento.solicitud_id,
-                documento_id: documento_id, // CORRECCIÓN: Relacionar con documento
+                documento_id: documento_id,
                 condiciones: evaluacionData,
                 creado_por: req.usuario.id,
                 created_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
+            });
 
-        if (condError) {
-            console.error('. Error guardando condiciones de aprobación:', condError);
-        }
-
-        // Actualizar documento con información básica de evaluación
-const comentarioEvaluacion = comentarios && comentarios.trim() !== '' 
-    ? comentarios 
-    : `Evaluación: ${criteriosAprobados}/${totalCriterios} criterios aprobados (${porcentajeAprobado.toFixed(0)}%)`;        
-        const { data: documentoActualizado, error: updateError } = await supabase
-            .from('documentos')
-            .update({
+            // Actualizar documento con información básica de evaluación usando el modelo
+            const comentarioEvaluacion = comentarios && comentarios.trim() !== '' 
+                ? comentarios 
+                : `Evaluación: ${criteriosAprobados}/${totalCriterios} criterios aprobados (${porcentajeAprobado.toFixed(0)}%)`;
+            
+            const documentoActualizado = await DocumentoModel.actualizar(documento_id, {
                 estado: estadoFinal,
-                comentarios: comentarioEvaluacion, // Solo comentario resumido
+                comentarios: comentarioEvaluacion,
                 validado_en: new Date().toISOString()
-            })
-            .eq('id', documento_id)
-            .select()
-            .single();
-
-        if (updateError) throw updateError;
+            });
 
 
       try {
@@ -901,7 +819,7 @@ const comentarioEvaluacion = comentarios && comentarios.trim() !== ''
         });
     }
 }
-static async obtenerHistorialEvaluaciones(req, res) {
+    static async obtenerHistorialEvaluaciones(req, res) {
     try {
         const { documento_id } = req.params;
 
@@ -968,6 +886,7 @@ static async obtenerHistorialEvaluaciones(req, res) {
         });
     }
 }
+
  /**
      * Obtener documentos de contrato para una solicitud
      */
@@ -1550,85 +1469,142 @@ static obtenerTipoDocumento(nombreArchivo, carpeta) {
     /**
  * Obtener mis solicitudes con documentos disponibles
  */
-// En backend/controladores/DocumentoController.js
 static async obtenerMisSolicitudesConDocumentos(req, res) {
-    try {
-        const usuario_id = req.usuario.id;
-        const usuario_rol = req.usuario.rol;
+  try {
+    const usuario_id = req.usuario.id;
+    const usuario_rol = req.usuario.rol;
+
+    console.log(`📋 Obteniendo solicitudes con documentos para: ${usuario_id} (${usuario_rol})`);
+
+    let solicitudes;
+
+    if (usuario_rol === 'solicitante') {
+      // CORRECCIÓN: Obtener solicitudes aprobadas del solicitante
+      const { data: solicitudesData, error } = await supabase
+        .from('solicitudes_credito')
+        .select(`
+          *,
+          contratos(*),
+          transferencias_bancarias(*),
+          solicitantes: solicitantes!solicitante_id(
+            usuarios(nombre_completo, email)
+          )
+        `)
+        .eq('solicitante_id', usuario_id)
+        .eq('estado', 'aprobado')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error en consulta de solicitante:', error);
+        throw error;
+      }
+
+      solicitudes = solicitudesData || [];
+
+      // ✅ CORRECCIÓN CRÍTICA: Obtener firmas digitales para TODOS los contratos
+      if (solicitudes.length > 0) {
+        const contratosIds = [];
         
-        console.log(`. Obteniendo solicitudes con documentos para: ${usuario_id} (${usuario_rol})`);
-
-        let solicitudes;
-
-        if (usuario_rol === 'solicitante') {
-            // Para solicitantes: obtener solo sus solicitudes aprobadas
-            const { data, error } = await supabase
-                .from('solicitudes_credito')
-                .select(`
-                    *,
-                    contratos(*, firmas_digitales(*)),
-                    transferencias_bancarias(*),
-                    solicitantes: solicitantes!solicitante_id(
-                        usuarios(nombre_completo, email)
-                    )
-                `)
-                .eq('solicitante_id', usuario_id)
-                .eq('estado', 'aprobado')
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('. Error en consulta de solicitante:', error);
-                throw error;
-            }
-            solicitudes = data;
-
-        } else if (usuario_rol === 'operador') {
-            // Para operadores: obtener todas las solicitudes aprobadas que tienen documentos
-            const { data, error } = await supabase
-                .from('solicitudes_credito')
-                .select(`
-                    *,
-                    contratos(*, firmas_digitales(*)),
-                    transferencias_bancarias(*),
-                    solicitantes: solicitantes!solicitante_id(
-                        usuarios(nombre_completo, email)
-                    ),
-                    operadores: operadores!operador_id(
-                        usuarios(nombre_completo, email)
-                    )
-                `)
-                .eq('estado', 'aprobado')
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('. Error en consulta de operador:', error);
-                throw error;
-            }
-            solicitudes = data;
-        } else {
-            return res.status(403).json({
-                success: false,
-                message: 'Rol no autorizado'
+        // Recopilar todos los IDs de contratos
+        solicitudes.forEach(solicitud => {
+          if (solicitud.contratos && Array.isArray(solicitud.contratos)) {
+            solicitud.contratos.forEach(contrato => {
+              if (contrato.id) contratosIds.push(contrato.id);
             });
+          } else if (solicitud.contratos && solicitud.contratos.id) {
+            contratosIds.push(solicitud.contratos.id);
+          }
+        });
+
+        if (contratosIds.length > 0) {
+          console.log(`🔍 Buscando firmas para ${contratosIds.length} contratos`);
+          
+          // Obtener firmas digitales para todos los contratos
+          const { data: firmasDigitales, error: firmasError } = await supabase
+            .from('firmas_digitales')
+            .select('*')
+            .in('contrato_id', contratosIds);
+
+          if (firmasError) {
+            console.error('❌ Error obteniendo firmas digitales:', firmasError);
+          } else {
+            console.log(`✅ Encontradas ${firmasDigitales?.length || 0} firmas digitales`);
+            
+            // Asociar firmas a sus contratos correspondientes
+            solicitudes = solicitudes.map(solicitud => {
+              if (solicitud.contratos) {
+                const contratosActualizados = Array.isArray(solicitud.contratos) 
+                  ? solicitud.contratos.map(contrato => {
+                      const firmaAsociada = firmasDigitales?.find(firma => firma.contrato_id === contrato.id);
+                      return {
+                        ...contrato,
+                        firma_digital: firmaAsociada || null
+                      };
+                    })
+                  : [{
+                      ...solicitud.contratos,
+                      firma_digital: firmasDigitales?.find(firma => firma.contrato_id === solicitud.contratos.id) || null
+                    }];
+                
+                return {
+                  ...solicitud,
+                  contratos: contratosActualizados
+                };
+              }
+              return solicitud;
+            });
+          }
         }
+      }
 
-        console.log(`.Encontradas ${solicitudes?.length || 0} solicitudes con documentos`);
+    } else if (usuario_rol === 'operador') {
+      // Para operadores: obtener todas las solicitudes aprobadas
+      const { data, error } = await supabase
+        .from('solicitudes_credito')
+        .select(`
+          *,
+          contratos(*, firmas_digitales(*)),
+          transferencias_bancarias(*),
+          solicitantes: solicitantes!solicitante_id(
+            usuarios(nombre_completo, email)
+          ),
+          operadores: operadores!operador_id(
+            usuarios(nombre_completo, email)
+          )
+        `)
+        .eq('estado', 'aprobado')
+        .order('created_at', { ascending: false });
 
-        res.json({
-            success: true,
-            data: solicitudes || []
-        });
+      if (error) {
+        console.error('❌ Error en consulta de operador:', error);
+        throw error;
+      }
 
-    } catch (error) {
-        console.error('. Error obteniendo solicitudes con documentos:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error al obtener solicitudes con documentos',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+      solicitudes = data || [];
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Rol no autorizado'
+      });
     }
+
+    console.log(`✅ Encontradas ${solicitudes?.length || 0} solicitudes con documentos`);
+
+    res.json({
+      success: true,
+      data: solicitudes || []
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo solicitudes con documentos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener solicitudes con documentos',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 }
-// En backend/controladores/DocumentoController.js
+
 static async obtenerTodosLosDocumentos(req, res) {
   try {
     const usuario = req.usuario;

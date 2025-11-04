@@ -210,7 +210,6 @@ static async proteger(req, res, next) {
       }
 
       if (!roles.includes(req.usuario.rol)) {
-        console.error('. Acceso denegado para rol:', req.usuario.rol);
         return res.status(403).json({
           success: false,
           message: `Usuario rol ${req.usuario.rol} no autorizado para acceder a esta ruta`

@@ -19,7 +19,7 @@ import {
 
 interface DynamicNavigationProps {
   onNavigate?: () => void;
-  navigationHandler?: (path: string) => void; // nuevo: función que maneja navegación con overlay
+  navigationHandler?: (path: string) => void;
 }
 
 export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate, navigationHandler }) => {
@@ -28,13 +28,18 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
   const pathname = usePathname() ?? '';
 
   const handleNavigation = (path: string) => {
+    // NO navegar si ya estamos en esa ruta
+    if (pathname === path) {
+      if (onNavigate) onNavigate();
+      return;
+    }
+
     if (navigationHandler) {
       navigationHandler(path);
     } else {
       router.push(path);
       if (onNavigate) onNavigate();
     }
-    if (onNavigate) onNavigate();
   };
 
   const isActive = (path: string) => pathname === path;
@@ -122,7 +127,7 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
                 <Dashboard />
               </ListItemIcon>
               <ListItemText
-                primary="Mis Solicitudes"
+                primary="Mis solicitudes"
                 primaryTypographyProps={{
                   fontSize: '0.9rem',
                   fontWeight: isActive('/solicitante') ? '600' : '400',
@@ -176,7 +181,7 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
             <Person />
           </ListItemIcon>
           <ListItemText
-            primary="Mi Perfil"
+            primary="Mi perfil"
             primaryTypographyProps={{
               fontSize: '0.9rem',
               fontWeight: isActive('/usuario/perfil') ? '600' : '400',

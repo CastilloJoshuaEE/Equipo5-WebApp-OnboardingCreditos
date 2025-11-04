@@ -403,7 +403,7 @@ const EditarPerfil = () => {
                       sx={{ mt: 2 }}
                       onClick={() => setmodalContrasenaOpen(true)}
                     >
-                      Cambiar Contraseña
+                      Cambiar contraseña
                     </Button>
                   </CardContent>
                 </Card>

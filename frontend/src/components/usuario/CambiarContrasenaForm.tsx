@@ -1,5 +1,4 @@
 'use client';
-
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -9,8 +8,11 @@ import {
   TextField,
   Button,
   Alert,
-  Box
+  Box,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { UsuarioService } from '@/services/usuario.service';
 
 interface CambiarContrasenaFormProps {
@@ -29,12 +31,15 @@ const CambiarContrasenaForm: React.FC<CambiarContrasenaFormProps> = ({
     nueva_contrasena: '',
     confirmar_contrasena: ''
   });
+  const [showActual, setShowActual] = useState(false);
+  const [showNueva, setShowNueva] = useState(false);
+  const [showConfirmar, setShowConfirmar] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState(false);
 
   const handleChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [field]: event.target.value
     }));
@@ -47,7 +52,7 @@ const CambiarContrasenaForm: React.FC<CambiarContrasenaFormProps> = ({
       return;
     }
 
-    if (formData.nueva_contrasena.length < 6) {
+    if (formData.nueva_contrasena.length < 8) {
       setError('La contraseña debe tener al menos 8 caracteres');
       return;
     }
@@ -55,9 +60,8 @@ const CambiarContrasenaForm: React.FC<CambiarContrasenaFormProps> = ({
     try {
       setLoading(true);
       setError('');
-      
       const result = await UsuarioService.cambiarContrasena(formData);
-      
+
       if (result.success) {
         setSuccess(true);
         setFormData({
@@ -93,46 +97,65 @@ const CambiarContrasenaForm: React.FC<CambiarContrasenaFormProps> = ({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Cambiar Contraseña</DialogTitle>
+      <DialogTitle>Cambiar contraseña</DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 2 }}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          {success && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              Contraseña cambiada exitosamente
-            </Alert>
-          )}
-          
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {success && <Alert severity="success" sx={{ mb: 2 }}>Contraseña cambiada exitosamente</Alert>}
+
           <TextField
             fullWidth
-            type="password"
+            type={showActual ? 'text' : 'password'}
             label="Contraseña Actual"
             value={formData.contrasena_actual}
             onChange={handleChange('contrasena_actual')}
             margin="normal"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setShowActual(!showActual)} edge="end">
+                    {showActual ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
-          
+
           <TextField
             fullWidth
-            type="password"
+            type={showNueva ? 'text' : 'password'}
             label="Nueva Contraseña"
             value={formData.nueva_contrasena}
             onChange={handleChange('nueva_contrasena')}
             margin="normal"
             helperText="Mínimo 8 caracteres"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setShowNueva(!showNueva)} edge="end">
+                    {showNueva ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
-          
+
           <TextField
             fullWidth
-            type="password"
+            type={showConfirmar ? 'text' : 'password'}
             label="Confirmar Nueva Contraseña"
             value={formData.confirmar_contrasena}
             onChange={handleChange('confirmar_contrasena')}
             margin="normal"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setShowConfirmar(!showConfirmar)} edge="end">
+                    {showConfirmar ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
         </Box>
       </DialogContent>
@@ -140,12 +163,8 @@ const CambiarContrasenaForm: React.FC<CambiarContrasenaFormProps> = ({
         <Button onClick={handleClose} disabled={loading}>
           Cancelar
         </Button>
-        <Button 
-          onClick={handleSubmit} 
-          variant="contained" 
-          disabled={loading}
-        >
-          {loading ? 'Cambiando...' : 'Cambiar Contraseña'}
+        <Button onClick={handleSubmit} variant="contained" disabled={loading}>
+          {loading ? 'Cambiando...' : 'Cambiar contraseña'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -147,7 +147,7 @@ export default function EmailRecuperacionForm() {
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Email de Recuperación
+            Email de recuperación
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Cargando configuración...
@@ -161,13 +161,13 @@ export default function EmailRecuperacionForm() {
     <Card>
       <CardContent>
         <Typography variant="h6" gutterBottom>
-          Configuración de Cuenta
+          Configuración de cuenta
         </Typography>
         
         {/* Email Principal */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" gutterBottom>
-            Email Principal
+            Email principal
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="body1">
@@ -185,7 +185,7 @@ export default function EmailRecuperacionForm() {
         {/* Email de Recuperación */}
         <Box sx={{ mb: 2 }}>
           <Typography variant="subtitle2" gutterBottom>
-            Email de Recuperación
+            Email de recuperación
           </Typography>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Establece un email alternativo para recuperar tu cuenta en caso de perder el acceso.
@@ -233,7 +233,7 @@ export default function EmailRecuperacionForm() {
             disabled={loading || !emailRecuperacion}
             sx={{ mt: 2 }}
           >
-            {loading ? 'Actualizando...' : configuracion?.email_recuperacion ? 'Actualizar Email de Recuperación' : 'Establecer Email de Recuperación'}
+            {loading ? 'Actualizando...' : configuracion?.email_recuperacion ? 'Actualizar email de recuperación' : 'Establecer email de recuperación'}
           </Button>
         </Box>
       </CardContent>

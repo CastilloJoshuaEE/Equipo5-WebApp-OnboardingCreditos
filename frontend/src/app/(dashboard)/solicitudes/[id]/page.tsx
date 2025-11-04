@@ -106,7 +106,7 @@ export default function DetalleSolicitudDocumentos() {
           color="inherit"
           href={session?.user.rol === 'operador' ? '/operador' : '/solicitante'}
         >
-          {session?.user.rol === 'operador' ? 'Panel Operador' : 'Mis Solicitudes'}
+          {session?.user.rol === 'operador' ? 'Panel Operador' : 'Mis solicitudes'}
         </Link>
         <Typography color="text.primary">
           Documentos - Solicitud {solicitudId.slice(0, 8)}

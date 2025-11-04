@@ -2,19 +2,31 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Box, Typography, CircularProgress, Alert, Button, TextField } from '@mui/material';
+import {
+  Box,
+  Typography,
+  CircularProgress,
+  Alert,
+  Button,
+  TextField,
+  IconButton,
+  InputAdornment
+} from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 function RestablecerCuentaContent() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [nuevaContrasena, setNuevaContrasena] = useState('');
   const [confirmarContrasena, setConfirmarContrasena] = useState('');
+  const [showNuevaContrasena, setShowNuevaContrasena] = useState(false);
+  const [showConfirmarContrasena, setShowConfirmarContrasena] = useState(false);
   const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
   const [tokenValido, setTokenValido] = useState(false);
-  
+
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   const token = searchParams?.get('token');
   const email = searchParams?.get('email');
 
@@ -27,16 +39,10 @@ function RestablecerCuentaContent() {
       }
 
       try {
-        // Primero verificamos si el token es válido llamando al backend
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         const response = await fetch(
           `${API_URL}/auth/restablecer-cuenta?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
+          { method: 'GET', headers: { 'Content-Type': 'application/json' } }
         );
 
         if (response.ok) {
@@ -69,7 +75,7 @@ function RestablecerCuentaContent() {
       return;
     }
 
-    if (nuevaContrasena.length < 6) {
+    if (nuevaContrasena.length < 8) {
       setMessage('La contraseña debe tener al menos 8 caracteres');
       return;
     }
@@ -79,12 +85,10 @@ function RestablecerCuentaContent() {
 
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      
+
       const response = await fetch(`${API_URL}/usuarios/recuperar-contrasena`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: decodeURIComponent(email || ''),
           nueva_contrasena: nuevaContrasena,
@@ -128,7 +132,7 @@ function RestablecerCuentaContent() {
       </Typography>
 
       {message && (
-        <Alert 
+        <Alert
           severity={message.includes('éxito') ? 'success' : message.includes('válido') ? 'info' : 'error'}
           sx={{ width: '100%', maxWidth: 500 }}
         >
@@ -138,28 +142,54 @@ function RestablecerCuentaContent() {
 
       {tokenValido && status === 'success' && (
         <Box component="form" sx={{ width: '100%', maxWidth: 500 }} gap={2} display="flex" flexDirection="column">
+          {/* Campo Nueva Contraseña */}
           <TextField
             label="Nueva Contraseña"
-            type="password"
+            type={showNuevaContrasena ? 'text' : 'password'}
             value={nuevaContrasena}
             onChange={(e) => setNuevaContrasena(e.target.value)}
             fullWidth
             margin="normal"
             disabled={cambiandoContrasena}
             placeholder="Mínimo 8 caracteres"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowNuevaContrasena(!showNuevaContrasena)}
+                    edge="end"
+                  >
+                    {showNuevaContrasena ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
-          
+
+          {/* Campo Confirmar Contraseña */}
           <TextField
             label="Confirmar Contraseña"
-            type="password"
+            type={showConfirmarContrasena ? 'text' : 'password'}
             value={confirmarContrasena}
             onChange={(e) => setConfirmarContrasena(e.target.value)}
             fullWidth
             margin="normal"
             disabled={cambiandoContrasena}
             placeholder="Repite la contraseña"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowConfirmarContrasena(!showConfirmarContrasena)}
+                    edge="end"
+                  >
+                    {showConfirmarContrasena ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
-          
+
           <Button
             variant="contained"
             onClick={handleCambiarContrasena}
@@ -173,16 +203,10 @@ function RestablecerCuentaContent() {
       )}
 
       <Box display="flex" gap={2} mt={2}>
-        <Button 
-          variant="outlined" 
-          onClick={() => router.push('/login')}
-        >
+        <Button variant="outlined" onClick={() => router.push('/login')}>
           Volver al Login
         </Button>
-        <Button 
-          variant="text" 
-          onClick={() => router.push('/')}
-        >
+        <Button variant="text" onClick={() => router.push('/')}>
           Ir al Inicio
         </Button>
       </Box>
@@ -192,14 +216,16 @@ function RestablecerCuentaContent() {
 
 export default function RestablecerCuentaPage() {
   return (
-    <Suspense fallback={
-      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={3}>
-        <CircularProgress size={60} />
-        <Typography variant="h5" textAlign="center">
-          Cargando...
-        </Typography>
-      </Box>
-    }>
+    <Suspense
+      fallback={
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={3}>
+          <CircularProgress size={60} />
+          <Typography variant="h5" textAlign="center">
+            Cargando...
+          </Typography>
+        </Box>
+      }
+    >
       <RestablecerCuentaContent />
     </Suspense>
   );

@@ -1,13 +1,10 @@
 const SolicitudModel=require('../modelos/SolicitudModel');
 const DocumentoModel=require('../modelos/DocumentoModel');
 const VerificacionKycModel = require('../modelos/VerificacionKycModel');
-const OperadorController=require('../controladores/OperadorController')
 const NotificacionService = require('../servicios/NotificacionService');
 const ContratoController =require('../controladores/ContratoController');
 const { supabase } = require('../config/conexion');
-const { supabaseAdmin } = require('../config/supabaseAdmin');
 const diditService = require('../servicios/diditService');
-const FirmaDigitalController= require('../controladores/FirmaDigitalController')
 class SolicitudesController {
   // Crear solicitud de crédito
   static async crearSolicitud(req, res) {
