@@ -1,4 +1,3 @@
-// frontend/src/app/(dashboard)/operador/page.tsx
 'use client';
 import { useRouter, useParams } from 'next/navigation';
 import { signOut } from 'next-auth/react';
@@ -11,6 +10,8 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   Box,
   Typography,
@@ -24,7 +25,11 @@ import {
   Select,
   MenuItem,
   Grid,
-  LinearProgress
+  LinearProgress,
+  IconButton,
+  Drawer,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import { 
   Documento, 
@@ -37,12 +42,15 @@ import RevisionModal from '@/components/operador/RevisionModal';
 import './operador-styles.css';
 import { HabilitacionTransferencia } from '@/types/transferencias';
 
-
 export default function OperadorDashboard() {
   const router = useRouter();
   const params = useParams();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [filtrosOpen, setFiltrosOpen] = useState(false);
+const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date());
+  const [actualizando, setActualizando] = useState(false);
   const [procesandoForzar, setProcesandoForzar] = useState<{[key:string]: boolean}>({});
-
   const [solicitudes, setSolicitudes] = useState<SolicitudOperador[]>([]);
   const [habilitaciones, setHabilitaciones] = useState<{[key: string]: HabilitacionTransferencia}>({});
   const { toast } = useToast();
@@ -61,77 +69,67 @@ export default function OperadorDashboard() {
     totalSolicitudes: 0,
     aprobadas: 0,
     enRevision: 0,
-        montoDesembolsado: 0,
-        listasParaTransferencia:0
-
+    montoDesembolsado: 0,
+    listasParaTransferencia: 0
   });
 
   const solicitudId = params?.id as string;
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<RevisionData | null>(null);
   const [modalRevision, setModalRevision] = useState(false);
   const [revisionData, setRevisionData] = useState<RevisionData | null>(null);
-const [cargandoTransferencia, setCargandoTransferencia] = useState(false);
+  const [cargandoTransferencia, setCargandoTransferencia] = useState(false);
 
-const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
-  const totalSolicitudes = solicitudesData.length;
-  
-  const aprobadas = solicitudesData.filter(s => s.estado === 'aprobado').length;
-  
-  const enRevision = solicitudesData.filter(s => 
-    s.estado === 'en_revision' || s.estado === 'pendiente_info'
-  ).length;
-  
-  // .CORRECCIÓN: Usar la propiedad transferencias_bancarias del tipo
-  const montoDesembolsado = solicitudesData.reduce((total, solicitud) => {
-    // Verificar si hay transferencia completada para esta solicitud
-    if (solicitud.transferencias_bancarias && 
-      solicitud.transferencias_bancarias.length > 0) {
-      
-      const transferenciaCompletada = solicitud.transferencias_bancarias
-        .find((t: TransferenciaBancaria) => t.estado === 'completada');
-      
-      if (transferenciaCompletada) {
-        return total + (parseFloat(transferenciaCompletada.monto.toString()) || 0);
-      }
-    }
-    return total;
-  }, 0);
-
-  // .CORRECCIÓN: Usar el tipo Contrato importado
-  const listasParaTransferencia = solicitudesData.filter(solicitud => {
-    // Verificar si está aprobada, tiene contrato firmado pero NO tiene transferencia completada
-    const tieneContratoFirmado = solicitud.contratos && 
-      solicitud.contratos.some((c: Contrato) => c.estado === 'firmado_completo');
-    const tieneTransferenciaCompletada = solicitud.transferencias_bancarias &&
-      solicitud.transferencias_bancarias.some((t: TransferenciaBancaria) => t.estado === 'completada');
+  const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
+    const totalSolicitudes = solicitudesData.length;
+    const aprobadas = solicitudesData.filter(s => s.estado === 'aprobado').length;
+    const enRevision = solicitudesData.filter(s => 
+      s.estado === 'en_revision' || s.estado === 'pendiente_info'
+    ).length;
     
-    return solicitud.estado === 'aprobado' && 
-           tieneContratoFirmado && 
-           !tieneTransferenciaCompletada;
-  }).length;
+    const montoDesembolsado = solicitudesData.reduce((total, solicitud) => {
+      if (solicitud.transferencias_bancarias && solicitud.transferencias_bancarias.length > 0) {
+        const transferenciaCompletada = solicitud.transferencias_bancarias
+          .find((t: TransferenciaBancaria) => t.estado === 'completada');
+        if (transferenciaCompletada) {
+          return total + (parseFloat(transferenciaCompletada.monto.toString()) || 0);
+        }
+      }
+      return total;
+    }, 0);
 
-  setMetricas({
-    totalSolicitudes,
-    aprobadas,
-    enRevision,
-    montoDesembolsado,
-    listasParaTransferencia
-  });
-};
- useEffect(() => {
-  if (solicitudes.length > 0) {
-    calcularMetricas(solicitudes);
-  } else {
-    // .CORRECCIÓN: Resetear métricas sin montoAprobado
+    const listasParaTransferencia = solicitudesData.filter(solicitud => {
+      const tieneContratoFirmado = solicitud.contratos && 
+        solicitud.contratos.some((c: Contrato) => c.estado === 'firmado_completo');
+      const tieneTransferenciaCompletada = solicitud.transferencias_bancarias &&
+        solicitud.transferencias_bancarias.some((t: TransferenciaBancaria) => t.estado === 'completada');
+      
+      return solicitud.estado === 'aprobado' && 
+             tieneContratoFirmado && 
+             !tieneTransferenciaCompletada;
+    }).length;
+
     setMetricas({
-      totalSolicitudes: 0,
-      aprobadas: 0,
-      enRevision: 0,
-      montoDesembolsado: 0,
-      listasParaTransferencia: 0
+      totalSolicitudes,
+      aprobadas,
+      enRevision,
+      montoDesembolsado,
+      listasParaTransferencia
     });
-  }
-}, [solicitudes]);
+  };
+
+  useEffect(() => {
+    if (solicitudes.length > 0) {
+      calcularMetricas(solicitudes);
+    } else {
+      setMetricas({
+        totalSolicitudes: 0,
+        aprobadas: 0,
+        enRevision: 0,
+        montoDesembolsado: 0,
+        listasParaTransferencia: 0
+      });
+    }
+  }, [solicitudes]);
 
   // Función para refrescar datos después de validar
   const handleDocumentoActualizado = async () => {
@@ -155,24 +153,6 @@ const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
     return usuario?.nombre_completo || 'Sin contacto';
   };
 
-  // También obtener email y teléfono para mostrar
-  const getContactoInfo = (solicitud: SolicitudOperador) => {
-    if (!solicitud.solicitantes?.usuarios) {
-      return {
-        nombre: 'No disponible',
-        email: 'No disponible', 
-        telefono: 'No disponible'
-      };
-    }
-    
-    const usuario = solicitud.solicitantes.usuarios;
-    return {
-      nombre: usuario?.nombre_completo || 'No disponible',
-      email: usuario?.email || 'No disponible',
-      telefono: usuario?.telefono || 'No disponible'
-    };
-  };
-
   useEffect(() => {
     cargarDashboard();
   }, []);
@@ -184,304 +164,251 @@ const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
     });
   };
 
-const verificarFirmasDigitales = async () => {
-  const session = await getSession();
-  const nuevasFirmas: {[key: string]: any} = {};
-
-  for (const solicitud of solicitudes) {
-    if (solicitud.estado === 'aprobado') {
-      try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-        
-        // Verificar si existe proceso de firma
-        const response = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
-          headers: {
-            'Authorization': `Bearer ${session?.accessToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          nuevasFirmas[solicitud.id] = data.data;
-          
-          console.log(`. Estado firma digital para ${solicitud.id}:`, {
-            existe_firma: data.data.existe,
-            estado: data.data.firma_existente?.estado
-          });
-        } else {
-          console.error(`Error verificando firma para ${solicitud.id}:`, response.status);
-        }
-      } catch (error) {
-        console.error('Error verificando firma digital:', error);
-      }
+  const verificarTodasLasFirmas = async () => {
+    const session = await getSession();
+    if (!session?.accessToken) {
+      toast({
+        title: "Error de autenticación",
+        description: "No se pudo verificar la sesión",
+        variant: "destructive",
+      });
+      return;
     }
-  }
-  
-  return nuevasFirmas;
-};
-const verificarTodasLasFirmas = async () => {
-  const session = await getSession();
-  if (!session?.accessToken) {
-    toast({
-      title: "Error de autenticación",
-      description: "No se pudo verificar la sesión",
-      variant: "destructive",
-    });
-    return;
-  }
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-  const firmasVerificadas: {[key: string]: any} = {};
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const firmasVerificadas: {[key: string]: any} = {};
 
-  try {
+    try {
+      for (const solicitud of solicitudes) {
+        if (solicitud.estado === 'aprobado') {
+          try {
+            const response = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
+              headers: {
+                'Authorization': `Bearer ${session.accessToken}`,
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              firmasVerificadas[solicitud.id] = data.data;
+            }
+          } catch (error) {
+            console.error(`Error verificando firma ${solicitud.id}:`, error);
+          }
+        }
+      }
+
+      const firmasCompletas = Object.values(firmasVerificadas).filter(
+        (f: any) => f.firma_existente?.estado === 'firmado_completo'
+      ).length;
+      
+      const firmasPendientes = Object.values(firmasVerificadas).filter(
+        (f: any) => f.firma_existente && f.firma_existente.estado !== 'firmado_completo'
+      ).length;
+
+      toast({
+        title: "Verificación de firmas completada",
+        description: `Firmas completas: ${firmasCompletas}, Pendientes: ${firmasPendientes}`,
+        variant: "default",
+      });
+
+    } catch (error) {
+      console.error('Error verificando firmas:', error);
+      toast({
+        title: "Error",
+        description: "Error verificando firmas digitales",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const verificarHabilitaciones = async () => {
+    const nuevasHabilitaciones: {[key: string]: HabilitacionTransferencia} = {};
+    const session = await getSession();
+
+    if (!session?.accessToken) {
+      console.error('No hay token de acceso para verificar habilitaciones');
+      return;
+    }
+
     for (const solicitud of solicitudes) {
       if (solicitud.estado === 'aprobado') {
         try {
-          const response = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+          
+          const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitud.id}`, {
             headers: {
               'Authorization': `Bearer ${session.accessToken}`,
-              'Content-Type': 'application/json',
-            },
+              'Content-Type': 'application/json'
+            }
           });
-
+          
           if (response.ok) {
             const data = await response.json();
-            firmasVerificadas[solicitud.id] = data.data;
-            
-            console.log(`. Estado firma para ${solicitud.numero_solicitud}:`, {
-              existe: data.data.existe,
-              estado: data.data.firma_existente?.estado
-            });
+            nuevasHabilitaciones[solicitud.id] = data.data;
+          } else if (response.status === 403) {
+            continue;
           }
         } catch (error) {
-          console.error(`Error verificando firma ${solicitud.id}:`, error);
+          console.error('Error verificando habilitación:', error);
         }
       }
     }
-
-    // Mostrar resumen
-    const firmasCompletas = Object.values(firmasVerificadas).filter(
-      (f: any) => f.firma_existente?.estado === 'firmado_completo'
-    ).length;
     
-    const firmasPendientes = Object.values(firmasVerificadas).filter(
-      (f: any) => f.firma_existente && f.firma_existente.estado !== 'firmado_completo'
-    ).length;
+    setHabilitaciones(nuevasHabilitaciones);
+  };
 
-    toast({
-      title: "Verificación de firmas completada",
-      description: `Firmas completas: ${firmasCompletas}, Pendientes: ${firmasPendientes}`,
-      variant: "default",
-    });
-
-  } catch (error) {
-    console.error('Error verificando firmas:', error);
-    toast({
-      title: "Error",
-      description: "Error verificando firmas digitales",
-      variant: "destructive",
-    });
-  }
-};
-const verificarHabilitaciones = async () => {
-  const nuevasHabilitaciones: {[key: string]: HabilitacionTransferencia} = {};
-  const session = await getSession();
-
-  if (!session?.accessToken) {
-    console.error('No hay token de acceso para verificar habilitaciones');
-    return;
-  }
-
-  for (const solicitud of solicitudes) {
-    if (solicitud.estado === 'aprobado') {
-      try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-        
-        console.log(`Verificando habilitación para solicitud: ${solicitud.id}`);
-        
-        const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitud.id}`, {
-          headers: {
-            'Authorization': `Bearer ${session.accessToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          nuevasHabilitaciones[solicitud.id] = data.data;
-          
-          console.log(`, Estado transferencia para ${solicitud.id}:`, {
-            habilitado: data.data.habilitado,
-            motivo: data.data.motivo,
-            estado_firma: data.data.estado_firma
-          });
-        } else if (response.status === 403) {
-          console.error(`, Permiso denegado para verificar habilitación de ${solicitud.id}`);
-          // Continuar con el siguiente en lugar de bloquear
-          continue;
-        } else {
-          console.error(`, Error verificando habilitación para ${solicitud.id}:`, response.status);
-        }
-      } catch (error) {
-        console.error('Error verificando habilitación:', error);
-      }
+  const handleForzarVerificacion = async () => {
+    const session = await getSession();
+    if (!session?.accessToken) {
+      toast({
+        title: "Error de autenticación",
+        description: "No se pudo verificar la sesión",
+        variant: "destructive",
+      });
+      return;
     }
-  }
-  
-  setHabilitaciones(nuevasHabilitaciones);
-};
-const handleForzarVerificacion = async () => {
-  const session = await getSession();
-  if (!session?.accessToken) {
-    toast({
-      title: "Error de autenticación",
-      description: "No se pudo verificar la sesión",
-      variant: "destructive",
-    });
-    return;
-  }
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-  const nuevosProcesos: { [key: string]: boolean } = {};
-  const nuevasHabilitaciones: { [key: string]: HabilitacionTransferencia } = {};
-  const nuevasFirmas: { [key: string]: any } = {};
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const nuevosProcesos: { [key: string]: boolean } = {};
+    const nuevasHabilitaciones: { [key: string]: HabilitacionTransferencia } = {};
+    const nuevasFirmas: { [key: string]: any } = {};
 
-  try {
-    // Iteramos todas las solicitudes aprobadas
-    for (const solicitud of solicitudes) {
-      if (solicitud.estado === 'aprobado') {
-        nuevosProcesos[solicitud.id] = true;
-        setProcesandoForzar({ ...nuevosProcesos });
+    try {
+      for (const solicitud of solicitudes) {
+        if (solicitud.estado === 'aprobado') {
+          nuevosProcesos[solicitud.id] = true;
+          setProcesandoForzar({ ...nuevosProcesos });
 
-        try {
-          console.log(`. Forzando verificación para solicitud: ${solicitud.id}`);
-          
-          // PRIMERO: Verificar y forzar actualización de firma digital si es necesario
-          let procesoFirmaExiste = false;
-          
-          // Verificar si existe proceso de firma
-          const firmaResponse = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
-            headers: {
-              'Authorization': `Bearer ${session.accessToken}`,
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (firmaResponse.ok) {
-            const firmaData = await firmaResponse.json();
-            procesoFirmaExiste = firmaData.data.existe;
-            nuevasFirmas[solicitud.id] = firmaData.data;
+          try {
+            let procesoFirmaExiste = false;
             
-            console.log(`. Proceso de firma existe para ${solicitud.id}:`, procesoFirmaExiste);
-            
-            // Si no existe proceso de firma, intentar iniciarlo
-            if (!procesoFirmaExiste) {
-              console.log(`. Iniciando proceso de firma para ${solicitud.id}`);
+            const firmaResponse = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
+              headers: {
+                'Authorization': `Bearer ${session.accessToken}`,
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (firmaResponse.ok) {
+              const firmaData = await firmaResponse.json();
+              procesoFirmaExiste = firmaData.data.existe;
+              nuevasFirmas[solicitud.id] = firmaData.data;
               
-              const iniciarFirmaResponse = await fetch(`${API_URL}/firmas/iniciar-proceso/${solicitud.id}`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${session.accessToken}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ forzar_reinicio: true })
-              });
-              
-              if (iniciarFirmaResponse.ok) {
-                console.log(`. Proceso de firma iniciado para ${solicitud.id}`);
-                // Actualizar el estado de la firma
-                const nuevaVerificacion = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
+              if (!procesoFirmaExiste) {
+                const iniciarFirmaResponse = await fetch(`${API_URL}/firmas/iniciar-proceso/${solicitud.id}`, {
+                  method: 'POST',
                   headers: {
                     'Authorization': `Bearer ${session.accessToken}`,
                     'Content-Type': 'application/json',
                   },
+                  body: JSON.stringify({ forzar_reinicio: true })
                 });
-                if (nuevaVerificacion.ok) {
-                  const nuevaData = await nuevaVerificacion.json();
-                  nuevasFirmas[solicitud.id] = nuevaData.data;
+                
+                if (iniciarFirmaResponse.ok) {
+                  const nuevaVerificacion = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
+                    headers: {
+                      'Authorization': `Bearer ${session.accessToken}`,
+                      'Content-Type': 'application/json',
+                    },
+                  });
+                  if (nuevaVerificacion.ok) {
+                    const nuevaData = await nuevaVerificacion.json();
+                    nuevasFirmas[solicitud.id] = nuevaData.data;
+                  }
                 }
-              } else {
-                console.warn(`. No se pudo iniciar proceso de firma para ${solicitud.id}`);
               }
             }
-          }
 
-          // SEGUNDO: Forzar actualización de transferencia (como lo hacías antes)
-          const res = await fetch(`${API_URL}/transferencias/forzar-actualizacion/${solicitud.id}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session.accessToken}`,
-              'Content-Type': 'application/json',
-            },
-          });
+            const res = await fetch(`${API_URL}/transferencias/forzar-actualizacion/${solicitud.id}`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.accessToken}`,
+                'Content-Type': 'application/json',
+              },
+            });
 
-          if (!res.ok) {
-            const errorData = await res.json().catch(() => ({}));
-            const errorMessage = errorData.message || `Error ${res.status}`;
-            console.error(`. Error forzando verificación ${solicitud.id}:`, errorMessage);
+            if (!res.ok) {
+              const errorData = await res.json().catch(() => ({}));
+              const errorMessage = errorData.message || `Error ${res.status}`;
+              toast({
+                title: "Error",
+                description: `Error en solicitud ${solicitud.numero_solicitud}: ${errorMessage}`,
+                variant: "destructive",
+              });
+              continue;
+            }
+
+            const data = await res.json();
+            nuevasHabilitaciones[solicitud.id] = data.data;
 
             toast({
-              title: "Error",
-              description: `Error en solicitud ${solicitud.numero_solicitud}: ${errorMessage}`,
-              variant: "destructive",
+              title: "Verificación forzada",
+              description: `Solicitud ${solicitud.numero_solicitud} actualizada correctamente.`,
+              variant: "default",
             });
-            continue;
+
+          } catch (error) {
+            console.error(`Error forzando verificación de ${solicitud.id}:`, error);
+          } finally {
+            nuevosProcesos[solicitud.id] = false;
+            setProcesandoForzar({ ...nuevosProcesos });
           }
-
-          const data = await res.json();
-          console.log(`. Forzado con éxito para ${solicitud.id}`, data);
-
-          nuevasHabilitaciones[solicitud.id] = data.data;
-
-          toast({
-            title: "Verificación forzada",
-            description: `Solicitud ${solicitud.numero_solicitud} actualizada correctamente.`,
-            variant: "default",
-          });
-
-        } catch (error) {
-          console.error(`Error forzando verificación de ${solicitud.id}:`, error);
-        } finally {
-          nuevosProcesos[solicitud.id] = false;
-          setProcesandoForzar({ ...nuevosProcesos });
         }
       }
+
+      setHabilitaciones(prev => ({
+        ...prev,
+        ...nuevasHabilitaciones,
+      }));
+
+    } catch (error) {
+      console.error('Error general en handleForzarVerificacion:', error);
+      toast({
+        title: "Error de conexión",
+        description: "No se pudo conectar con el servidor",
+        variant: "destructive",
+      });
     }
+  };
 
-    // Actualizar estados
-    setHabilitaciones(prev => ({
-      ...prev,
-      ...nuevasHabilitaciones,
-    }));
-
-    // También puedes guardar el estado de las firmas si lo necesitas
-    console.log('. Resumen de firmas verificadas:', nuevasFirmas);
-
-  } catch (error) {
-    console.error('Error general en handleForzarVerificacion:', error);
-    toast({
-      title: "Error de conexión",
-      description: "No se pudo conectar con el servidor",
-      variant: "destructive",
-    });
-  }
-};
-// Agregar intervalo de verificación automática
-useEffect(() => {
+  useEffect(() => {
     if (solicitudes.length > 0) {
-        verificarHabilitaciones(); // Verificación inicial
+      verificarHabilitaciones();
     }
-}, [solicitudes]);
-const handleTransferir = (solicitudId: string) => {
-  setCargandoTransferencia(true); 
+  }, [solicitudes]);
+  useEffect(() => {
+    const transferenciaCompletada = sessionStorage.getItem('transferencia_completada');
+    const solicitudId = sessionStorage.getItem('solicitud_transferencia');
+    
+    if (transferenciaCompletada === 'true' && solicitudId) {
+      console.log('Detectada transferencia completada, actualizando datos...');
+      cargarDashboard(true);
+      verificarHabilitaciones();
+      
+      // Limpiar el flag
+      sessionStorage.removeItem('transferencia_completada');
+      sessionStorage.removeItem('solicitud_transferencia');
+    }
+  }, []);
+  const handleTransferir = (solicitudId: string) => {
+    setCargandoTransferencia(true);
+    
+    // Guardar en sessionStorage para que la página de transferencia lo detecte
+    sessionStorage.setItem('transferencia_pendiente', 'true');
+    sessionStorage.setItem('solicitud_transferencia', solicitudId);
+    
+    setTimeout(() => {
+      window.location.href = `/operador/transferencias/nueva?solicitud_id=${solicitudId}`;
+    }, 800);
+  };
 
-  setTimeout(() => {
-    window.location.href = `/operador/transferencias/nueva?solicitud_id=${solicitudId}`;
-  }, 800);
-};
-
-  const cargarDashboard = async () => {
+   const cargarDashboard = async (forzar = false) => {
+    if (forzar) {
+      setActualizando(true);
+    }
+    
     try {
       const session = await getSession();
       if (!session?.accessToken) {
@@ -494,34 +421,45 @@ const handleTransferir = (solicitudId: string) => {
         if (value) params.append(key, value);
       });
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      console.log(`Solicitando dashboard: ${API_URL}/operador/dashboard?${params}`);
 
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       const response = await fetch(`${API_URL}/operador/dashboard?${params}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.accessToken}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json'        }
       });
-
-      console.log(`Respuesta del servidor: ${response.status}`);
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Dashboard cargado:', data);
         setSolicitudes(data.data.solicitudes || []);
+        setUltimaActualizacion(new Date());
+        
+        if (forzar) {
+          toast({
+            title: "Datos actualizados",
+            description: "La información se ha actualizado correctamente",
+            variant: "default",
+          });
+        }
       } else {
         const errorText = await response.text();
         console.error('Error cargando dashboard:', response.status, errorText);
       }
     } catch (error) {
       console.error('Error cargando dashboard:', error);
+      if (forzar) {
+        toast({
+          title: "Error",
+          description: "No se pudieron actualizar los datos",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
+      setActualizando(false);
     }
   };
-
   const handleIniciarRevision = async (solicitudId: string) => {
     try {
       const session = await getSession();
@@ -554,7 +492,8 @@ const handleTransferir = (solicitudId: string) => {
       'en_revision': 'warning',
       'pendiente_info': 'info',
       'aprobado': 'success',
-      'rechazado': 'error'    };
+      'rechazado': 'error'
+    };
     return colores[estado] || 'default';
   };
 
@@ -567,7 +506,6 @@ const handleTransferir = (solicitudId: string) => {
     return colores[riesgo] || 'default';
   };
 
-  // Función para formatear el monto en formato de moneda
   const formatearMonto = (monto: number) => {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
@@ -577,26 +515,152 @@ const handleTransferir = (solicitudId: string) => {
     }).format(monto);
   };
 
+  const FiltrosContent = () => (
+    <Box className="filters-content">
+      <Typography variant="h6" gutterBottom sx={{ display: { xs: 'none', md: 'block' } }}>
+        Filtros y búsqueda
+      </Typography>
+      
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, md: 6}}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Estado</InputLabel>
+            <Select
+              value={filtros.estado}
+              onChange={(e) => setFiltros({...filtros, estado: e.target.value})}
+              label="Estado"
+            >
+              <MenuItem value="">Todos los estados</MenuItem>
+              <MenuItem value="en_revision">En revisión</MenuItem>
+              <MenuItem value="aprobado">Aprobado</MenuItem>
+              <MenuItem value="rechazado">Rechazado</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6}}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Nivel Riesgo</InputLabel>
+            <Select
+              value={filtros.nivel_riesgo}
+              onChange={(e) => setFiltros({...filtros, nivel_riesgo: e.target.value})}
+              label="Nivel Riesgo"
+            >
+              <MenuItem value="">Todos</MenuItem>
+              <MenuItem value="bajo">Bajo</MenuItem>
+              <MenuItem value="medio">Medio</MenuItem>
+              <MenuItem value="alto">Alto</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6}}>
+          <TextField
+            fullWidth
+            type="date"
+            size="small"
+            label="Desde"
+            value={filtros.fecha_desde}
+            onChange={(e) => setFiltros({...filtros, fecha_desde: e.target.value})}
+            InputLabelProps={{ shrink: true }}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 6}}>
+          <TextField
+            fullWidth
+            type="date"
+            size="small"
+            label="Hasta"
+            value={filtros.fecha_hasta}
+            onChange={(e) => setFiltros({...filtros, fecha_hasta: e.target.value})}
+            InputLabelProps={{ shrink: true }}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3}}>
+          <TextField
+            fullWidth
+            size="small"
+            label="Número Solicitud"
+            placeholder="Buscar por número"
+            value={filtros.numero_solicitud}
+            onChange={(e) => setFiltros({...filtros, numero_solicitud: e.target.value})}
+          />
+        </Grid>
+      </Grid>
+
+      <Box className="action-buttons" sx={{ mt: 2 }}>
+        <Button 
+          onClick={verificarTodasLasFirmas}
+          variant="outlined"
+          color="primary"
+          size={isMobile ? "small" : "medium"}
+          fullWidth={isMobile}
+        >
+          Verificar Firmas
+        </Button>
+        <Button 
+          variant="contained" 
+          className="btn-primary"
+  onClick={() => cargarDashboard()}
+            size={isMobile ? "small" : "medium"}
+          fullWidth={isMobile}
+          startIcon={<RefreshIcon />}
+        >
+          Aplicar
+        </Button>
+        <Button 
+          variant="outlined" 
+          className="btn-secondary"
+          onClick={() => {
+            setFiltros({
+              estado: '',
+              nivel_riesgo: '',
+              fecha_desde: '',
+              fecha_hasta: '',
+              numero_solicitud: '',
+              dni: ''
+            });
+            cargarDashboard();
+          }}
+          size={isMobile ? "small" : "medium"}
+          fullWidth={isMobile}
+        >
+          Limpiar
+        </Button>
+      </Box>
+    </Box>
+  );
+
   return (
     <Box className="operador-dashboard">
-      {/* Encabezado con diseño UX */}
+      {/* Encabezado */}
       <Box className="dashboard-header">
-        <Typography variant="h4" className="page-title">
-          Dashboard
-        </Typography>
-        <Typography className="page-subtitle">
-          Bienvenido Juan, gestión de solicitudes de crédito
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
+          <Box>
+            <Typography variant="h4" className="page-title" sx={{ fontSize: { xs: '1.5rem', md: '2rem' } }}>
+              Dashboard
+            </Typography>
+            <Typography className="page-subtitle" sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }}>
+              Bienvenido, gestión de solicitudes de crédito
+            </Typography>
+          </Box>
+          {isMobile && (
+            <IconButton 
+              onClick={() => setFiltrosOpen(true)}
+              className="filter-button-mobile"
+            >
+              <FilterListIcon />
+            </IconButton>
+          )}
+        </Box>
       </Box>
 
-      {/* Métricas con diseño UX - AHORA DINÁMICAS */}
-      <Grid container spacing={3} className="metrics-grid">
-        <Grid size={{ xs: 12, md: 3}}>
+      {/* Métricas */}
+      <Grid container spacing={2} className="metrics-grid">
+        <Grid size={{ xs: 6, md: 3}}>
           <Card className="metric-card">
-            <CardContent>
+            <CardContent className="metric-card-content">
               <Box className="metric-header">
-                <span>Total solicitudes</span>
-                <DescriptionIcon />
+                <span>Total</span>
+                <DescriptionIcon className="metric-icon" />
               </Box>
               <Typography variant="h4" className="metric-value">
                 {metricas.totalSolicitudes}
@@ -605,167 +669,93 @@ const handleTransferir = (solicitudId: string) => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, md: 3}}>
+        <Grid size={{ xs: 6, md: 3}}>
           <Card className="metric-card">
-            <CardContent>
+            <CardContent className="metric-card-content">
               <Box className="metric-header">
                 <span>Aprobadas</span>
-                <CheckCircleIcon style={{color: 'var(--color-status-success)'}} />
+                <CheckCircleIcon className="metric-icon success" />
               </Box>
-              <Typography variant="h4" className="metric-value" style={{color: 'var(--color-status-success)'}}>
+              <Typography variant="h4" className="metric-value success">
                 {metricas.aprobadas}
               </Typography>
               <Typography className="metric-subtext">Créditos aprobados</Typography>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, md: 3}}>
+        <Grid size={{ xs: 6, md: 3}}>
           <Card className="metric-card">
-            <CardContent>
+            <CardContent className="metric-card-content">
               <Box className="metric-header">
                 <span>En revisión</span>
-                <ScheduleIcon style={{ color: 'var(--color-status-warning)' }} />
+                <ScheduleIcon className="metric-icon warning" />
               </Box>
-              <Typography variant="h4" className="metric-value" style={{color: 'var(--color-status-warning)'}}>
+              <Typography variant="h4" className="metric-value warning">
                 {metricas.enRevision}
               </Typography>
               <Typography className="metric-subtext">Pendientes de evaluar</Typography>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, md: 3}}>
-           <Card className="metric-card">
-    <CardContent>
-      <Box className="metric-header">
-        <span>Monto desembolsado</span> 
-        <AttachMoneyIcon />
-      </Box>
-      <Typography variant="h4" className="metric-value">
-        {formatearMonto(metricas.montoDesembolsado)} 
-      </Typography>
-      <Typography className="metric-subtext">Capital transferido</Typography> 
-    </CardContent>
-  </Card>
-</Grid>
+        <Grid size={{ xs: 6, md: 3}}>
+          <Card className="metric-card">
+            <CardContent className="metric-card-content">
+              <Box className="metric-header">
+                <span>Desembolsado</span>
+                <AttachMoneyIcon className="metric-icon" />
+              </Box>
+              <Typography variant="h4" className="metric-value">
+                {formatearMonto(metricas.montoDesembolsado)}
+              </Typography>
+              <Typography className="metric-subtext">Capital transferido</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
-      
-      <Card className="content-box filters-box">
-        <Typography variant="h6" gutterBottom>Filtros y búsqueda</Typography>
-        <Grid container spacing={2} className="filter-grid">
-          <Grid size={{ xs: 12, md: 6 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Estado</InputLabel>
-              <Select
-                value={filtros.estado}
-                onChange={(e) => setFiltros({...filtros, estado: e.target.value})}
-                label="Estado"
-              >
-                <MenuItem value="">Todos los estados</MenuItem>
-                <MenuItem value="en_revision">En revisión</MenuItem>
-                <MenuItem value="aprobado">Aprobado</MenuItem>
-                <MenuItem value="rechazado">Rechazado</MenuItem>
+      {/* Filtros - Desktop */}
+      {!isMobile && (
+        <Card className="content-box filters-box">
+          <FiltrosContent />
+        </Card>
+      )}
 
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid size={{ xs: 12, md: 3}}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Nivel Riesgo</InputLabel>
-              <Select
-                value={filtros.nivel_riesgo}
-                onChange={(e) => setFiltros({...filtros, nivel_riesgo: e.target.value})}
-                label="Nivel Riesgo"
-              >
-                <MenuItem value="">Todos</MenuItem>
-                <MenuItem value="bajo">Bajo</MenuItem>
-                <MenuItem value="medio">Medio</MenuItem>
-                <MenuItem value="alto">Alto</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid size={{ xs: 12, md: 3}}>
-            <TextField
-              fullWidth
-              type="date"
-              size="small"
-              label="Desde"
-              value={filtros.fecha_desde}
-              onChange={(e) => setFiltros({...filtros, fecha_desde: e.target.value})}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 3}}>
-            <TextField
-              fullWidth
-              type="date"
-              size="small"
-              label="Hasta"
-              value={filtros.fecha_hasta}
-              onChange={(e) => setFiltros({...filtros, fecha_hasta: e.target.value})}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 6}}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Número Solicitud"
-              placeholder="Buscar por número"
-              value={filtros.numero_solicitud}
-              onChange={(e) => setFiltros({...filtros, numero_solicitud: e.target.value})}
-            />
-          </Grid>
+      {/* Filtros - Mobile Drawer */}
+      {isMobile && (
+        <Drawer
+          anchor="right"
+          open={filtrosOpen}
+          onClose={() => setFiltrosOpen(false)}
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: '85vw',
+              maxWidth: 400,
+              p: 2
+            }
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">Filtros</Typography>
+            <IconButton onClick={() => setFiltrosOpen(false)}>
+              <span>✕</span>
+            </IconButton>
+          </Box>
+          <FiltrosContent />
+        </Drawer>
+      )}
 
-        </Grid>
-        <Box className="action-buttons">
-
-<Button 
-  onClick={verificarTodasLasFirmas}
-  variant="outlined"
-  color="primary"
-  style={{ marginLeft: '8px' }}
->
-  Verificar estado de las firmas de los documentos
-</Button>
-          <Button 
-            variant="contained" 
-            className="btn-primary"
-            onClick={cargarDashboard}
-          >
-            Aplicar Filtros
-          </Button>
-          <Button 
-            variant="outlined" 
-            className="btn-secondary"
-            onClick={() => {
-              setFiltros({
-                estado: '',
-                nivel_riesgo: '',
-                fecha_desde: '',
-                fecha_hasta: '',
-                numero_solicitud: '',
-                dni: ''
-              });
-              cargarDashboard();
-            }}
-          >
-            Limpiar
-          </Button>
-          
-        </Box>
-      </Card>
-
-      {/* Lista de Solicitudes - Versión tabla para escritorio, cards para mobile */}
-      <Card className="content-box">
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      {/* Lista de Solicitudes */}
+      <Card className="content-box solicitudes-box">
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Box>
-            <Typography variant="h6" gutterBottom>Solicitudes de crédito</Typography>
-            <Typography className="page-subtitle">
+            <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', md: '1.25rem' } }}>
+              Solicitudes de crédito
+            </Typography>
+            <Typography className="page-subtitle" sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
               Gestiona y evalúa las solicitudes de crédito de las PYMES
             </Typography>
           </Box>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
             Total: {solicitudes.length} solicitudes
           </Typography>
         </Box>
@@ -792,19 +782,27 @@ const handleTransferir = (solicitudId: string) => {
                 <tbody>
                   {solicitudes.map((solicitud) => (
                     <tr key={solicitud.id}>
-                      <td>{solicitud.numero_solicitud}</td>
-                      <td>{new Date(solicitud.created_at).toLocaleDateString()}</td>
-                      <td>{solicitud.solicitantes?.nombre_empresa}</td>
-                      <td>{getNombreContacto(solicitud)}</td>
-                      <td>${solicitud.monto.toLocaleString()}</td>
-                      <td>
+                      <td className="solicitud-id">{solicitud.numero_solicitud}</td>
+                      <td className="solicitud-fecha">
+                        {new Date(solicitud.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="solicitud-empresa">
+                        {solicitud.solicitantes?.nombre_empresa}
+                      </td>
+                      <td className="solicitud-contacto">
+                        {getNombreContacto(solicitud)}
+                      </td>
+                      <td className="solicitud-monto">
+                        ${solicitud.monto.toLocaleString()}
+                      </td>
+                      <td className="solicitud-estado">
                         <Chip 
                           label={solicitud.estado} 
                           color={getEstadoColor(solicitud.estado)}
                           size="small"
                         />
                       </td>
-                      <td>
+                      <td className="solicitud-riesgo">
                         <Chip 
                           label={solicitud.nivel_riesgo}
                           color={getRiesgoColor(solicitud.nivel_riesgo)}
@@ -812,120 +810,142 @@ const handleTransferir = (solicitudId: string) => {
                           size="small"
                         />
                       </td>
-<td>
-  <Button
-    startIcon={<VisibilityIcon />}
-    onClick={() => handleIniciarRevision(solicitud.id)}
-    size="small"
-    variant="contained"
-  >
-    Revisar
-  </Button>
-  <BotonIniciarFirma 
-    solicitudId={solicitud.id} 
-    onFirmaIniciada={(data) => {
-      console.log('Firma digital iniciada:', data);
-    }} 
-  />
-{habilitaciones[solicitud.id]?.habilitado ? (
-  <Button 
-    onClick={() => handleTransferir(solicitud.id)}
-    variant="contained"
-    color="success"
-    size="small"
-    style={{ marginLeft: '8px', backgroundColor: '#16a34a' }}
-  >
-    HACER TRANSFERENCIA
-  </Button>
-) : (
-  <Button 
-    disabled 
-    variant="outlined" 
-    size="small"
-    style={{ marginLeft: '8px' }}
-    title={habilitaciones[solicitud.id]?.motivo || 'Esperando firmas'}
-  >
-    {habilitaciones[solicitud.id]?.tiene_firma_solicitante && !habilitaciones[solicitud.id]?.tiene_firma_operador 
-      ? 'Falta firma operador' 
-      : !habilitaciones[solicitud.id]?.tiene_firma_solicitante && habilitaciones[solicitud.id]?.tiene_firma_operador 
-      ? 'Falta firma solicitante'
-      : 'Pendiente de firmas'}
-  </Button>
-)}
-
-
-
-</td>
-
+                      <td className="solicitud-acciones">
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          <Button
+                            startIcon={<VisibilityIcon />}
+                            onClick={() => handleIniciarRevision(solicitud.id)}
+                            size="small"
+                            variant="contained"
+                            className="btn-revisar"
+                          >
+                            Revisar
+                          </Button>
+                          <BotonIniciarFirma 
+                            solicitudId={solicitud.id} 
+                            onFirmaIniciada={(data) => {
+                              console.log('Firma digital iniciada:', data);
+                            }} 
+                          />
+                          {habilitaciones[solicitud.id]?.habilitado ? (
+                            <Button 
+                              onClick={() => handleTransferir(solicitud.id)}
+                              variant="contained"
+                              color="success"
+                              size="small"
+                              className="btn-transferir"
+                            >
+                              TRANSFERIR
+                            </Button>
+                          ) : (
+                            <Button 
+                              disabled 
+                              variant="outlined" 
+                              size="small"
+                              className="btn-pendiente"
+                              title={habilitaciones[solicitud.id]?.motivo || 'Esperando firmas'}
+                            >
+                              {habilitaciones[solicitud.id]?.tiene_firma_solicitante && !habilitaciones[solicitud.id]?.tiene_firma_operador 
+                                ? 'Falta firma operador' 
+                                : !habilitaciones[solicitud.id]?.tiene_firma_solicitante && habilitaciones[solicitud.id]?.tiene_firma_operador 
+                                ? 'Falta firma solicitante'
+                                : 'Pendiente'}
+                            </Button>
+                          )}
+                        </Box>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </Box>
 
-
             {/* Vista cards para mobile */}
             <Grid container spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
               {solicitudes.map((solicitud) => (
-                <Grid size={{ xs: 12}} key={solicitud.id}>
+                      <Grid size={{ xs: 12}} key={solicitud.id}>
                   <Card variant="outlined" className="solicitud-card-mobile">
                     <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                        <Box>
-                          <Typography variant="h6">
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 1 }}>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
                             {solicitud.numero_solicitud}
                           </Typography>
-                          <Typography variant="subtitle1" color="primary">
+                          <Typography variant="subtitle1" color="primary" sx={{ fontSize: '0.9rem' }}>
                             {solicitud.solicitantes?.nombre_empresa || 'Empresa no encontrada'}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
                             Contacto: {getNombreContacto(solicitud)}
                           </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
                           <Chip 
                             label={solicitud.estado} 
                             color={getEstadoColor(solicitud.estado)}
                             size="small"
+                            sx={{ height: 24, fontSize: '0.7rem' }}
                           />
                           <Chip 
                             label={`Riesgo: ${solicitud.nivel_riesgo}`}
                             color={getRiesgoColor(solicitud.nivel_riesgo)}
                             variant="outlined"
                             size="small"
+                            sx={{ height: 20, fontSize: '0.65rem' }}
                           />
                         </Box>
                       </Box>
 
-                      <Grid container spacing={2} alignItems="center">
-                        <Grid size={{ xs: 6}}>
-                          <Typography variant="subtitle2">Monto</Typography>
-                          <Typography>${solicitud.monto.toLocaleString()}</Typography>
+                      <Grid container spacing={1} alignItems="center" sx={{ mb: 2 }}>
+        <Grid size={{ xs: 6}}>
+                          <Typography variant="subtitle2" sx={{ fontSize: '0.75rem' }}>Monto</Typography>
+                          <Typography sx={{ fontSize: '0.9rem', fontWeight: 500 }}>
+                            ${solicitud.monto.toLocaleString()}
+                          </Typography>
                         </Grid>
-                        <Grid size={{ xs: 6}}>
-                          <Typography variant="subtitle2">Fecha</Typography>
-                          <Typography>
+        <Grid size={{ xs: 6}}>
+                          <Typography variant="subtitle2" sx={{ fontSize: '0.75rem' }}>Fecha</Typography>
+                          <Typography sx={{ fontSize: '0.9rem' }}>
                             {new Date(solicitud.created_at).toLocaleDateString()}
                           </Typography>
                         </Grid>
-                        <Grid size={{ xs: 12, md: 2 }}>
-                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                            <Button 
-                              variant="contained"
-                              onClick={() => handleIniciarRevision(solicitud.id)}
-                              size="small"
-                            >
-                              Revisar
-                            </Button>
-                            <BotonIniciarFirma 
-                              solicitudId={solicitud.id} 
-                              onFirmaIniciada={(data) => {
-                                console.log('Firma digital iniciada:', data);
-                              }} 
-                            />
-                          </Box>
-                        </Grid>
                       </Grid>
+
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Button 
+                          variant="contained"
+                          onClick={() => handleIniciarRevision(solicitud.id)}
+                          size="small"
+                          sx={{ fontSize: '0.75rem', minWidth: 'auto', flex: 1 }}
+                        >
+                          Revisar
+                        </Button>
+                        <BotonIniciarFirma       
+                          solicitudId={solicitud.id} 
+                          onFirmaIniciada={(data) => {
+                            console.log('Firma digital iniciada:', data);
+                          }}
+                        />
+                        {habilitaciones[solicitud.id]?.habilitado ? (
+                          <Button 
+                            onClick={() => handleTransferir(solicitud.id)}
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            sx={{ fontSize: '0.75rem', minWidth: 'auto', flex: 1 }}
+                          >
+                            Transferir
+                          </Button>
+                        ) : (
+                          <Button 
+                            disabled 
+                            variant="outlined" 
+                            size="small"
+                            sx={{ fontSize: '0.75rem', minWidth: 'auto', flex: 1 }}
+                          >
+                            Pendiente
+                          </Button>
+                        )}
+                      </Box>
                     </CardContent>
                   </Card>
                 </Grid>
@@ -952,47 +972,16 @@ const handleTransferir = (solicitudId: string) => {
           onDocumentoActualizado={handleDocumentoActualizado}
         />
       )}
-      {cargandoTransferencia && (
-  <Box
-    sx={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100vw',
-      height: '100vh',
-      backgroundColor: 'rgba(0, 0, 0, 0.45)',
-      zIndex: 9999,
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      backdropFilter: 'blur(2px)',
-      color: '#fff'
-    }}
-  >
-    <Box
-      sx={{
-        width: 60,
-        height: 60,
-        border: '6px solid rgba(255,255,255,0.3)',
-        borderTopColor: '#fff',
-        borderRadius: '50%',
-        animation: 'spin 1s linear infinite',
-        mb: 2
-      }}
-    />
-    <Typography variant="h6" sx={{ fontWeight: 500 }}>
-      Procesando transferencia...
-    </Typography>
-    <style jsx global>{`
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-    `}</style>
-  </Box>
-)}
 
+      {/* Overlay de carga para transferencia */}
+      {cargandoTransferencia && (
+        <Box className="transferencia-overlay">
+          <Box className="spinner"></Box>
+          <Typography variant="h6" sx={{ fontWeight: 500 }}>
+            Procesando transferencia...
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }

@@ -15,24 +15,18 @@ import {
   Alert,
   Tab,
   Tabs,
-  Grid,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField
+  useMediaQuery,
+  useTheme,
+  LinearProgress
 } from '@mui/material';
 import { 
-  Dashboard as DashboardIcon,
   CreditCard as CreditCardIcon,
   Person as PersonIcon,
   Notifications as NotificationsIcon,
   Schedule as ScheduleIcon,
   CheckCircle as CheckCircleIcon,
   Description as DescriptionIcon,
-  Visibility as VisibilityIcon,
-  FileDownload as FileDownloadIcon,
   HelpOutline as HelpOutlineIcon
 } from '@mui/icons-material';
 import { UserRole } from '@/types/auth.types';
@@ -58,7 +52,7 @@ function TabPanel(props: TabPanelProps) {
       aria-labelledby={`solicitante-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>{children}</Box>}
     </div>
   );
 }
@@ -73,16 +67,35 @@ interface SummaryCardProps {
 
 function SummaryCard({ title, amount, subtitle, icon, color }: SummaryCardProps) {
   return (
-    <Card className="summary-card">
-      <CardContent>
+    <Card className="summary-card" sx={{ height: '100%' }}>
+      <CardContent sx={{ p: { xs: 2, sm: 2, md: 2 } }}>
         <Box className="card-header">
-          <Typography variant="h6" className="card-title">{title}</Typography>
-          <Box className="card-icon">{icon}</Box>
+          <Typography variant="h6" className="card-title" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem', md: '1rem' } }}>
+            {title}
+          </Typography>
+          <Box className="card-icon" sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
+            {icon}
+          </Box>
         </Box>
-        <Typography variant="h4" className="card-amount" sx={{ color }}>
+        <Typography 
+          variant="h4" 
+          className="card-amount" 
+          sx={{ 
+            color,
+            fontSize: { xs: '1.5rem', sm: '1.6rem', md: '1.8rem' },
+            fontWeight: 'bold',
+            my: 1
+          }}
+        >
           {amount}
         </Typography>
-        <Typography variant="body2" className="card-subtitle">{subtitle}</Typography>
+        <Typography 
+          variant="body2" 
+          className="card-subtitle"
+          sx={{ fontSize: { xs: '0.75rem', sm: '0.8rem', md: '0.9rem' } }}
+        >
+          {subtitle}
+        </Typography>
       </CardContent>
     </Card>
   );
@@ -98,6 +111,10 @@ interface SolicitudStats {
 export default function DashboardSolicitante() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [tabValue, setTabValue] = useState(0);
   const [solicitudActiva, setSolicitudActiva] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -108,6 +125,7 @@ export default function DashboardSolicitante() {
     enRevision: 0,
     solicitudesActivas: 0
   });
+  const [loading, setLoading] = useState(true);
   const { showSessionExpired } = useSessionExpired();
 
   useEffect(() => {
@@ -124,6 +142,7 @@ export default function DashboardSolicitante() {
   // Cargar estadísticas de solicitudes
   const cargarEstadisticas = async () => {
     try {
+      setLoading(true);
       const session = await getSession();
       if (!session?.accessToken) return;
 
@@ -180,6 +199,8 @@ export default function DashboardSolicitante() {
       }
     } catch (error) {
       console.error('Error cargando estadísticas:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -215,52 +236,54 @@ export default function DashboardSolicitante() {
       cargarEstadisticas();
     }
   }, [session, showSessionExpired]);
-// Agregar este useEffect después de los otros useEffects
-useEffect(() => {
-  const verificarOperadorAsignado = async () => {
-    try {
-      const session = await getSession();
-      if (!session?.accessToken) return;
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      
-      // Obtener notificaciones no leídas
-      const response = await fetch(`${API_URL}/notificaciones?leida=false&tipo=operador_asignado`, {
-        headers: {
-          'Authorization': `Bearer ${session.accessToken}`,
-        },
-      });
+  // Verificar operador asignado
+  useEffect(() => {
+    const verificarOperadorAsignado = async () => {
+      try {
+        const session = await getSession();
+        if (!session?.accessToken) return;
 
-      if (response.ok) {
-        const result = await response.json();
-        const notificacionesOperador = result.data || [];
-
-        // Mostrar alert para cada notificación de operador asignado
-        notificacionesOperador.forEach((notif: any) => {
-          if (notif.datos_adicionales?.operador_nombre) {
-            alert(`.Se ha asignado el operador ${notif.datos_adicionales.operador_nombre} a tu solicitud. \n\nPuedes comunicarte con él para cualquier consulta sobre tu solicitud de crédito.`);
-            
-            // Marcar como leída después de mostrar el alert
-            fetch(`${API_URL}/notificaciones/${notif.id}/leer`, {
-              method: 'PUT',
-              headers: {
-                'Authorization': `Bearer ${session.accessToken}`,
-              },
-            });
-          }
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+        // Obtener notificaciones no leídas
+        const response = await fetch(`${API_URL}/notificaciones?leida=false&tipo=operador_asignado`, {
+          headers: {
+            'Authorization': `Bearer ${session.accessToken}`,
+          },
         });
+
+        if (response.ok) {
+          const result = await response.json();
+          const notificacionesOperador = result.data || [];
+
+          // Mostrar alert para cada notificación de operador asignado
+          notificacionesOperador.forEach((notif: any) => {
+            if (notif.datos_adicionales?.operador_nombre) {
+              alert(`Se ha asignado el operador ${notif.datos_adicionales.operador_nombre} a tu solicitud. \n\nPuedes comunicarte con él para cualquier consulta sobre tu solicitud de crédito.`);
+              
+              // Marcar como leída después de mostrar el alert
+              fetch(`${API_URL}/notificaciones/${notif.id}/leer`, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `Bearer ${session.accessToken}`,
+                },
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error verificando operador asignado:', error);
       }
-    } catch (error) {
-      console.error('Error verificando operador asignado:', error);
-    }
-  };
+    };
 
-  // Verificar cada 10 segundos si hay operador asignado
-  const interval = setInterval(verificarOperadorAsignado, 10000);
-  verificarOperadorAsignado(); // Verificar inmediatamente
+    // Verificar cada 10 segundos si hay operador asignado
+    const interval = setInterval(verificarOperadorAsignado, 10000);
+    verificarOperadorAsignado(); // Verificar inmediatamente
 
-  return () => clearInterval(interval);
-}, [session]);
+    return () => clearInterval(interval);
+  }, [session]);
+
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
@@ -278,10 +301,6 @@ useEffect(() => {
 
   const handleNuevaSolicitud = () => {
     setTabValue(0);
-  };
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
   };
 
   // Función para manejar el éxito del formulario
@@ -302,10 +321,15 @@ useEffect(() => {
     }).format(amount);
   };
 
+  // Tabs responsive
+  const tabLabels = isSmallMobile 
+    ? ['Nueva', 'Solicitudes', 'Documentos']
+    : ['Nueva solicitud', 'Mis solicitudes', 'Plantilla de documentos'];
+
   if (status === 'loading') {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <Typography>Cargando...</Typography>
+        <LinearProgress sx={{ width: '100%', maxWidth: 400 }} />
       </Box>
     );
   }
@@ -317,12 +341,28 @@ useEffect(() => {
         <section className="page-content">
           {/* Header con Bienvenida */}
           <Box sx={{ mb: 4 }}>
-            <Typography variant="h1" className="page-title">
-              Dashboard Solicitante PYME
-            </Typography>
-            <Typography variant="subtitle1" className="page-subtitle">
-              Bienvenido {session?.user?.name || 'Usuario'}, gestión de solicitudes de crédito
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+              <Box>
+                <Typography 
+                  variant="h1" 
+                  className="page-title"
+                  sx={{ 
+                    fontSize: { xs: '1.5rem', sm: '1.8rem', md: '2rem' },
+                    fontWeight: 600 
+                  }}
+                >
+                  Dashboard Solicitante PYME
+                </Typography>
+                <Typography 
+                  variant="subtitle1" 
+                  className="page-subtitle"
+                  sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                >
+                  Bienvenido {session?.user?.name || 'Usuario'}, gestión de solicitudes de crédito
+                </Typography>
+              </Box>
+            </Box>
+            
             <Chip 
               label="Solicitante" 
               color="primary" 
@@ -338,54 +378,101 @@ useEffect(() => {
             </Alert>
           )}
           
-          <Alert severity="info" sx={{ mb: 3 }}>
+          <Alert severity="info" sx={{ mb: 3, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
             Complete su solicitud de crédito y suba toda la documentación requerida para agilizar el proceso.
           </Alert>
 
-          {/* Tarjetas de Métricas */}
-          <Grid container spacing={3} className="metrics-grid" sx={{ mb: 4 }}>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <SummaryCard
-                title="Total solicitado"
-                amount={formatCurrency(stats.totalSolicitado)}
-                subtitle={`Solicitudes activas: ${stats.solicitudesActivas}`}
-                icon={<DescriptionIcon />}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <SummaryCard
-                title="Créditos aprobados"
-                amount={stats.totalAprobadas.toString()}
-                subtitle="Total de solicitudes aprobadas"
-                icon={<CheckCircleIcon />}
-                color="#28a745"
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <SummaryCard
-                title="En revisión"
-                amount={stats.enRevision.toString()}
-                subtitle="Respuesta en 24h"
-                icon={<ScheduleIcon />}
-                color="#ffc107"
-              />
-            </Grid>
-          </Grid>
+          {/* Tarjetas de Métricas - CORREGIDO: Layout compacto sin espacios grandes */}
+          {loading ? (
+            <Box sx={{ mb: 4 }}>
+              <LinearProgress />
+            </Box>
+          ) : (
+            // En la parte de las tarjetas de métricas, reemplazar con:
+<Box 
+  sx={{ 
+    display: 'flex',
+    flexDirection: { xs: 'column', sm: 'row' },
+    gap: 2,
+    mb: 4,
+    width: '100%',
+    justifyContent: { sm: 'space-between' }
+  }}
+>
+  {/* Primera tarjeta - Total solicitado */}
+  <Box sx={{ 
+    flex: { xs: '1 1 100%', sm: 1 },
+    minWidth: { xs: '100%', sm: '30%' }
+  }}>
+    <SummaryCard
+      title="Total solicitado"
+      amount={formatCurrency(stats.totalSolicitado)}
+      subtitle={`Solicitudes activas: ${stats.solicitudesActivas}`}
+      icon={<DescriptionIcon />}
+    />
+  </Box>
 
+  {/* Segunda tarjeta - Créditos aprobados */}
+  <Box sx={{ 
+    flex: { xs: '1 1 100%', sm: 1 },
+    minWidth: { xs: '100%', sm: '30%' }
+  }}>
+    <SummaryCard
+      title="Créditos aprobados"
+      amount={stats.totalAprobadas.toString()}
+      subtitle="Total de solicitudes aprobadas"
+      icon={<CheckCircleIcon />}
+      color="#28a745"
+    />
+  </Box>
+
+  {/* Tercera tarjeta - En revisión */}
+  <Box sx={{ 
+    flex: { xs: '1 1 100%', sm: 1 },
+    minWidth: { xs: '100%', sm: '30%' }
+  }}>
+    <SummaryCard
+      title="En revisión"
+      amount={stats.enRevision.toString()}
+      subtitle="Respuesta en 24h"
+      icon={<ScheduleIcon />}
+      color="#ffc107"
+    />
+  </Box>
+</Box>
+          )}
           {/* Tabs Principal */}
           <Card className="content-box">
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs value={tabValue} onChange={handleTabChange}>
-                <Tab label="Nueva solicitud" />
-                <Tab label="Mis solicitudes" />
-                <Tab label="Plantilla de documentos" />
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', overflow: 'auto' }}>
+              <Tabs 
+                value={tabValue} 
+                onChange={handleTabChange}
+                variant={isSmallMobile ? "scrollable" : "standard"}
+                scrollButtons={isSmallMobile ? "auto" : false}
+                allowScrollButtonsMobile
+              >
+                {tabLabels.map((label, index) => (
+                  <Tab 
+                    key={index}
+                    label={label}
+                    sx={{ 
+                      minWidth: { xs: 'auto', sm: 160 },
+                      fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                      px: { xs: 1, sm: 2 }
+                    }}
+                  />
+                ))}
               </Tabs>
             </Box>
 
             {/* Contenido de Tabs */}
             <TabPanel value={tabValue} index={0}>
               <Box sx={{ mt: 2 }}>
-                <Typography variant="h5" gutterBottom>
+                <Typography 
+                  variant="h5" 
+                  gutterBottom
+                  sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+                >
                   Nueva solicitud de crédito
                 </Typography>
                 <SolicitudCreditoForm onSuccess={handleSuccessSolicitud} />
@@ -400,10 +487,22 @@ useEffect(() => {
 
             <TabPanel value={tabValue} index={2}>
               <Box sx={{ mt: 2 }}>
-                <Typography variant="h5" gutterBottom>
+                <Typography 
+                  variant="h5" 
+                  gutterBottom
+                  sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+                >
                   Plantilla de Documentos
                 </Typography>
-                <Typography variant="body1" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+                <Typography 
+                  variant="body1" 
+                  color="text.secondary" 
+                  gutterBottom 
+                  sx={{ 
+                    mb: 2,
+                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                  }}
+                >
                   Aquí podrás ver y descargar los archivos Word de ejemplo disponibles.
                   Recuerde subir los archivos en formato PDF
                 </Typography>

@@ -30,7 +30,10 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  DialogTitle
+  DialogTitle,
+  useTheme,
+  useMediaQuery,
+  Stack,
 } from '@mui/material';
 import {
   Description,
@@ -108,12 +111,16 @@ function TabPanel(props: TabPanelProps) {
       aria-labelledby={`documentos-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ py: { xs: 2, md: 3 } }}>{children}</Box>}
     </div>
   );
 }
 
 export default function DocumentosOperadorPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [tabValue, setTabValue] = useState(0);
   const [documentos, setDocumentos] = useState<(Contrato | Transferencia)[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,7 +143,6 @@ export default function DocumentosOperadorPage() {
     cargarTodosLosDocumentos();
   }, []);
 
-  // Función corregida con tipos TypeScript
   const cargarTodosLosDocumentos = async () => {
     try {
       setLoading(true);
@@ -157,9 +163,7 @@ export default function DocumentosOperadorPage() {
       if (response.ok) {
         const data = await response.json();
         
-        // Formatear datos para la tabla con tipos correctos
         const documentosFormateados: (Contrato | Transferencia)[] = [
-          // Contratos
           ...(data.data.contratos || []).map((contrato: any): Contrato => ({
             ...contrato,
             tipo: 'contrato',
@@ -174,7 +178,6 @@ export default function DocumentosOperadorPage() {
             firma_id: contrato.firma_id || null
           })),
           
-          // Transferencias
           ...(data.data.transferencias || []).map((transferencia: any): Transferencia => ({
             ...transferencia,
             tipo: 'comprobante',
@@ -188,7 +191,6 @@ export default function DocumentosOperadorPage() {
           }))
         ];
         
-        console.log('Documentos formateados:', documentosFormateados);
         setDocumentos(documentosFormateados);
       } else {
         const errorData = await response.json();
@@ -227,13 +229,11 @@ export default function DocumentosOperadorPage() {
     }
   };
 
-  // FUNCIÓN CORREGIDA con tipo Contrato
   const handleDescargarContratoFirmado = async (contrato: Contrato) => {
     try {
         const session = await getSession();
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         
-        // VERIFICACIÓN CRÍTICA: Solo permitir descarga si está completamente firmado
         if (!contrato.firma_digital || contrato.firma_digital.estado !== 'firmado_completo') {
             alert('El contrato no está completamente firmado. No se puede descargar.');
             return;
@@ -246,7 +246,6 @@ export default function DocumentosOperadorPage() {
 
         console.log('📥 Descargando contrato firmado:', contrato.firma_digital.id);
         
-        // Usar el endpoint específico para contrato firmado
         const response = await fetch(`${API_URL}/firmas/descargar-contrato-firmado/${contrato.firma_digital.id}`, {
             headers: {
                 'Authorization': `Bearer ${session?.accessToken}`
@@ -255,14 +254,11 @@ export default function DocumentosOperadorPage() {
 
         if (response.ok) {
             const blob = await response.blob();
-            
-            // Crear URL para descarga
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.style.display = 'none';
             a.href = url;
             
-            // Obtener nombre del archivo
             const contentDisposition = response.headers.get('content-disposition');
             let fileName = `contrato-firmado-${contrato.numero_contrato}.docx`;
             
@@ -357,6 +353,177 @@ export default function DocumentosOperadorPage() {
   const contratos = documentosFiltrados.filter((doc): doc is Contrato => doc.tipo === 'contrato');
   const comprobantes = documentosFiltrados.filter((doc): doc is Transferencia => doc.tipo === 'comprobante');
 
+  // Componente para tarjetas responsive de contratos
+  const ContratoCard = ({ contrato }: { contrato: Contrato }) => {
+    const numeroSolicitud = contrato.numero_solicitud || '—';
+    const fechaValida = contrato.updated_at ? new Date(contrato.updated_at) : null;
+    const fechaFormateada = fechaValida && !isNaN(fechaValida.getTime())
+      ? fechaValida.toLocaleDateString('es-ES')
+      : 'Sin fecha';
+
+    return (
+      <Card variant="outlined" sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                N° Contrato
+              </Typography>
+              <Typography variant="body1" fontWeight="medium">
+                {contrato.numero_contrato || '—'}
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                Solicitud
+              </Typography>
+              <Typography variant="body1">{numeroSolicitud}</Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                Solicitante
+              </Typography>
+              <Typography variant="body1">
+                {contrato.solicitante_nombre || '—'}
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                Fecha de actualización
+              </Typography>
+              <Typography variant="body2">{fechaFormateada}</Typography>
+            </Box>
+
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              {contrato.firma_digital?.estado === 'firmado_completo' && (
+                <Tooltip title="Descargar contrato firmado">
+                  <IconButton
+                    size="small"
+                    onClick={() => handleDescargarContratoFirmado(contrato)}
+                    color="success"
+                  >
+                    <Download />
+                  </IconButton>
+                </Tooltip>
+              )}
+              
+              {contrato.firma_digital && (
+                <Chip 
+                  size="small" 
+                  label={contrato.firma_digital.estado === 'firmado_completo' ? 'FIRMADO' : contrato.firma_digital.estado.toUpperCase()}
+                  color={contrato.firma_digital.estado === 'firmado_completo' ? 'success' : 'warning'}
+                  variant="outlined"
+                />
+              )}
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // Componente para tarjetas responsive de comprobantes
+  const ComprobanteCard = ({ comprobante }: { comprobante: Transferencia }) => (
+    <Card variant="outlined" sx={{ mb: 2 }}>
+      <CardContent>
+        <Stack spacing={2}>
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              N° Comprobante
+            </Typography>
+            <Typography variant="body1" fontWeight="medium">
+              {comprobante.numero_comprobante}
+            </Typography>
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              Solicitud
+            </Typography>
+            <Typography variant="body1">
+              {comprobante.numero_solicitud || '—'}
+            </Typography>
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              Solicitante
+            </Typography>
+            <Typography variant="body1">
+              {comprobante.solicitante_nombre}
+            </Typography>
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              Monto
+            </Typography>
+            <Typography variant="body1" fontWeight="medium">
+              {formatMonto(comprobante.monto, comprobante.moneda)}
+            </Typography>
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              Banco Destino
+            </Typography>
+            <Typography variant="body2">
+              {comprobante.banco_destino}
+            </Typography>
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              Estado
+            </Typography>
+            <Chip
+              icon={getEstadoIcon(comprobante.estado)}
+              label={comprobante.estado.toUpperCase()}
+              color={getEstadoColor(comprobante.estado)}
+              size="small"
+            />
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              Fecha
+            </Typography>
+            <Typography variant="body2">
+              {new Date(comprobante.fecha_procesamiento).toLocaleDateString('es-ES')}
+            </Typography>
+          </Box>
+
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Tooltip title="Descargar comprobante">
+              <IconButton
+                size="small"
+                onClick={() => handleDescargarComprobante(comprobante)}
+                disabled={!comprobante.ruta_comprobante}
+                color="primary"
+              >
+                <Download />
+              </IconButton>
+            </Tooltip>
+            
+            <Tooltip title="Vista previa">
+              <IconButton
+                size="small"
+                onClick={() => handleVerVistaPrevia('comprobante', comprobante.id)}
+                disabled={!comprobante.ruta_comprobante}
+                color="info"
+              >
+                <Visibility />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -368,18 +535,28 @@ export default function DocumentosOperadorPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={4}>
-        <Description sx={{ fontSize: 40, color: 'primary.main' }} />
+    <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
+      {/* Header Responsive */}
+      <Stack 
+        direction={{ xs: 'column', sm: 'row' }} 
+        alignItems={{ xs: 'flex-start', sm: 'center' }} 
+        spacing={2} 
+        mb={4}
+      >
+        <Description sx={{ fontSize: { xs: 32, md: 40 }, color: 'primary.main' }} />
         <Box>
-          <Typography variant="h4" component="h1">
+          <Typography 
+            variant="h4" 
+            component="h1"
+            fontSize={{ xs: '1.75rem', md: '2.125rem' }}
+          >
             Gestión de documentos
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Administra y revisa todos los documentos del sistema
           </Typography>
         </Box>
-      </Box>
+      </Stack>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -387,31 +564,47 @@ export default function DocumentosOperadorPage() {
         </Alert>
       )}
 
-      {/* Filtros */}
+      {/* Filtros Responsive */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={2} alignItems="center">
-                <Grid size={{ xs: 12, md: 6}}>
-              <TextField
-                fullWidth
-                placeholder="Buscar por número de contrato, comprobante o nombre del solicitante..."
-                value={filtroBusqueda}
-                onChange={(e) => setFiltroBusqueda(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-                <Grid size={{ xs: 12, md: 3}}>
+          <Stack spacing={2}>
+            <TextField
+              fullWidth
+              placeholder="Buscar por número de contrato, comprobante o nombre del solicitante..."
+              value={filtroBusqueda}
+              onChange={(e) => setFiltroBusqueda(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+              }}
+              size={isMobile ? "small" : "medium"}
+            />
+            
+            <Box display="flex" justifyContent="space-between" alignItems="center">
               <Typography variant="body2" color="text.secondary">
                 {documentosFiltrados.length} documentos encontrados
               </Typography>
-            </Grid>
-          </Grid>
+              
+              {!isSmallMobile && (
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel>Estado</InputLabel>
+                  <Select
+                    value={filtroEstado}
+                    label="Estado"
+                    onChange={(e) => setFiltroEstado(e.target.value)}
+                  >
+                    <MenuItem value="todos">Todos</MenuItem>
+                    <MenuItem value="firmado_completo">Firmado</MenuItem>
+                    <MenuItem value="pendiente_firma">Pendiente</MenuItem>
+                    <MenuItem value="completada">Completada</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+            </Box>
+          </Stack>
         </CardContent>
       </Card>
 
@@ -421,202 +614,232 @@ export default function DocumentosOperadorPage() {
         </Alert>
       ) : (
         <>
-          {/* Tabs */}
+          {/* Tabs Responsive */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-            <Tabs value={tabValue} onChange={handleTabChange} aria-label="documentos tabs">
+            <Tabs 
+              value={tabValue} 
+              onChange={handleTabChange} 
+              aria-label="documentos tabs"
+              variant={isMobile ? "scrollable" : "standard"}
+              scrollButtons={isMobile ? "auto" : false}
+            >
               <Tab
                 icon={<Description />}
                 iconPosition="start"
-                label={`Contratos (${contratos.length})`}
+                label={isSmallMobile ? `Contratos` : `Contratos (${contratos.length})`}
                 id="documentos-tab-0"
                 aria-controls="documentos-tabpanel-0"
+                sx={{ minHeight: { xs: 48, sm: 64 } }}
               />
               <Tab
                 icon={<ReceiptLong />}
                 iconPosition="start"
-                label={`Comprobantes (${comprobantes.length})`}
+                label={isSmallMobile ? `Comprobantes` : `Comprobantes (${comprobantes.length})`}
                 id="documentos-tab-1"
                 aria-controls="documentos-tabpanel-1"
+                sx={{ minHeight: { xs: 48, sm: 64 } }}
               />
             </Tabs>
           </Box>
 
-          {/* Contenido de las tabs */}
+          {/* Contenido de las tabs - Responsive */}
           <TabPanel value={tabValue} index={0}>
-            <TableContainer component={Paper} variant="outlined">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>N° Contrato</TableCell>
-                    <TableCell>Solicitud</TableCell>
-                    <TableCell>Solicitante</TableCell>
-                    <TableCell>Fecha de última actualización</TableCell>
-                    <TableCell align="center">Acciones</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {contratos.map((contrato) => {
-                    // 🔹 Corregir campo de solicitud
-                    const numeroSolicitud = contrato.numero_solicitud || '—';
-
-                    // 🔹 Manejar fecha segura
-                    const fechaValida = contrato.updated_at
-                      ? new Date(contrato.updated_at)
-                      : null;
-                    const fechaFormateada =
-                      fechaValida && !isNaN(fechaValida.getTime())
+            {contratos.length === 0 ? (
+              <Alert severity="info">
+                No hay contratos que coincidan con los filtros aplicados.
+              </Alert>
+            ) : isMobile ? (
+              // Vista de tarjetas para móviles
+              <Stack spacing={2}>
+                {contratos.map((contrato) => (
+                  <ContratoCard key={contrato.id} contrato={contrato} />
+                ))}
+              </Stack>
+            ) : (
+              // Vista de tabla para desktop
+              <TableContainer component={Paper} variant="outlined">
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>N° Contrato</TableCell>
+                      <TableCell>Solicitud</TableCell>
+                      <TableCell>Solicitante</TableCell>
+                      <TableCell>Fecha de última actualización</TableCell>
+                      <TableCell align="center">Acciones</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {contratos.map((contrato) => {
+                      const numeroSolicitud = contrato.numero_solicitud || '—';
+                      const fechaValida = contrato.updated_at ? new Date(contrato.updated_at) : null;
+                      const fechaFormateada = fechaValida && !isNaN(fechaValida.getTime())
                         ? fechaValida.toLocaleDateString('es-ES')
                         : 'Sin fecha';
 
-                    return (
-                      <TableRow key={contrato.id}>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="medium">
-                            {contrato.numero_contrato || '—'}
-                          </Typography>
-                        </TableCell>
+                      return (
+                        <TableRow key={contrato.id}>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="medium">
+                              {contrato.numero_contrato || '—'}
+                            </Typography>
+                          </TableCell>
 
-                        <TableCell>
-                          <Typography variant="body2">{numeroSolicitud}</Typography>
-                        </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">{numeroSolicitud}</Typography>
+                          </TableCell>
 
-                        <TableCell>
-                          <Typography variant="body2">
-                            {contrato.solicitante_nombre || '—'}
-                          </Typography>
-                        </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {contrato.solicitante_nombre || '—'}
+                            </Typography>
+                          </TableCell>
 
-                        <TableCell>
-                          <Typography variant="body2">{fechaFormateada}</Typography>
-                        </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">{fechaFormateada}</Typography>
+                          </TableCell>
 
-                        <TableCell align="center">
-                          <Box display="flex" gap={1} justifyContent="center">
-                            {/* Botón para descargar contrato firmado */}
-                            {contrato.firma_digital?.estado === 'firmado_completo' && (
-                              <Tooltip title="Descargar contrato firmado">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleDescargarContratoFirmado(contrato)}
-                                  color="success"
-                                >
-                                  <Download />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            
-                            {/* Indicador de estado */}
-                            {contrato.firma_digital && (
-                              <Tooltip title={`Estado: ${contrato.firma_digital.estado}`}>
-                                <Chip 
-                                  size="small" 
-                                  label={contrato.firma_digital.estado === 'firmado_completo' ? 'FIRMADO' : contrato.firma_digital.estado.toUpperCase()}
-                                  color={contrato.firma_digital.estado === 'firmado_completo' ? 'success' : 'warning'}
-                                  variant="outlined"
-                                />
-                              </Tooltip>
-                            )}
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                          <TableCell align="center">
+                            <Box display="flex" gap={1} justifyContent="center">
+                              {contrato.firma_digital?.estado === 'firmado_completo' && (
+                                <Tooltip title="Descargar contrato firmado">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDescargarContratoFirmado(contrato)}
+                                    color="success"
+                                  >
+                                    <Download />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              
+                              {contrato.firma_digital && (
+                                <Tooltip title={`Estado: ${contrato.firma_digital.estado}`}>
+                                  <Chip 
+                                    size="small" 
+                                    label={contrato.firma_digital.estado === 'firmado_completo' ? 'FIRMADO' : contrato.firma_digital.estado.toUpperCase()}
+                                    color={contrato.firma_digital.estado === 'firmado_completo' ? 'success' : 'warning'}
+                                    variant="outlined"
+                                  />
+                                </Tooltip>
+                              )}
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </TabPanel>
 
           <TabPanel value={tabValue} index={1}>
-            <TableContainer component={Paper} variant="outlined">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>N° Comprobante</TableCell>
-                    <TableCell>Solicitud</TableCell>
-                    <TableCell>Solicitante</TableCell>
-                    <TableCell>Monto</TableCell>
-                    <TableCell>Banco Destino</TableCell>
-                    <TableCell>Estado</TableCell>
-                    <TableCell>Fecha</TableCell>
-                    <TableCell align="center">Acciones</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {comprobantes.map((comprobante) => (
-                    <TableRow key={comprobante.id}>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {comprobante.numero_comprobante}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {comprobante.numero_solicitud || '—'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {comprobante.solicitante_nombre}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {formatMonto(comprobante.monto, comprobante.moneda)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {comprobante.banco_destino}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          icon={getEstadoIcon(comprobante.estado)}
-                          label={comprobante.estado.toUpperCase()}
-                          color={getEstadoColor(comprobante.estado)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {new Date(comprobante.fecha_procesamiento).toLocaleDateString('es-ES')}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Box display="flex" gap={1} justifyContent="center">
-                          <Tooltip title="Descargar comprobante">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDescargarComprobante(comprobante)}
-                              disabled={!comprobante.ruta_comprobante}
-                              color="primary"
-                            >
-                              <Download />
-                            </IconButton>
-                          </Tooltip>
-                          
-                          <Tooltip title="Vista previa">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleVerVistaPrevia('comprobante', comprobante.id)}
-                              disabled={!comprobante.ruta_comprobante}
-                              color="info"
-                            >
-                              <Visibility />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
+            {comprobantes.length === 0 ? (
+              <Alert severity="info">
+                No hay comprobantes que coincidan con los filtros aplicados.
+              </Alert>
+            ) : isMobile ? (
+              // Vista de tarjetas para móviles
+              <Stack spacing={2}>
+                {comprobantes.map((comprobante) => (
+                  <ComprobanteCard key={comprobante.id} comprobante={comprobante} />
+                ))}
+              </Stack>
+            ) : (
+              // Vista de tabla para desktop
+              <TableContainer component={Paper} variant="outlined">
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>N° Comprobante</TableCell>
+                      <TableCell>Solicitud</TableCell>
+                      <TableCell>Solicitante</TableCell>
+                      <TableCell>Monto</TableCell>
+                      {!isSmallMobile && <TableCell>Banco Destino</TableCell>}
+                      <TableCell>Estado</TableCell>
+                      <TableCell>Fecha</TableCell>
+                      <TableCell align="center">Acciones</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {comprobantes.map((comprobante) => (
+                      <TableRow key={comprobante.id}>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {comprobante.numero_comprobante}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {comprobante.numero_solicitud || '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {comprobante.solicitante_nombre}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {formatMonto(comprobante.monto, comprobante.moneda)}
+                          </Typography>
+                        </TableCell>
+                        {!isSmallMobile && (
+                          <TableCell>
+                            <Typography variant="body2">
+                              {comprobante.banco_destino}
+                            </Typography>
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          <Chip
+                            icon={getEstadoIcon(comprobante.estado)}
+                            label={comprobante.estado.toUpperCase()}
+                            color={getEstadoColor(comprobante.estado)}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {new Date(comprobante.fecha_procesamiento).toLocaleDateString('es-ES')}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Box display="flex" gap={1} justifyContent="center">
+                            <Tooltip title="Descargar comprobante">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDescargarComprobante(comprobante)}
+                                disabled={!comprobante.ruta_comprobante}
+                                color="primary"
+                              >
+                                <Download />
+                              </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Vista previa">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleVerVistaPrevia('comprobante', comprobante.id)}
+                                disabled={!comprobante.ruta_comprobante}
+                                color="info"
+                              >
+                                <Visibility />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </TabPanel>
         </>
       )}
 
-      {/* Dialog para vista previa */}
+      {/* Dialog para vista previa - Responsive */}
       <Dialog
         open={vistaPreviaAbierta}
         onClose={() => {
@@ -625,22 +848,30 @@ export default function DocumentosOperadorPage() {
         }}
         maxWidth="lg"
         fullWidth
+        fullScreen={isMobile}
+        sx={{
+          '& .MuiDialog-paper': {
+            height: isMobile ? '100vh' : '80vh',
+            maxHeight: 'none'
+          }
+        }}
       >
-        <DialogContent sx={{ p: 0, position: 'relative', height: '80vh' }}>
-          {/* Botón de cerrar arriba a la derecha */}
+        <DialogContent sx={{ p: 0, position: 'relative', height: '100%' }}>
+          {/* Botón de cerrar mejorado para responsive */}
           <Box
             sx={{
               position: 'absolute',
               top: 8,
               right: 8,
               zIndex: 10,
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
               borderRadius: '50%',
+              boxShadow: 1,
             }}
           >
             <Tooltip title="Cerrar vista previa">
               <IconButton
-                size="small"
+                size={isMobile ? "medium" : "small"}
                 color="error"
                 onClick={() => {
                   setVistaPreviaAbierta(false);

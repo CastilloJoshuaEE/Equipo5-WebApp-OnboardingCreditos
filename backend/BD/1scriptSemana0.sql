@@ -98,8 +98,7 @@ RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.rol = 'solicitante' THEN
     INSERT INTO solicitantes(id, tipo, nombre_empresa, representante_legal, domicilio)
-    VALUES (NEW.id, 'empresa', 'Empresa de ' || split_part(NEW.nombre_completo, ' ', 1),
-            NEW.nombre_completo, 'Dirección de ' || split_part(NEW.nombre_completo, ' ', 1));
+    VALUES (NEW.id, 'empresa', NULL, NULL, NULL);
   ELSIF NEW.rol = 'operador' THEN
     INSERT INTO operadores(id, nivel, permisos)
     VALUES (NEW.id, 'analista', ARRAY['revision','aprobacion','rechazo']);

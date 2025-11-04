@@ -223,13 +223,12 @@ const handleEditarContacto = (contacto: ContactoBancario) => {
     setContactoSeleccionado(contacto);
     setStep(2);
   };
-const confirmarTransferencia = async () => {
+ const confirmarTransferencia = async () => {
     if (!solicitudId || !contactoSeleccionado || !monto) {
         setError('Faltan datos requeridos para la transferencia');
         return;
     }
 
-    // Verificar nuevamente el estado de la firma antes de proceder
     if (!verificacionFirma?.habilitado) {
         setError('No se puede proceder con la transferencia. La firma digital no está completada.');
         return;
@@ -268,25 +267,29 @@ const confirmarTransferencia = async () => {
         const data = await response.json();
 
         if (!response.ok) {
-            // Intentar obtener mensaje de error más específico
             const errorMessage = data.message || data.error || `Error ${response.status}: ${response.statusText}`;
             throw new Error(errorMessage);
         }
 
         if (data.success) {
-            alert('. Transferencia creada exitosamente');
+            // Marcar transferencia como completada para que el dashboard lo detecte
+            sessionStorage.setItem('transferencia_completada', 'true');
+            sessionStorage.setItem('solicitud_transferencia', solicitudId);
+            
+            alert('Transferencia creada exitosamente');
+            // Redirigir al dashboard
             window.location.href = '/operador';
         } else {
             throw new Error(data.message || 'Error desconocido al crear transferencia');
         }
     } catch (error: any) {
-        console.error('. Error creando transferencia:', error);
+        console.error('Error creando transferencia:', error);
         setError(`No se pudo crear la transferencia: ${error.message}`);
     } finally {
         setLoading(false);
         setMostrarModalConfirmacion(false);
     }
-};
+  };
 
   // Paso 1: Selección de contacto
   if (step === 1) {

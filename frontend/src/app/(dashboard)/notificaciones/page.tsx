@@ -14,7 +14,11 @@ import {
   IconButton,
   Divider,
   CircularProgress,
-  Container
+  Container,
+  Drawer,
+  useMediaQuery,
+  useTheme,
+  Fab
 } from '@mui/material';
 import { getSession } from 'next-auth/react';
 
@@ -30,7 +34,9 @@ import {
   CheckCircle,
   MarkEmailRead,
   FilterList,
-  Clear
+  Clear,
+  Menu as MenuIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { Notificacion } from '@/services/notificaciones.service';
 import notificacionesService from '@/services/notificaciones.service';
@@ -42,8 +48,11 @@ interface NotificacionConDetalle extends Notificacion {
 
 export default function NotificacionesPage() {
   const router = useRouter();
-  const [rolUsuario, setRolUsuario] = useState<string>('');
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  const [rolUsuario, setRolUsuario] = useState<string>('');
   const [notificaciones, setNotificaciones] = useState<NotificacionConDetalle[]>([]);
   const [notificacionSeleccionada, setNotificacionSeleccionada] = useState<NotificacionConDetalle | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -60,25 +69,27 @@ export default function NotificacionesPage() {
     noLeidas: false
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [detalleOpen, setDetalleOpen] = useState(false);
 
   useEffect(() => {
     cargarNotificaciones();
   }, []);
-useEffect(() => {
-  const obtenerRolUsuario = async () => {
-    try {
 
-      const session = await getSession(); 
-      if (session?.user?.rol) {
-        setRolUsuario(session.user.rol);
+  useEffect(() => {
+    const obtenerRolUsuario = async () => {
+      try {
+        const session = await getSession(); 
+        if (session?.user?.rol) {
+          setRolUsuario(session.user.rol);
+        }
+      } catch (error) {
+        console.error('Error obteniendo rol del usuario:', error);
       }
-    } catch (error) {
-      console.error('Error obteniendo rol del usuario:', error);
-    }
-  };
+    };
 
-  obtenerRolUsuario();
-}, []);
+    obtenerRolUsuario();
+  }, []);
+
   const cargarNotificaciones = async (paginaActual: number = 1) => {
     try {
       setCargando(true);
@@ -93,7 +104,6 @@ useEffect(() => {
       
       if (paginaActual === 1) {
         setNotificaciones(notificacionesConDetalle);
-        // Seleccionar automáticamente la primera notificación al cargar
         if (notificacionesConDetalle.length > 0) {
           setNotificacionSeleccionada(notificacionesConDetalle[0]);
         }
@@ -118,7 +128,6 @@ useEffect(() => {
           notif.id === id ? { ...notif, leida: true } : notif
         )
       );
-      // Actualizar también la notificación seleccionada si es la misma
       if (notificacionSeleccionada?.id === id) {
         setNotificacionSeleccionada(prev => prev ? { ...prev, leida: true } : null);
       }
@@ -133,7 +142,6 @@ useEffect(() => {
       setNotificaciones(prev => 
         prev.map(notif => ({ ...notif, leida: true }))
       );
-      // Actualizar también la notificación seleccionada
       if (notificacionSeleccionada) {
         setNotificacionSeleccionada(prev => prev ? { ...prev, leida: true } : null);
       }
@@ -144,7 +152,9 @@ useEffect(() => {
 
   const handleSeleccionarNotificacion = (notificacion: NotificacionConDetalle) => {
     setNotificacionSeleccionada(notificacion);
-    // Marcar como leída al seleccionar
+    if (isMobile) {
+      setDetalleOpen(true);
+    }
     if (!notificacion.leida) {
       marcarComoLeida(notificacion.id);
     }
@@ -159,6 +169,9 @@ useEffect(() => {
 
   const aplicarFiltros = () => {
     setFiltrosAplicados({ ...filtros });
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
   };
 
   const limpiarFiltros = () => {
@@ -169,10 +182,13 @@ useEffect(() => {
     };
     setFiltros(filtrosLimpiados);
     setFiltrosAplicados(filtrosLimpiados);
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
   };
 
   const handleVolverDashboard = () => {
-    router.push('/solicitante');
+    router.push(rolUsuario === 'operador' ? '/operador' : '/solicitante');
   };
 
   const toggleSidebar = () => {
@@ -210,8 +226,8 @@ useEffect(() => {
 
   const obtenerIconoTipo = (tipo: string) => {
     const iconos: { [key: string]: JSX.Element } = {
-      cambio_estado: <Box component="span">.</Box>,
-      nueva_solicitud: <Box component="span">.</Box>,
+      cambio_estado: <Box component="span">🔄</Box>,
+      nueva_solicitud: <Box component="span">📥</Box>,
       documento_validado: <Box component="span">.</Box>,
       informacion_solicitada: <Box component="span">❓</Box>,
       sistema: <Box component="span">ℹ️</Box>,
@@ -243,7 +259,6 @@ useEffect(() => {
 
   // Filtrar notificaciones según los filtros aplicados
   const notificacionesFiltradas = notificaciones.filter(notif => {
-    // Si no hay filtros aplicados, mostrar todas
     if (!filtrosAplicados.recientes && !filtrosAplicados.esteMes && !filtrosAplicados.noLeidas) {
       return true;
     }
@@ -253,7 +268,7 @@ useEffect(() => {
     if (filtrosAplicados.recientes) {
       const fechaNotif = new Date(notif.created_at);
       const fechaLimite = new Date();
-      fechaLimite.setDate(fechaLimite.getDate() - 7); // Últimos 7 días
+      fechaLimite.setDate(fechaLimite.getDate() - 7);
       cumpleFiltro = cumpleFiltro && fechaNotif >= fechaLimite;
     }
 
@@ -272,143 +287,308 @@ useEffect(() => {
     return cumpleFiltro;
   });
 
-  // Verificar si hay filtros activos
   const hayFiltrosActivos = filtrosAplicados.recientes || filtrosAplicados.esteMes || filtrosAplicados.noLeidas;
 
-  return (
-    <Box className="dashboard-container">
-     
-      {/* Main Content */}
-      <main className="main-content">
-  
+  const FiltrosContent = () => (
+    <Box className="filters-content">
+      <Typography variant="h6" gutterBottom className="filters-title">
+        Filtros
+      </Typography>
+      
+      <Box className="filters-container">
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={filtros.recientes}
+              onChange={() => handleFiltroChange('recientes')}
+              color="primary"
+              size={isMobile ? "small" : "medium"}
+            />
+          }
+          label="Últimos 7 días"
+          className="filter-checkbox"
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={filtros.esteMes}
+              onChange={() => handleFiltroChange('esteMes')}
+              color="primary"
+              size={isMobile ? "small" : "medium"}
+            />
+          }
+          label="Este mes"
+          className="filter-checkbox"
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={filtros.noLeidas}
+              onChange={() => handleFiltroChange('noLeidas')}
+              color="primary"
+              size={isMobile ? "small" : "medium"}
+            />
+          }
+          label="No leídas"
+          className="filter-checkbox"
+        />
+      </Box>
+      
+      <Box className="filter-buttons">
+        <Button 
+          variant="contained" 
+          onClick={aplicarFiltros}
+          startIcon={<FilterList />}
+          className="btn-primary"
+          size={isMobile ? "small" : "medium"}
+          fullWidth={isMobile}
+        >
+          Aplicar Filtros
+        </Button>
+        <Button 
+          variant="outlined" 
+          onClick={limpiarFiltros}
+          startIcon={<Clear />}
+          className="btn-secondary"
+          size={isMobile ? "small" : "medium"}
+          fullWidth={isMobile}
+          disabled={!hayFiltrosActivos}
+        >
+          Limpiar
+        </Button>
+      </Box>
 
-        <section className="page-content">
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h1" className="page-title">Notificaciones</Typography>
-            <Typography variant="subtitle1" className="page-subtitle">
+      {hayFiltrosActivos && (
+        <Box className="active-filters">
+          <Typography variant="body2" color="primary" className="active-filters-text">
+            Filtros activos: 
+            {filtrosAplicados.recientes && " Últimos 7 días"}
+            {filtrosAplicados.esteMes && " Este mes"}
+            {filtrosAplicados.noLeidas && " No leídas"}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+
+  const DetalleNotificacion = () => (
+    <Card className="notification-detail-card">
+      <CardContent>
+        <Box className="detail-header">
+          {isMobile && (
+            <IconButton 
+              onClick={() => setDetalleOpen(false)}
+              className="back-button"
+              size="small"
+            >
+              <ArrowBackIcon />
+            </IconButton>
+          )}
+        </Box>
+
+        <Typography variant="h5" className="detail-title">
+          {notificacionSeleccionada ? 
+            `Detalles de ${notificacionSeleccionada.solicitudId || 'notificación'}` : 
+            'Selecciona una notificación'
+          }
+        </Typography>
+
+        <Typography variant="h6" className="detail-subtitle">
+          Resumen
+        </Typography>
+        <Divider className="detail-divider" />
+
+        {notificacionSeleccionada ? (
+          <Box className="timeline-item">
+            <Box className="timeline-content" sx={{
+              backgroundColor: !notificacionSeleccionada.leida ? 'primary.50' : 'var(--color-purple-light)',
+              borderLeft: !notificacionSeleccionada.leida ? '4px solid' : 'none',
+              borderLeftColor: !notificacionSeleccionada.leida ? 'primary.main' : 'transparent'
+            }}>
+              <Box className="timeline-header">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                  {obtenerIconoTipo(notificacionSeleccionada.tipo)}
+                  <Typography variant="h6" className="timeline-title" sx={{
+                    fontWeight: !notificacionSeleccionada.leida ? 'bold' : 'normal',
+                    fontSize: isMobile ? '1rem' : '1.1rem'
+                  }}>
+                    {notificacionSeleccionada.titulo}
+                  </Typography>
+                </Box>
+              </Box>
+              <Typography variant="body2" className="timeline-date">
+                {formatearFechaCompleta(notificacionSeleccionada.created_at)}
+              </Typography>
+              <Typography variant="body1" className="timeline-description" sx={{
+                fontWeight: !notificacionSeleccionada.leida ? '500' : 'normal',
+                fontSize: isMobile ? '0.9rem' : '1rem'
+              }}>
+                {notificacionSeleccionada.mensaje}
+              </Typography>
+              
+              {notificacionSeleccionada.datos_adicionales && (
+                <Box className="additional-data-detail">
+                  {notificacionSeleccionada.datos_adicionales.solicitud_numero && (
+                    <Typography variant="body2" className="additional-data-item">
+                      <strong>Solicitud:</strong> {notificacionSeleccionada.datos_adicionales.solicitud_numero}
+                    </Typography>
+                  )}
+                  {notificacionSeleccionada.datos_adicionales.monto && (
+                    <Typography variant="body2" className="additional-data-item">
+                      <strong>Monto:</strong> ${notificacionSeleccionada.datos_adicionales.monto.toLocaleString()}
+                    </Typography>
+                  )}
+                  {notificacionSeleccionada.datos_adicionales.estado_anterior && (
+                    <Typography variant="body2" className="additional-data-item">
+                      <strong>Estado anterior:</strong> {notificacionSeleccionada.datos_adicionales.estado_anterior}
+                    </Typography>
+                  )}
+                  {notificacionSeleccionada.datos_adicionales.estado_nuevo && (
+                    <Typography variant="body2" className="additional-data-item">
+                      <strong>Estado nuevo:</strong> {notificacionSeleccionada.datos_adicionales.estado_nuevo}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
+              {notificacionSeleccionada.solicitud_id && (
+                <Box className="detail-actions" sx={{ mt: 2 }}>
+                  <Button 
+                    variant="contained" 
+                    size={isMobile ? "small" : "medium"}
+                    onClick={() => {
+                      if (rolUsuario === 'solicitante') {
+                        window.location.href = `/solicitante/solicitudes/${notificacionSeleccionada.solicitud_id}`;
+                      } else if (rolUsuario === 'operador') {
+                        window.location.href = `/operador`;
+                      } else {
+                        window.location.href = `/solicitante/solicitudes/${notificacionSeleccionada.solicitud_id}`;
+                      }
+                    }}
+                    fullWidth={isMobile}
+                    className="btn-primary"
+                  >
+                    {rolUsuario === 'operador' ? 'Ir al dashboard' : 'Ver detalles solicitud'}
+                  </Button>
+                </Box>
+              )}
+            </Box>
+          </Box>
+        ) : (
+          <Typography variant="body1" color="text.secondary" className="no-selection-text">
+            Haz clic en una notificación de la lista para ver sus detalles completos.
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <Box className="notificaciones-container">
+      {/* Header */}
+      <Box className="notificaciones-header">
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h4" className="page-title" sx={{ fontSize: { xs: '1.5rem', md: '2rem' } }}>
+              Notificaciones
+            </Typography>
+            <Typography variant="subtitle1" className="page-subtitle" sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }}>
               Mantente informado sobre el estado de tus solicitudes y actualizaciones
             </Typography>
           </Box>
-
-          {/* Filtros y Acciones */}
-          <Card className="content-box">
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="h2" className="section-title">Filtros</Typography>
-                <Box className="filters-container">
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={filtros.recientes}
-                        onChange={() => handleFiltroChange('recientes')}
-                        color="primary"
-                      />
-                    }
-                    label="Últimos 7 días"
-                  />
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={filtros.esteMes}
-                        onChange={() => handleFiltroChange('esteMes')}
-                        color="primary"
-                      />
-                    }
-                    label="Este mes"
-                  />
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={filtros.noLeidas}
-                        onChange={() => handleFiltroChange('noLeidas')}
-                        color="primary"
-                      />
-                    }
-                    label="No leídas"
-                  />
-                </Box>
-                
-                {/* Botones de aplicar y limpiar filtros */}
-                <Box sx={{ display: 'flex', gap: 2, mt: 2, flexWrap: 'wrap' }}>
-                  <Button 
-                    variant="contained" 
-                    onClick={aplicarFiltros}
-                    startIcon={<FilterList />}
-                    className="btn-primary"
-                    size="small"
-                  >
-                    Aplicar Filtros
-                  </Button>
-                  <Button 
-                    variant="outlined" 
-                    onClick={limpiarFiltros}
-                    startIcon={<Clear />}
-                    className="btn-secondary"
-                    size="small"
-                    disabled={!hayFiltrosActivos}
-                  >
-                    Limpiar Filtros
-                  </Button>
-                </Box>
-
-                {/* Indicador de filtros activos */}
-                {hayFiltrosActivos && (
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="body2" color="primary" sx={{ fontStyle: 'italic' }}>
-                      Filtros activos: 
-                      {filtrosAplicados.recientes && " Últimos 7 días"}
-                      {filtrosAplicados.esteMes && " Este mes"}
-                      {filtrosAplicados.noLeidas && " No leídas"}
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-              
+          
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {isMobile ? (
+              <IconButton 
+                onClick={toggleSidebar}
+                className="filter-button-mobile"
+                color="primary"
+              >
+                <FilterList />
+              </IconButton>
+            ) : (
               <Button 
                 variant="outlined" 
                 onClick={marcarTodasComoLeidas}
                 startIcon={<MarkEmailRead />}
                 className="btn-secondary"
+                size="medium"
               >
                 Marcar todas como leídas
               </Button>
-            </Box>
-            <Divider className="filter-divider" />
-          </Card>
+            )}
+          </Box>
+        </Box>
+      </Box>
 
-          {/* Estado vacío */}
-          {cargando && notificacionesFiltradas.length === 0 ? (
-            <Card className="content-box empty-state">
-              <Box display="flex" justifyContent="center" py={4}>
-                <CircularProgress />
-              </Box>
-            </Card>
-          ) : notificacionesFiltradas.length === 0 ? (
-            <Card className="content-box empty-state">
-              <Box className="empty-state-content" sx={{ textAlign: 'center', py: 4 }}>
-                <Image 
-                  src="/ilustraciones/nohayNotificacion.png" 
-                  alt="Sin notificaciones"
-                  width={400}
-                  height={400}
-                  style={{ margin: '0 auto 24px' }}
-                />
-                <Typography variant="h3" className="empty-state-title" gutterBottom>
-                  {hayFiltrosActivos ? "No hay notificaciones que coincidan con los filtros" : "Sin notificaciones recientes"}
-                </Typography>
-                <Typography variant="body1" className="empty-state-text">
-                  {hayFiltrosActivos 
-                    ? "Intenta con otros filtros o limpia los filtros actuales para ver todas las notificaciones."
-                    : "Cuando haya novedades sobre tus solicitudes, te lo haremos saber."
-                  }
-                </Typography>
-              </Box>
-            </Card>
-          ) : (
-            /* Lista de notificaciones */
+      {/* Filtros Desktop */}
+      {!isMobile && (
+        <Card className="content-box filters-box">
+          <FiltrosContent />
+        </Card>
+      )}
+
+      {/* Filtros Mobile Drawer */}
+      {isMobile && (
+        <Drawer
+          anchor="right"
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: '85vw',
+              maxWidth: 400,
+              p: 2
+            }
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">Filtros</Typography>
+            <IconButton onClick={() => setSidebarOpen(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+          <FiltrosContent />
+        </Drawer>
+      )}
+
+      {/* Contenido Principal */}
+      {cargando && notificacionesFiltradas.length === 0 ? (
+        <Card className="content-box empty-state">
+          <Box display="flex" justifyContent="center" py={4}>
+            <CircularProgress />
+          </Box>
+        </Card>
+      ) : notificacionesFiltradas.length === 0 ? (
+        <Card className="content-box empty-state">
+          <Box className="empty-state-content">
+            <Image 
+              src="/ilustraciones/nohayNotificacion.png" 
+              alt="Sin notificaciones"
+              width={isMobile ? 200 : 400}
+              height={isMobile ? 200 : 400}
+              style={{ margin: '0 auto 24px' }}
+            />
+            <Typography variant="h5" className="empty-state-title" gutterBottom sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
+              {hayFiltrosActivos ? "No hay notificaciones que coincidan con los filtros" : "Sin notificaciones recientes"}
+            </Typography>
+            <Typography variant="body1" className="empty-state-text" sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }}>
+              {hayFiltrosActivos 
+                ? "Intenta con otros filtros o limpia los filtros actuales para ver todas las notificaciones."
+                : "Cuando haya novedades sobre tus solicitudes, te lo haremos saber."
+              }
+            </Typography>
+          </Box>
+        </Card>
+      ) : (
+        <Grid container spacing={2} className="notifications-grid">
+          {/* Lista de Notificaciones */}
+                <Grid size={{ xs: 12, md: 8}}>
             <Card className="content-box">
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h2" className="section-title">Historial de Notificaciones</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                <Typography variant="h5" className="section-title" sx={{ fontSize: { xs: '1.1rem', md: '1.25rem' } }}>
+                  Historial de Notificaciones
+                </Typography>
                 {hayFiltrosActivos && (
                   <Chip 
                     label={`${notificacionesFiltradas.length} resultado(s)`}
@@ -417,241 +597,178 @@ useEffect(() => {
                     size="small"
                   />
                 )}
+                {isMobile && (
+                  <Button 
+                    variant="outlined" 
+                    onClick={marcarTodasComoLeidas}
+                    startIcon={<MarkEmailRead />}
+                    className="btn-secondary"
+                    size="small"
+                  >
+                    Marcar todas leídas
+                  </Button>
+                )}
               </Box>
-              <Typography variant="body1" className="section-subtitle">
+
+              <Typography variant="body2" className="section-subtitle" sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
                 {notificacionesFiltradas.length} notificaciones encontradas
                 {hayFiltrosActivos && " con los filtros aplicados"}
               </Typography>
 
-              <Grid container spacing={3} className="notifications-grid">
-                <Grid size={{ xs: 12, md: 8}}>
-                  {/* Lista de notificaciones */}
-                  <Box className="notifications-list">
-                    {notificacionesFiltradas.map((notificacion) => (
-                      <Card 
-                        key={notificacion.id} 
-                        className={`notification-card ${notificacionSeleccionada?.id === notificacion.id ? 'selected' : ''} ${!notificacion.leida ? 'no-leida' : ''}`}
-                        onClick={() => handleSeleccionarNotificacion(notificacion)}
-                        sx={{
-                          backgroundColor: notificacion.leida ? 'background.paper' : 'primary.50',
-                          borderColor: notificacionSeleccionada?.id === notificacion.id ? 
-                            'primary.main' : (notificacion.leida ? 'divider' : 'primary.main'),
-                          borderWidth: notificacionSeleccionada?.id === notificacion.id ? 2 : 1,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          '&:hover': {
-                            borderColor: 'primary.main',
-                            boxShadow: '0 2px 8px rgba(160, 32, 240, 0.2)'
-                          },
-                          // Estilo diferenciado para no leídas
-                          ...(!notificacion.leida && {
-                            backgroundColor: 'rgba(160, 32, 240, 0.08)',
-                            borderLeft: '4px solid',
-                            borderLeftColor: 'primary.main'
-                          })
-                        }}
-                      >
-                        <CardContent>
-                          <Box className="notification-header">
-                            <Box className="notification-info">
-                              <Typography variant="h6" className="notification-id">
-                                {notificacion.solicitudId || 'Sistema'}
-                              </Typography>
-                              <Chip 
-                                label={obtenerEstadoSolicitud(notificacion.tipo)}
-                                className="status-badge"
-                                size="small"
-                                sx={{ 
-                                  backgroundColor: obtenerColorEstado(notificacion.tipo),
-                                  color: 'white'
-                                }}
-                              />
-                              {!notificacion.leida && (
-                                <Chip
-                                  label="Nuevo"
-                                  color="primary"
-                                  size="small"
-                                  sx={{ fontWeight: 'bold' }}
-                                />
-                              )}
-                            </Box>
-                            <Box>
-                              {!notificacion.leida && (
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation(); // Prevenir que se active el click del card
-                                    marcarComoLeida(notificacion.id);
-                                  }}
-                                  color="primary"
-                                >
-                                  <CheckCircle />
-                                </IconButton>
-                              )}
-                            </Box>
-                          </Box>
-                          
-                          <Typography variant="body2" className="notification-date">
-                            {formatearFechaCompleta(notificacion.created_at)}
-                          </Typography>
-                          
-                          <Box className="notification-body">
-                            <Typography variant="h6" className="notification-text" sx={{ 
-                              fontWeight: notificacion.leida ? 'normal' : 'bold',
-                              color: notificacion.leida ? 'text.primary' : 'primary.main'
-                            }}>
-                              {notificacion.titulo}
-                            </Typography>
-                            <Typography variant="body2" className="notification-detail" sx={{
-                              fontWeight: notificacion.leida ? 'normal' : '500'
-                            }}>
-                              {notificacion.mensaje}
-                            </Typography>
-                            
-                            {notificacion.datos_adicionales && (
-                              <Box className="additional-data">
-                                {notificacion.datos_adicionales.monto && (
-                                  <Typography variant="body2" className="notification-detail">
-                                    <strong>Monto:</strong> ${notificacion.datos_adicionales.monto.toLocaleString()}
-                                  </Typography>
-                                )}
-                                {notificacion.datos_adicionales.estado_anterior && (
-                                  <Typography variant="body2" className="notification-detail">
-                                    <strong>Cambio de estado:</strong> {notificacion.datos_adicionales.estado_anterior} → {notificacion.datos_adicionales.estado_nuevo}
-                                  </Typography>
-                                )}
-                              </Box>
-                            )}
-                          </Box>
-
-                          <Box className="notification-actions">
-{notificacion.solicitud_id && (
-  <Button 
-    variant="outlined" 
-    size="small"
-    onClick={(e) => {
-      e.stopPropagation();
-      
-      // Lógica condicional basada en el rol
-      if (rolUsuario === 'solicitante') {
-        // Si es solicitante, va a la página de detalles de solicitud
-        window.location.href = `/solicitante/solicitudes/${notificacion.solicitud_id}`;
-      } else if (rolUsuario === 'operador') {
-        // Si es operador, va al dashboard donde puede ver todas las solicitudes
-        window.location.href = `/operador`;
-      } else {
-        // Rol por defecto o desconocido
-        window.location.href = `/solicitante/solicitudes/${notificacion.solicitud_id}`;
-      }
-    }}
-  >
-    {rolUsuario === 'operador' ? 'Ir al dashboard' : 'Ver detalles solicitud'}
-  </Button>
-)}
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    ))}
-                    
-                    {hayMas && (
-                      <Box display="flex" justifyContent="center" pt={2}>
-                        <Button
-                          onClick={() => cargarNotificaciones(pagina + 1)}
-                          disabled={cargando}
-                          variant="outlined"
-                          className="btn-secondary"
-                        >
-                          {cargando ? 'Cargando...' : 'Cargar más'}
-                        </Button>
-                      </Box>
-                    )}
-                  </Box>
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 4}}>
-                  {/* Detalle de notificación */}
-                  <Card className="notification-detail-card">
+              <Box className="notifications-list">
+                {notificacionesFiltradas.map((notificacion) => (
+                  <Card 
+                    key={notificacion.id} 
+                    className={`notification-card ${notificacionSeleccionada?.id === notificacion.id ? 'selected' : ''} ${!notificacion.leida ? 'no-leida' : ''}`}
+                    onClick={() => handleSeleccionarNotificacion(notificacion)}
+                  >
                     <CardContent>
-                      <Box className="detail-header">
+                      <Box className="notification-header">
+                        <Box className="notification-info">
+                          <Typography variant="h6" className="notification-id" sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }}>
+                            {notificacion.solicitudId || 'Sistema'}
+                          </Typography>
+                          <Chip 
+                            label={obtenerEstadoSolicitud(notificacion.tipo)}
+                            className="status-badge"
+                            size="small"
+                            sx={{ 
+                              backgroundColor: obtenerColorEstado(notificacion.tipo),
+                              color: 'white',
+                              fontSize: { xs: '0.7rem', md: '0.8rem' }
+                            }}
+                          />
+                          {!notificacion.leida && (
+                            <Chip
+                              label="Nuevo"
+                              color="primary"
+                              size="small"
+                              sx={{ fontWeight: 'bold', fontSize: { xs: '0.7rem', md: '0.8rem' } }}
+                            />
+                          )}
+                        </Box>
+                        <Box>
+                          {!notificacion.leida && (
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                marcarComoLeida(notificacion.id);
+                              }}
+                              color="primary"
+                            >
+                              <CheckCircle fontSize={isMobile ? "small" : "medium"} />
+                            </IconButton>
+                          )}
+                        </Box>
                       </Box>
-
-                      <Typography variant="h3" className="detail-title">
-                        {notificacionSeleccionada ? 
-                          `Detalles de ${notificacionSeleccionada.solicitudId || 'notificación'}` : 
-                          'Selecciona una notificación'
-                        }
+                      
+                      <Typography variant="body2" className="notification-date" sx={{ fontSize: { xs: '0.75rem', md: '0.9rem' } }}>
+                        {formatearFechaCompleta(notificacion.created_at)}
                       </Typography>
-
-                      <Typography variant="h4" className="detail-subtitle">
-                        Resumen
-                      </Typography>
-                      <Divider />
-
-                      {notificacionSeleccionada ? (
-                        <Box className="timeline-item">
-                          <Box className="timeline-content" sx={{
-                            backgroundColor: !notificacionSeleccionada.leida ? 'primary.50' : 'var(--color-purple-light)',
-                            borderLeft: !notificacionSeleccionada.leida ? '4px solid' : 'none',
-                            borderLeftColor: !notificacionSeleccionada.leida ? 'primary.main' : 'transparent'
-                          }}>
-                            <Box className="timeline-header">
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                                {obtenerIconoTipo(notificacionSeleccionada.tipo)}
-                                <Typography variant="h5" className="timeline-title" sx={{
-                                  fontWeight: !notificacionSeleccionada.leida ? 'bold' : 'normal'
-                                }}>
-                                  {notificacionSeleccionada.titulo}
-                                </Typography>
-                              </Box>
-                            </Box>
-                            <Typography variant="body2" className="timeline-date">
-                              {formatearFechaCompleta(notificacionSeleccionada.created_at)}
-                            </Typography>
-                            <Typography variant="body1" className="timeline-description" sx={{
-                              fontWeight: !notificacionSeleccionada.leida ? '500' : 'normal'
-                            }}>
-                              {notificacionSeleccionada.mensaje}
-                            </Typography>
-                            
-                            {notificacionSeleccionada.datos_adicionales && (
-                              <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                                {notificacionSeleccionada.datos_adicionales.solicitud_numero && (
-                                  <Typography variant="body2">
-                                    <strong>Solicitud:</strong> {notificacionSeleccionada.datos_adicionales.solicitud_numero}
-                                  </Typography>
-                                )}
-                                {notificacionSeleccionada.datos_adicionales.monto && (
-                                  <Typography variant="body2">
-                                    <strong>Monto:</strong> ${notificacionSeleccionada.datos_adicionales.monto.toLocaleString()}
-                                  </Typography>
-                                )}
-                                {notificacionSeleccionada.datos_adicionales.estado_anterior && (
-                                  <Typography variant="body2">
-                                    <strong>Estado anterior:</strong> {notificacionSeleccionada.datos_adicionales.estado_anterior}
-                                  </Typography>
-                                )}
-                                {notificacionSeleccionada.datos_adicionales.estado_nuevo && (
-                                  <Typography variant="body2">
-                                    <strong>Estado nuevo:</strong> {notificacionSeleccionada.datos_adicionales.estado_nuevo}
-                                  </Typography>
-                                )}
-                              </Box>
+                      
+                      <Box className="notification-body">
+                        <Typography variant="h6" className="notification-text" sx={{ 
+                          fontWeight: notificacion.leida ? 'normal' : 'bold',
+                          color: notificacion.leida ? 'text.primary' : 'primary.main',
+                          fontSize: { xs: '0.9rem', md: '1rem' }
+                        }}>
+                          {notificacion.titulo}
+                        </Typography>
+                        <Typography variant="body2" className="notification-detail" sx={{
+                          fontWeight: notificacion.leida ? 'normal' : '500',
+                          fontSize: { xs: '0.8rem', md: '0.9rem' }
+                        }}>
+                          {notificacion.mensaje}
+                        </Typography>
+                        
+                        {notificacion.datos_adicionales && (
+                          <Box className="additional-data">
+                            {notificacion.datos_adicionales.monto && (
+                              <Typography variant="body2" className="notification-detail" sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
+                                <strong>Monto:</strong> ${notificacion.datos_adicionales.monto.toLocaleString()}
+                              </Typography>
+                            )}
+                            {notificacion.datos_adicionales.estado_anterior && (
+                              <Typography variant="body2" className="notification-detail" sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
+                                <strong>Cambio de estado:</strong> {notificacion.datos_adicionales.estado_anterior} → {notificacion.datos_adicionales.estado_nuevo}
+                              </Typography>
                             )}
                           </Box>
+                        )}
+                      </Box>
+
+                      {!isMobile && notificacion.solicitud_id && (
+                        <Box className="notification-actions">
+                          <Button 
+                            variant="outlined" 
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (rolUsuario === 'solicitante') {
+                                window.location.href = `/solicitante/solicitudes/${notificacion.solicitud_id}`;
+                              } else if (rolUsuario === 'operador') {
+                                window.location.href = `/operador`;
+                              } else {
+                                window.location.href = `/solicitante/solicitudes/${notificacion.solicitud_id}`;
+                              }
+                            }}
+                          >
+                            {rolUsuario === 'operador' ? 'Ir al dashboard' : 'Ver detalles solicitud'}
+                          </Button>
                         </Box>
-                      ) : (
-                        <Typography variant="body1" color="text.secondary" sx={{ mt: 2, textAlign: 'center', py: 4 }}>
-                          Haz clic en una notificación de la lista para ver sus detalles completos.
-                        </Typography>
                       )}
                     </CardContent>
                   </Card>
-                </Grid>
-              </Grid>
+                ))}
+                
+                {hayMas && (
+                  <Box display="flex" justifyContent="center" pt={2}>
+                    <Button
+                      onClick={() => cargarNotificaciones(pagina + 1)}
+                      disabled={cargando}
+                      variant="outlined"
+                      className="btn-secondary"
+                      size={isMobile ? "small" : "medium"}
+                    >
+                      {cargando ? 'Cargando...' : 'Cargar más'}
+                    </Button>
+                  </Box>
+                )}
+              </Box>
             </Card>
+          </Grid>
+
+          {/* Detalle de Notificación - Desktop */}
+          {!isMobile && (
+                <Grid size={{ xs: 12, md: 4}}>
+              <DetalleNotificacion />
+            </Grid>
           )}
-        </section>
-      </main>
+
+          {/* Detalle de Notificación - Mobile Drawer */}
+          {isMobile && notificacionSeleccionada && (
+            <Drawer
+              anchor="bottom"
+              open={detalleOpen}
+              onClose={() => setDetalleOpen(false)}
+              sx={{
+                '& .MuiDrawer-paper': {
+                  height: '80vh',
+                  borderTopLeftRadius: 12,
+                  borderTopRightRadius: 12,
+                  p: 2
+                }
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+                <Box sx={{ width: 40, height: 4, backgroundColor: 'grey.300', borderRadius: 2 }} />
+              </Box>
+              <DetalleNotificacion />
+            </Drawer>
+          )}
+        </Grid>
+      )}
     </Box>
   );
 }

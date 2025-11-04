@@ -4,6 +4,8 @@ import "./../styles/globals.css";
 
 import { SessionProvider } from "@/providers/SessionProvider";
 import { SessionExpiredProvider } from "@/providers/SessionExpiredProvider";
+import { SessionSyncProvider } from '@/components/SessionSyncProvider';
+
 import ChatbotWidget from "@/components/chatbot/ChatbotWidget";
 
 import '@fontsource/roboto/300.css';
@@ -16,14 +18,14 @@ export const metadata: Metadata = {
   description: "Plataforma integral para la gestión de créditos empresariales",
 };
 
-// Este layout debe ser un Server Component
-// Movemos los providers que necesitan client-side a un componente separado
 function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <SessionExpiredProvider>
-        {children}
-        <ChatbotWidget />
+        <SessionSyncProvider>
+          {children}
+          <ChatbotWidget />
+        </SessionSyncProvider>
       </SessionExpiredProvider>
     </SessionProvider>
   );

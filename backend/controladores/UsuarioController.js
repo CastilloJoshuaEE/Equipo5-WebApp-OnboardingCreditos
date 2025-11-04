@@ -235,6 +235,14 @@ static validarCamposRegistro(data, rol) {
   static async completarRegistroNuevoUsuario(req, res, authUser, datos) {
     const { rol = 'solicitante' } = datos;
     try {
+        console.log('📋 Datos recibidos del formulario:', {
+            nombre_completo: datos.nombre_completo,
+            nombre_empresa: datos.nombre_empresa,
+            representante_legal: datos.representante_legal,
+            domicilio: datos.domicilio,
+            cuit: datos.cuit,
+            rol: rol
+        });
         const usuarioData = {
             id: authUser.id,
             nombre_completo: datos.nombre_completo,
@@ -321,43 +329,62 @@ static validarCamposRegistro(data, rol) {
       throw error;
     }
   }
-  static async insertarEnTablaEspecifica(rol, userId, datos){
-    const{nombre_completo, dni, nombre_empresa, cuit, representante_legal, domicilio}= datos;
-    if(rol==='solicitante'){
-      const solicitanteData= {
-        id: userId,
-        tipo: 'empresa',
-        nombre_empresa: nombre_empresa || `Empresa de ${nombre_completo.split('')[0]}`,
-        cuit: cuit || `30-${dni}-9`,
-        representante_legal: representante_legal || nombre_completo,
-        domicilio: domicilio || `Direccion de ${nombre_completo.split('')[0]}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      try{
-        await SolicitanteModel.create(solicitanteData);
-        console.log('Solicitante insertado/actualizado en tabla especifica');
-      }catch (error){
-        console.warn('Error creando/actualizando solicitante:', error.message);
-      }
-      
-
-    }else if(rol==='operador'){
-      const operadorData= {
-        id: userId,
-        nivel: 'analista',
-        permisos: ['revision', 'aprobacion', 'rechazo'],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      try{
-        await OperadorModel.create(operadorData);
-        console.log('Operador insertado/actualizado en tabla especifica');
-      } catch(error){
-        console.warn('error creando/actualizando operador:', error.message);
-      }
+  static async insertarEnTablaEspecifica(rol, userId, datos) {
+    const { nombre_completo, dni, nombre_empresa, cuit, representante_legal, domicilio } = datos;
+    
+    if (rol === 'solicitante') {
+        // USAR LOS DATOS REALES DEL FORMULARIO, NO VALORES POR DEFECTO
+        const solicitanteData = {
+            id: userId,
+            tipo: 'empresa',
+            nombre_empresa: nombre_empresa || '',
+            cuit: cuit || '',
+            representante_legal: representante_legal || nombre_completo,
+            domicilio: domicilio || '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        
+        try {
+            await SolicitanteModel.create(solicitanteData);
+            console.log('. Solicitante insertado con datos del formulario:', {
+                nombre_empresa: solicitanteData.nombre_empresa,
+                representante_legal: solicitanteData.representante_legal,
+                domicilio: solicitanteData.domicilio
+            });
+        } catch (error) {
+            console.warn('⚠️ Error creando/actualizando solicitante:', error.message);
+            // Intentar actualizar si ya existe
+            try {
+                await SolicitanteModel.update(userId, solicitanteData);
+                console.log('. Solicitante actualizado con datos del formulario');
+            } catch (updateError) {
+                console.error('❌ Error actualizando solicitante:', updateError.message);
+            }
+        }
+    } else if (rol === 'operador') {
+        const operadorData = {
+            id: userId,
+            nivel: 'analista',
+            permisos: ['revision', 'aprobacion', 'rechazo'],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        try {
+            await OperadorModel.create(operadorData);
+            console.log('. Operador insertado/actualizado en tabla especifica');
+        } catch (error) {
+            console.warn('⚠️ Error creando/actualizando operador:', error.message);
+            // Intentar actualizar si ya existe
+            try {
+                await OperadorModel.update(userId, operadorData);
+                console.log('. Operador actualizado');
+            } catch (updateError) {
+                console.error('❌ Error actualizando operador:', updateError.message);
+            }
+        }
     }
-  }
+}
   static async enviarEmailConfirmacionSiEsPosible(email, nombre, userId){
     console.log('[Confirmación] Iniciando envío de email de confirmación...');
     try{

@@ -8,7 +8,6 @@ import {
   Typography, 
   Avatar,
   CircularProgress,
-  Collapse,
   Card,
   CardContent
 } from '@mui/material';
@@ -18,7 +17,7 @@ import {
   Close,
   HelpOutline
 } from '@mui/icons-material';
-import { getSession } from 'next-auth/react';
+import { getSession, useSession } from 'next-auth/react';
 import './chabot-styles.css';
 
 interface Mensaje {
@@ -34,29 +33,82 @@ export default function ChatbotWidget() {
   const [mensajeInput, setMensajeInput] = useState('');
   const [cargando, setCargando] = useState(false);
   const [session, setSession] = useState<any>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
   const mensajesEndRef = useRef<HTMLDivElement>(null);
 
-  // Cargar session en useEffect
+  // Usar useSession para obtener la sesión de manera reactiva
+  const { data: sessionData, status } = useSession();
+
+  // Efecto para sincronizar la sesión
   useEffect(() => {
     const loadSession = async () => {
+      setSessionLoading(true);
+      try {
+        const userSession = await getSession();
+        console.log('🔄 Chatbot - Sesión cargada:', userSession ? `Usuario: ${userSession.user?.name}` : 'No hay sesión');
+        setSession(userSession);
+      } catch (error) {
+        console.error('Error cargando sesión en chatbot:', error);
+      } finally {
+        setSessionLoading(false);
+      }
+    };
+
+    loadSession();
+  }, []);
+
+  // Escuchar cambios en la sesión de useSession
+  useEffect(() => {
+    if (status === 'authenticated') {
+      console.log('. Chatbot - Sesión autenticada detectada:', sessionData?.user?.name);
+      setSession(sessionData);
+    } else if (status === 'unauthenticated') {
+      console.log('🚪 Chatbot - Sesión no autenticada');
+      setSession(null);
+    }
+  }, [sessionData, status]);
+
+  // Escuchar eventos de storage para detectar cambios de sesión
+  useEffect(() => {
+    const handleStorageChange = async () => {
+      console.log('📦 Chatbot - Cambio en storage detectado, recargando sesión...');
       const userSession = await getSession();
       setSession(userSession);
     };
-    loadSession();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👀 Chatbot - Página visible, verificando sesión...');
+        getSession().then(userSession => {
+          setSession(userSession);
+        });
+      }
+    };
+
+    // Suscribirse a eventos
+    window.addEventListener('storage', handleStorageChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const mensajeInicial: Mensaje = {
     id: '1',
-    texto: '¡Hola! Soy tu asistente virtual de Nexia. ¿En qué puedo ayudarte con tu solicitud de crédito?',
+    texto: session 
+      ? `¡Hola ${session.user?.name}! Soy tu asistente virtual de Nexia. ¿En qué puedo ayudarte con tu solicitud de crédito?` 
+      : '¡Hola! Soy tu asistente virtual de Nexia. ¿En qué puedo ayudarte con tu solicitud de crédito?',
     esUsuario: false,
     timestamp: new Date()
   };
 
   useEffect(() => {
-    if (abierto && mensajes.length === 0) {
+    if (abierto && mensajes.length === 0 && !sessionLoading) {
       setMensajes([mensajeInicial]);
     }
-  }, [abierto]);
+  }, [abierto, sessionLoading]);
 
   useEffect(() => {
     scrollToBottom();
@@ -81,37 +133,45 @@ export default function ChatbotWidget() {
     setCargando(true);
 
     try {
+      // Verificar sesión actualizada antes de enviar
+      const currentSession = await getSession();
+      setSession(currentSession);
+
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       
-      // Preparar headers
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
 
-      // Si hay sesión, agregar el token de autorización
-      if (session?.accessToken) {
-        headers['Authorization'] = `Bearer ${session.accessToken}`;
+      if (currentSession?.accessToken) {
+        headers['Authorization'] = `Bearer ${currentSession.accessToken}`;
       }
 
-      const endpoint = session?.accessToken 
+      const endpoint = currentSession?.accessToken 
         ? `${API_BASE}/chatbot/mensaje-autenticado`
         : `${API_BASE}/chatbot/mensaje`;
 
-      console.log('. Enviando mensaje a:', endpoint);
-      console.log('. Token presente:', !!session?.accessToken);
+      console.log('💬 Chatbot - Enviando mensaje:', {
+        endpoint,
+        autenticado: !!currentSession?.accessToken,
+        usuario: currentSession?.user?.name
+      });
 
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({ mensaje: mensajeInput }),
+        body: JSON.stringify({ 
+          mensaje: mensajeInput,
+          usuario_id: currentSession?.user?.id,
+          rol: currentSession?.user?.rol
+        }),
       });
 
-      console.log('. Respuesta del servidor:', response.status);
+      console.log('📨 Chatbot - Respuesta del servidor:', response.status);
 
       if (!response.ok) {
-        // Si es 401, intentar con endpoint público
-        if (response.status === 401 && session?.accessToken) {
-          console.log('. Token inválido, intentando con endpoint público...');
+        if (response.status === 401 && currentSession?.accessToken) {
+          console.log('🔄 Chatbot - Token inválido, intentando con endpoint público...');
           const publicResponse = await fetch(`${API_BASE}/chatbot/mensaje`, {
             method: 'POST',
             headers: {
@@ -151,7 +211,7 @@ export default function ChatbotWidget() {
         throw new Error(data.message || 'Error en la respuesta del servidor');
       }
     } catch (error: any) {
-      console.error('. Error enviando mensaje:', error);
+      console.error('❌ Chatbot - Error enviando mensaje:', error);
       const mensajeError: Mensaje = {
         id: (Date.now() + 1).toString(),
         texto: 'Lo siento, ha ocurrido un error. Por favor intenta nuevamente.',
@@ -171,26 +231,36 @@ export default function ChatbotWidget() {
     }
   };
 
+  // Función para forzar actualización de sesión
+  const actualizarSesion = async () => {
+    console.log('🔄 Chatbot - Forzando actualización de sesión...');
+    const nuevaSesion = await getSession();
+    setSession(nuevaSesion);
+  };
+
   return (
     <Box className="chatbot-container">
       {/* Botón flotante */}
       {!abierto && (
-<IconButton
-  onClick={() => setAbierto(true)}
-  className="floating-chat-button"
-  sx={{
-    '& .MuiSvgIcon-root': {
-      color: 'white !important',
-      fontSize: '28px'
-    }
-  }}
->
-  <SmartToy />
-</IconButton>
+        <IconButton
+          onClick={() => {
+            setAbierto(true);
+            actualizarSesion(); // Actualizar sesión al abrir
+          }}
+          className="floating-chat-button"
+          sx={{
+            '& .MuiSvgIcon-root': {
+              color: 'white !important',
+              fontSize: '28px'
+            }
+          }}
+        >
+          <SmartToy />
+        </IconButton>
       )}
 
-      {/* Chatbox */}
-      <Collapse in={abierto} orientation="vertical">
+      {/* Chatbox - Renderizado condicional en lugar de Collapse */}
+      {abierto && (
         <Card className="chatbot-card">
           <CardContent className="chatbot-content">
             {/* Header */}
@@ -204,17 +274,33 @@ export default function ChatbotWidget() {
                     Asistente Nexia
                   </Typography>
                   <Typography variant="caption" className="chatbot-subtitle">
-                    {session ? `Conectado como ${session.user?.name}` : 'Modo invitado'}
+                    {sessionLoading ? (
+                      <CircularProgress size={12} />
+                    ) : session ? (
+                      `Conectado como ${session.user?.name} (${session.user?.rol})`
+                    ) : (
+                      'Modo invitado'
+                    )}
                   </Typography>
                 </Box>
               </Box>
-              <IconButton 
-                size="small" 
-                onClick={() => setAbierto(false)}
-                className="close-button"
-              >
-                <Close />
-              </IconButton>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <IconButton 
+                  size="small" 
+                  onClick={actualizarSesion}
+                  title="Actualizar sesión"
+                  disabled={sessionLoading}
+                >
+                  <HelpOutline />
+                </IconButton>
+                <IconButton 
+                  size="small" 
+                  onClick={() => setAbierto(false)}
+                  className="close-button"
+                >
+                  <Close />
+                </IconButton>
+              </Box>
             </Box>
 
             {/* Mensajes */}
@@ -257,26 +343,26 @@ export default function ChatbotWidget() {
                   value={mensajeInput}
                   onChange={(e) => setMensajeInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  disabled={cargando}
+                  disabled={cargando || sessionLoading}
                   multiline
                   maxRows={3}
                   className="message-input"
                 />
                 <IconButton 
                   onClick={enviarMensaje}
-                  disabled={!mensajeInput.trim() || cargando}
+                  disabled={!mensajeInput.trim() || cargando || sessionLoading}
                   className="send-button"
                 >
                   <Send />
                 </IconButton>
               </Box>
               <Typography variant="caption" className="input-help">
-                Asistente especializado en créditos para PYMES
+                {session ? 'Asistente especializado en créditos para PYMES' : 'Inicia sesión para una experiencia personalizada'}
               </Typography>
             </Box>
           </CardContent>
         </Card>
-      </Collapse>
+      )}
     </Box>
   );
 }
