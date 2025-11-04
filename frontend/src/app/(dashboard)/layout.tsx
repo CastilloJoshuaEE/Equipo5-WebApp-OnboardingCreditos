@@ -39,7 +39,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loadingOverlay, setLoadingOverlay] = useState(false);
-  const [lastPathname, setLastPathname] = useState(pathname); // Para trackear cambios reales
+  const [lastPathname, setLastPathname] = useState(pathname);
 
   const handleLogout = async () => {
     try {
@@ -61,7 +61,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [status, router]);
 
-  // SOLUCIÓN: Solo ocultar overlay cuando hay un cambio REAL de ruta
   useEffect(() => {
     if (pathname !== lastPathname) {
       setLastPathname(pathname);
@@ -81,10 +80,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   if (!session) return null;
 
-  // Navegación con overlay: SOLO si no estamos ya en esa ruta
   const navigateWithOverlay = (path: string) => {
     if (pathname === path) {
-      // Ya estamos en esta ruta, no hacer nada
       if (isMobile) setSidebarOpen(false);
       return;
     }
@@ -98,7 +95,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleIrDashboard = () => navigateWithOverlay('/');
 
   const SidebarContent = () => (
-    <aside className="sidebar">
+    <Box 
+      sx={{ 
+        width: 280,
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: 'white',
+        borderRight: '1px solid',
+        borderColor: 'divider'
+      }}
+    >
+      {/* Header del Sidebar */}
       <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
         <Typography 
           variant="h6" 
@@ -119,49 +127,50 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </Typography>
       </Box>
       
-      <nav className="sidebar-nav">
+      {/* Navegación */}
+      <Box sx={{ flex: 1, overflow: 'auto' }}>
         <DynamicNavigation 
           navigationHandler={navigateWithOverlay} 
           onNavigate={() => { if (isMobile) setSidebarOpen(false); }} 
         />
-        
-        {/* Botón de salir */}
-        <Box sx={{ p: 2, mt: 'auto' }}>
-          <Button 
-            variant="outlined" 
-            color="error"
-            onClick={handleLogout}
-            fullWidth
-            size="small"
-          >
-            Salir
-          </Button>
-        </Box>
-      </nav>
-    </aside>
+      </Box>
+      
+      {/* Botón de salir */}
+      <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Button 
+          variant="outlined" 
+          color="error"
+          onClick={handleLogout}
+          fullWidth
+          size="small"
+        >
+          Salir
+        </Button>
+      </Box>
+    </Box>
   );
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box display="flex">
-        {/* Sidebar permanente en escritorio */}
+      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+        {/* Sidebar para escritorio */}
         {!isMobile && <SidebarContent />}
 
-        {/* Drawer para mobile */}
+        {/* Drawer para móvil */}
         {isMobile && (
           <Drawer
             variant="temporary"
             open={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
-            ModalProps={{ keepMounted: true }}
+            ModalProps={{
+              keepMounted: true, // Mejor rendimiento en móvil
+            }}
             sx={{
               display: { xs: 'block', md: 'none' },
               '& .MuiDrawer-paper': {
+                boxSizing: 'border-box',
                 width: 280,
-                backgroundColor: 'white',
-                display: 'flex',
-                flexDirection: 'column',
               },
             }}
           >
@@ -169,19 +178,33 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </Drawer>
         )}
 
-        {/* Overlay global para navegación */}
+        {/* Overlay de carga */}
         <Backdrop
-          sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 2 }}
+          sx={{ 
+            color: '#fff', 
+            zIndex: (theme) => theme.zIndex.drawer + 2,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)'
+          }}
           open={loadingOverlay}
         >
           <Box display="flex" alignItems="center" gap={2}>
             <CircularProgress color="inherit" />
-            <Typography variant="h6">Cargando, por favor espere...</Typography>
+            <Typography variant="h6">Cargando...</Typography>
           </Box>
         </Backdrop>
 
         {/* Contenido principal */}
-        <Box flexGrow={1} sx={{ minHeight: '100vh', backgroundColor: '#fafafa' }}>
+        <Box 
+          component="main" 
+          sx={{ 
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '100vh',
+            backgroundColor: '#fafafa'
+          }}
+        >
+          {/* AppBar */}
           <AppBar
             position="static"
             elevation={0}
@@ -192,10 +215,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               borderColor: 'divider',
             }}
           >
-            <Toolbar sx={{ justifyContent: 'space-between' }}>
+            <Toolbar sx={{ justifyContent: 'space-between', px: { xs: 1, sm: 2 } }}>
               <Box display="flex" alignItems="center" gap={1}>
                 {isMobile && (
-                  <IconButton onClick={() => setSidebarOpen(true)}>
+                  <IconButton 
+                    onClick={() => setSidebarOpen(true)}
+                    sx={{ mr: 1 }}
+                  >
                     <Menu />
                   </IconButton>
                 )}
@@ -215,7 +241,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 />
               </Box>
 
-              <Box display="flex" alignItems="center" gap={2}>
+              <Box display="flex" alignItems="center" gap={{ xs: 1, sm: 2 }}>
                 <Button
                   color="inherit"
                   startIcon={<Person />}
@@ -223,6 +249,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   sx={{
                     textTransform: 'none',
                     '&:hover': { backgroundColor: 'action.hover' },
+                    display: { xs: 'none', sm: 'flex' } // Ocultar texto en móvil muy pequeño
                   }}
                 >
                   Mi perfil
@@ -233,8 +260,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </Toolbar>
           </AppBar>
 
-          {/* Contenido dinámico */}
-          <Box component="main" p={2}>
+          {/* Contenido de la página */}
+          <Box 
+            component="div" 
+            sx={{ 
+              flex: 1,
+              p: { xs: 1, sm: 2 },
+              overflow: 'auto'
+            }}
+          >
             {children}
           </Box>
         </Box>

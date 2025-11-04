@@ -152,3 +152,68 @@
 .footer .socialMediaSection .socialMedia a:hover img {
   background-color: var(--accent2);
 }
+/* Responsive */
+@media (max-width: 768px) {
+  .footer .footerCenter {
+    flex-direction: column;
+    gap: 40px;
+    padding: 40px 15px;
+    text-align: center;
+  }
+
+  .footer .footerCenter .footerImage {
+    width: 100%;
+    max-width: 150px;
+    margin: 0 auto;
+  }
+
+  .footer .footerCenter .contactInfo {
+    width: 100%;
+    align-items: center;
+    gap: 30px;
+  }
+
+  .footer .footerCenter .contactInfo .headlineFooter {
+    align-items: center;
+  }
+
+  .footer .footerCenter .contactInfo ul {
+    align-items: center;
+  }
+
+  .footer .socialMediaSection {
+    padding: 20px 15px 40px;
+  }
+
+  .footer .socialMediaSection .socialMediaCenter {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .footer .socialMediaSection .contact {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer .footerCenter {
+    padding: 30px 10px;
+    gap: 30px;
+  }
+
+  .footer .footerCenter .contactInfo ul li {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .footer .socialMediaSection .socialMediaCenter {
+    padding: 15px;
+  }
+
+  .footer .socialMediaSection .contact {
+    flex-direction: column;
+    gap: 10px;
+  }
+}

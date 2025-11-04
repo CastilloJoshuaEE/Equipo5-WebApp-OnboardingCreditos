@@ -93,3 +93,118 @@
   background-color: var(--primaryAccent);
   color: var(--white);
 }
+
+/* Mobile Menu */
+.navbar .mobileMenuButton {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--black);
+  padding: 5px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .navbar .navCenter .navUnion {
+    gap: 30px;
+  }
+
+  .navbar .navCenter .navUnion ul {
+    gap: 5px;
+  }
+
+  .navbar .navCenter .navUnion ul li a {
+    padding: 8px 12px;
+    font-size: var(--fontStyleText2);
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    height: 60px;
+    padding: 0 15px;
+  }
+
+  .navbar .mobileMenuButton {
+    display: block;
+  }
+
+  .navbar .navCenter .navUnion {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    width: 100%;
+    background-color: var(--white);
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 0;
+    padding: 20px;
+    box-shadow: var(--cardShadowEffect5);
+    transform: translateY(-100%);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease-in-out;
+    z-index: 999;
+  }
+
+  .navbar .navCenter .navUnion.mobileOpen {
+    transform: translateY(0);
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .navbar .navCenter .navUnion ul {
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+  }
+
+  .navbar .navCenter .navUnion ul li {
+    width: 100%;
+  }
+
+  .navbar .navCenter .navUnion ul li a {
+    display: block;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--graysAndTones5);
+    border-radius: 0;
+    text-align: left;
+  }
+
+  .navbar .navCenter .navUnion ul li:last-child a {
+    border-bottom: none;
+  }
+
+  .navbar .navCenter .navUnion .navButtons {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .navbar .navCenter .navUnion .btnPrimary,
+  .navbar .navCenter .navUnion .btnOutline {
+    width: 100%;
+    text-align: center;
+    padding: 12px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    height: 55px;
+    padding: 0 10px;
+  }
+
+  .navbar .logo img {
+    height: 35px;
+  }
+
+  .navbar .navCenter .navUnion {
+    top: 55px;
+    padding: 15px;
+  }
+}

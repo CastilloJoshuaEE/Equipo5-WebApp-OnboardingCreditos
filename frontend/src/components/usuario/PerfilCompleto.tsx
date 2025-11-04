@@ -45,6 +45,7 @@ import EmailRecuperacionForm from '@/components/usuario/EmailRecuperacionForm';
 import CambiarContrasenaForm from '@/components/usuario/CambiarContrasenaForm';
 import '@/styles/tabs.css';
 import EliminarCuentaModal from '@/components/usuario/EliminarCuentaModal';
+
 export default function PerfilCompleto() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState('personal-info');
@@ -56,46 +57,47 @@ export default function PerfilCompleto() {
   const [modalCambiarContrasenaOpen, setModalCambiarContrasenaOpen] = useState<boolean>(false);
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   const [redirecting, setRedirecting] = useState<boolean>(false);
-const [modalEliminarOpen, setModalEliminarOpen] = useState<boolean>(false);
-const handleEliminarCuenta = async (password: string): Promise<void> => {
-  try {
-    if (!session?.accessToken) {
-      throw new Error('No estás autenticado');
-    }
+  const [modalEliminarOpen, setModalEliminarOpen] = useState<boolean>(false);
 
-    const response = await UsuarioService.eliminarCuentaCompletamente(password);
-    
-    if (response.success) {
-      setMessage('Cuenta eliminada completamente. Serás redirigido...');
-      setSnackbarOpen(true);
+  const handleEliminarCuenta = async (password: string): Promise<void> => {
+    try {
+      if (!session?.accessToken) {
+        throw new Error('No estás autenticado');
+      }
 
-      // Limpiar todo el localStorage
-      localStorage.clear();
+      const response = await UsuarioService.eliminarCuentaCompletamente(password);
       
-      // Limpiar sessionStorage
-      sessionStorage.clear();
+      if (response.success) {
+        setMessage('Cuenta eliminada completamente. Serás redirigido...');
+        setSnackbarOpen(true);
 
-      // Salir y redirigir al login
-      setTimeout(async () => {
-        try {
-          await signOut({ 
-            callbackUrl: '/login?message=cuenta_eliminada',
-            redirect: true 
-          });
-        } catch (logoutError) {
-          console.error('Error durante logout:', logoutError);
-          window.location.href = '/login?message=cuenta_eliminada';
-        }
-      }, 2000);
+        // Limpiar todo el localStorage
+        localStorage.clear();
+        
+        // Limpiar sessionStorage
+        sessionStorage.clear();
 
-    } else {
-      throw new Error(response.message || 'Error al eliminar la cuenta');
+        // Salir y redirigir al login
+        setTimeout(async () => {
+          try {
+            await signOut({ 
+              callbackUrl: '/login?message=cuenta_eliminada',
+              redirect: true 
+            });
+          } catch (logoutError) {
+            console.error('Error durante logout:', logoutError);
+            window.location.href = '/login?message=cuenta_eliminada';
+          }
+        }, 2000);
+
+      } else {
+        throw new Error(response.message || 'Error al eliminar la cuenta');
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error al eliminar la cuenta';
+      throw new Error(errorMessage);
     }
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Error al eliminar la cuenta';
-    throw new Error(errorMessage);
-  }
-};
+  };
 
   useEffect(() => {
     cargarPerfilCompleto();
@@ -169,15 +171,19 @@ const handleEliminarCuenta = async (password: string): Promise<void> => {
   };
 
   const handleEditarPerfil = (): void => {
-    setRedirecting(true); // mostrar overlay
+    setRedirecting(true);
     setTimeout(() => {
       window.location.href = '/usuario/editar-perfil';
-    }, 1000); // pequeña espera para mostrar la animación
+    }, 1000);
   };
-
 
   const handleCloseSnackbar = (): void => {
     setSnackbarOpen(false);
+  };
+
+  // Función para verificar si el usuario es solicitante
+  const esUsuarioSolicitante = (): boolean => {
+    return perfil?.rol === 'solicitante';
   };
 
   const TabHeader = () => (
@@ -241,7 +247,7 @@ const handleEliminarCuenta = async (password: string): Promise<void> => {
                 {perfil && (
                   <Grid container spacing={4}>
                     {/* Información Básica */}
-        <Grid size={{ xs: 12, md: 6 }}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Card variant="outlined">
                         <CardContent>
                           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
@@ -306,7 +312,7 @@ const handleEliminarCuenta = async (password: string): Promise<void> => {
                     </Grid>
 
                     {/* Información Específica por Rol */}
-        <Grid size={{ xs: 12, md: 6 }}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       {esPerfilSolicitante(perfil) && perfil.solicitantes && (
                         <Card variant="outlined">
                           <CardContent>
@@ -373,7 +379,7 @@ const handleEliminarCuenta = async (password: string): Promise<void> => {
                             Información del sistema
                           </Typography>
                           <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 6}}>
+                            <Grid size={{ xs: 12, md: 6 }}>
                               <Typography variant="subtitle2" color="textSecondary">
                                 Fecha de registro
                               </Typography>
@@ -381,7 +387,7 @@ const handleEliminarCuenta = async (password: string): Promise<void> => {
                                 {new Date(perfil.created_at).toLocaleDateString('es-ES')}
                               </Typography>
                             </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
+                            <Grid size={{ xs: 12, md: 6 }}>
                               <Typography variant="subtitle2" color="textSecondary">
                                 Última actualización
                               </Typography>
@@ -389,7 +395,7 @@ const handleEliminarCuenta = async (password: string): Promise<void> => {
                                 {new Date(perfil.updated_at).toLocaleDateString('es-ES')}
                               </Typography>
                             </Grid>
-        <Grid size={{ xs: 12}}>
+                            <Grid size={{ xs: 12 }}>
                               <Typography variant="subtitle2" color="textSecondary">
                                 ID de usuario
                               </Typography>
@@ -444,48 +450,65 @@ const handleEliminarCuenta = async (password: string): Promise<void> => {
                   <EmailRecuperacionForm />
                 </Box>
 
-                <Divider sx={{ my: 3 }} />
+                {/* Zona de peligro - SOLO para solicitantes */}
+                {esUsuarioSolicitante() && (
+                  <>
+                    <Divider sx={{ my: 3 }} />
 
-                {/* Zona de peligro */}
-                <Box>
-                  <Typography variant="h6" gutterBottom color="error">
-                    Zona de peligro
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
-                    Una vez que desactives tu cuenta, no podrás acceder al sistema hasta que la reactives.
-                    Esta acción no se puede deshacer.
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    onClick={() => setModalDesactivarOpen(true)}
-                  >
-                    Desactivar mi cuenta
-                  </Button>
-                  <Box sx={{ mt: 3, p: 2, border: '1px solid', borderColor: 'error.main', borderRadius: 1 }}>
-  <Typography variant="h6" gutterBottom color="error">
-    Eliminación Completa de Cuenta
-  </Typography>
-  <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
-    Esta acción eliminará permanentemente todos tus datos del sistema. 
-    Se borrarán solicitudes, documentos, historial y toda información asociada a tu cuenta.
-    Esta acción es irreversible.
-  </Typography>
-  <Button
-    variant="contained"
-    color="error"
-    onClick={() => setModalEliminarOpen(true)}
-    startIcon={<Warning />}
-  >
-    Eliminar Cuenta Permanentemente
-  </Button>
-</Box>
-<EliminarCuentaModal
-  open={modalEliminarOpen}
-  onClose={() => setModalEliminarOpen(false)}
-  onConfirm={handleEliminarCuenta}
-/>
-                </Box>
+                    <Box>
+                      <Typography variant="h6" gutterBottom color="error">
+                        Zona de peligro
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+                        Una vez que desactives tu cuenta, no podrás acceder al sistema hasta que la reactives.
+                        Esta acción no se puede deshacer.
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        onClick={() => setModalDesactivarOpen(true)}
+                      >
+                        Desactivar mi cuenta
+                      </Button>
+                      
+                      <Box sx={{ mt: 3, p: 2, border: '1px solid', borderColor: 'error.main', borderRadius: 1 }}>
+                        <Typography variant="h6" gutterBottom color="error">
+                          Eliminación Completa de Cuenta
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+                          Esta acción eliminará permanentemente todos tus datos del sistema. 
+                          Se borrarán solicitudes, documentos, historial y toda información asociada a tu cuenta.
+                          Esta acción es irreversible.
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          color="error"
+                          onClick={() => setModalEliminarOpen(true)}
+                          startIcon={<Warning />}
+                        >
+                          Eliminar Cuenta Permanentemente
+                        </Button>
+                      </Box>
+                    </Box>
+
+                    {/* Modal de Eliminar Cuenta - SOLO para solicitantes */}
+                    <EliminarCuentaModal
+                      open={modalEliminarOpen}
+                      onClose={() => setModalEliminarOpen(false)}
+                      onConfirm={handleEliminarCuenta}
+                    />
+                  </>
+                )}
+
+                {/* Mensaje informativo para operadores */}
+                {!esUsuarioSolicitante() && (
+                  <Box sx={{ mt: 3, p: 2, backgroundColor: 'white', borderRadius: 1 }}>
+                    <Typography variant="body2" color="black">
+                      <strong>Información:</strong> Las opciones de desactivación y eliminación de cuenta 
+                      están disponibles únicamente para usuarios con rol de solicitante.
+                    </Typography>
+                  </Box>
+                )}
               </Card>
             </Box>
           )}
@@ -502,12 +525,14 @@ const handleEliminarCuenta = async (password: string): Promise<void> => {
         }}
       />
 
-      {/* Modal de Desactivar Cuenta */}
-      <DesactivarCuentaModal
-        open={modalDesactivarOpen}
-        onClose={() => setModalDesactivarOpen(false)}
-        onConfirm={handleDesactivarCuenta}
-      />
+      {/* Modal de Desactivar Cuenta - SOLO para solicitantes */}
+      {esUsuarioSolicitante() && (
+        <DesactivarCuentaModal
+          open={modalDesactivarOpen}
+          onClose={() => setModalDesactivarOpen(false)}
+          onConfirm={handleDesactivarCuenta}
+        />
+      )}
 
       {/* Snackbar para mensajes */}
       <Snackbar
@@ -517,6 +542,5 @@ const handleEliminarCuenta = async (password: string): Promise<void> => {
         message={message}
       />
     </Container>
-    
   );
 }
