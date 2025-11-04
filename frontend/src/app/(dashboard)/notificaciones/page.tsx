@@ -210,7 +210,7 @@ useEffect(() => {
 
   const obtenerIconoTipo = (tipo: string) => {
     const iconos: { [key: string]: JSX.Element } = {
-      cambio_estado: <Box component="span">🔄</Box>,
+      cambio_estado: <Box component="span">.</Box>,
       nueva_solicitud: <Box component="span">.</Box>,
       documento_validado: <Box component="span">.</Box>,
       informacion_solicitada: <Box component="span">❓</Box>,

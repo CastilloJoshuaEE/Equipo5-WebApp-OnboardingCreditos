@@ -192,7 +192,7 @@ class ContactosBancariosController {
                 updated_at: new Date().toISOString()
             };
 
-            console.log('📝 Guardando contacto bancario:', contactoData);
+            console.log('. Guardando contacto bancario:', contactoData);
 
             // Crear contacto usando el modelo
             const contacto = await ContactosBancariosModel.crear(contactoData);

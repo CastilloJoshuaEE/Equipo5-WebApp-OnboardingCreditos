@@ -234,7 +234,7 @@ class TransferenciasBancariasController {
             // Validar datos usando el modelo
             TransferenciasBancariasModel.validarDatosTransferencia(transferenciaData);
 
-            console.log('📝 Insertando transferencia:', transferenciaData);
+            console.log('. Insertando transferencia:', transferenciaData);
 
             // Crear transferencia usando el modelo
             const transferencia = await TransferenciasBancariasModel.crear(transferenciaData);
@@ -542,7 +542,7 @@ static async enviarEmailConfirmacionOperador(email, nombre, transferencia, compr
     static async generarComprobantePDF(transferencia) {
         return new Promise((resolve, reject) => {
             try {
-                console.log('📄 Generando comprobante PDF para transferencia:', transferencia.id);
+                console.log('. Generando comprobante PDF para transferencia:', transferencia.id);
                 
                 const doc = new PDFDocument();
                 const chunks = [];
@@ -779,7 +779,7 @@ static async enviarEmailConfirmacionOperador(email, nombre, transferencia, compr
             const { solicitud_id } = req.params;
             const usuario = req.usuario;
 
-            console.log(`🔄 Forzando actualización para solicitud: ${solicitud_id} por usuario: ${usuario.id}`);
+            console.log(`. Forzando actualización para solicitud: ${solicitud_id} por usuario: ${usuario.id}`);
 
             // CONSULTA .: Tomar la firma más reciente
             const { data: firmas, error: firmaError } = await supabase
@@ -1022,7 +1022,7 @@ static async enviarEmailsConComprobante(transferencia) {
                 if (!downloadError && fileData) {
                     const arrayBuffer = await fileData.arrayBuffer();
                     comprobanteBuffer = Buffer.from(arrayBuffer);
-                    console.log('📄 Comprobante PDF obtenido para envío');
+                    console.log('. Comprobante PDF obtenido para envío');
                 }
             } catch (pdfError) {
                 console.warn('. No se pudo obtener el comprobante PDF:', pdfError.message);

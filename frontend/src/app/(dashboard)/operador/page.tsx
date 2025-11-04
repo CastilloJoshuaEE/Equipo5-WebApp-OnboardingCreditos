@@ -355,7 +355,7 @@ const handleForzarVerificacion = async () => {
         setProcesandoForzar({ ...nuevosProcesos });
 
         try {
-          console.log(`🔄 Forzando verificación para solicitud: ${solicitud.id}`);
+          console.log(`. Forzando verificación para solicitud: ${solicitud.id}`);
           
           // PRIMERO: Verificar y forzar actualización de firma digital si es necesario
           let procesoFirmaExiste = false;
@@ -377,7 +377,7 @@ const handleForzarVerificacion = async () => {
             
             // Si no existe proceso de firma, intentar iniciarlo
             if (!procesoFirmaExiste) {
-              console.log(`🔄 Iniciando proceso de firma para ${solicitud.id}`);
+              console.log(`. Iniciando proceso de firma para ${solicitud.id}`);
               
               const iniciarFirmaResponse = await fetch(`${API_URL}/firmas/iniciar-proceso/${solicitud.id}`, {
                 method: 'POST',

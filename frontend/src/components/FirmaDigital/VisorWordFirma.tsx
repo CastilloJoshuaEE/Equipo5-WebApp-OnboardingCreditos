@@ -390,7 +390,7 @@ const handleGuardarDocumento = async () => {
             hashDocumento: infoFirma?.hash_original
         };
 
-        console.log('📝 Enviando firma acumulativa al servidor...', {
+        console.log('. Enviando firma acumulativa al servidor...', {
             tipo_firma: tipoFirma,
             tiene_firma_data: !!firma_data,
             firmas_count: firmas.length

@@ -4059,7 +4059,7 @@ router.get('/firmas/ver-contrato-firmado/:firma_id',
                 .single();
 
             if (error || !firma) {
-                console.error('❌ Firma no encontrada:', error);
+                console.error('. Firma no encontrada:', error);
                 return res.status(404).json({
                     success: false,
                     message: 'Proceso de firma no encontrado'
@@ -4072,14 +4072,14 @@ router.get('/firmas/ver-contrato-firmado/:firma_id',
                                firma.contratos?.ruta_documento;
 
             if (!rutaDocumento) {
-                console.error('❌ No hay ruta de documento disponible');
+                console.error('. No hay ruta de documento disponible');
                 return res.status(404).json({
                     success: false,
                     message: 'Documento no encontrado'
                 });
             }
 
-            console.log('📄 Mostrando documento desde:', rutaDocumento);
+            console.log('. Mostrando documento desde:', rutaDocumento);
 
             // Descargar archivo
             const { data: fileData, error: downloadError } = await supabase.storage
@@ -4087,7 +4087,7 @@ router.get('/firmas/ver-contrato-firmado/:firma_id',
                 .download(rutaDocumento);
 
             if (downloadError) {
-                console.error('❌ Error descargando archivo:', downloadError);
+                console.error('. Error descargando archivo:', downloadError);
                 throw new Error('Error accediendo al documento: ' + downloadError.message);
             }
 
@@ -4098,7 +4098,7 @@ router.get('/firmas/ver-contrato-firmado/:firma_id',
             const esWord = rutaDocumento.toLowerCase().endsWith('.docx');
             
             if (esWord) {
-                console.log('🔄 Convirtiendo Word a HTML para visualización...');
+                console.log('. Convirtiendo Word a HTML para visualización...');
                 
                 try {
                     // Convertir Word a HTML usando mammoth
@@ -4183,7 +4183,7 @@ router.get('/firmas/ver-contrato-firmado/:firma_id',
 <body>
     <div class="documento-container">
         <div class="header">
-            <h1>📄 CONTRATO FIRMADO</h1>
+            <h1>. CONTRATO FIRMADO</h1>
             <p><strong>Número de Contrato:</strong> ${firma.contratos?.numero_contrato || 'No disponible'}</p>
             <p><strong>Estado:</strong> ${firma.estado || 'No disponible'}</p>
         </div>
@@ -4210,7 +4210,7 @@ router.get('/firmas/ver-contrato-firmado/:firma_id',
                     res.send(htmlCompleto);
                     
                 } catch (conversionError) {
-                    console.error('❌ Error convirtiendo Word a HTML:', conversionError);
+                    console.error('. Error convirtiendo Word a HTML:', conversionError);
                     
                     // Fallback: ofrecer descarga del documento original
                     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
@@ -4229,7 +4229,7 @@ router.get('/firmas/ver-contrato-firmado/:firma_id',
             }
 
         } catch (error) {
-            console.error('❌ Error mostrando contrato firmado:', error);
+            console.error('. Error mostrando contrato firmado:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al mostrar el contrato: ' + error.message

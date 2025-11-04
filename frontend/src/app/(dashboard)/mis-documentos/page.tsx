@@ -358,7 +358,7 @@ const todosLosContratos = solicitudesConDocumentos.flatMap(solicitud => {
 
   return contratosSolicitud
     .filter(Boolean)
-    // ✅ FILTRO CORREGIDO: Mostrar contratos que estén completamente firmados
+    // . FILTRO CORREGIDO: Mostrar contratos que estén completamente firmados
     .filter((contrato: any) => {
       // Verificar si tiene firma digital con estado 'firmado_completo'
       const tieneFirmaCompleta = 
@@ -389,9 +389,9 @@ const todosLosContratos = solicitudesConDocumentos.flatMap(solicitud => {
     }));
 });
 
-console.log(`✅ Contratos completamente firmados encontrados: ${todosLosContratos.length}`);
+console.log(`. Contratos completamente firmados encontrados: ${todosLosContratos.length}`);
 todosLosContratos.forEach(contrato => {
-  console.log(`📄 Contrato firmado: ${contrato.numero_contrato}`, {
+  console.log(`. Contrato firmado: ${contrato.numero_contrato}`, {
     estado: contrato.estado,
     estadoFirma: contrato.firma_digital?.estado,
     tieneFirmaDigital: !!contrato.firma_digital
@@ -698,7 +698,7 @@ todosLosContratos.forEach(contrato => {
           }}
         >
           <Typography variant="h6" component="div">
-            📄 Vista previa del documento
+            . Vista previa del documento
           </Typography>
           <IconButton
             aria-label="close"
@@ -728,7 +728,7 @@ todosLosContratos.forEach(contrato => {
       </Typography>
     </Box>
   ) : urlVistaPrevia ? (
-    // ✅ Solo renderizar el iframe si hay una URL válida
+    // . Solo renderizar el iframe si hay una URL válida
     <iframe
       src={urlVistaPrevia}
       width="100%"
@@ -738,7 +738,7 @@ todosLosContratos.forEach(contrato => {
       onLoad={() => setDocumentoCargando(false)}
     />
   ) : (
-    // ✅ Mostrar mensaje en caso de que la URL esté vacía
+    // . Mostrar mensaje en caso de que la URL esté vacía
     <Box 
       display="flex" 
       justifyContent="center" 
