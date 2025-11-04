@@ -111,3 +111,94 @@
   width: 100%;
   height: auto;
 }
+/* Responsive */
+@media (max-width: 1024px) {
+  .heroSection .heroCenter {
+    gap: 40px;
+  }
+
+  .heroSection .heroStats {
+    gap: 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .heroSection {
+    padding: 30px 15px 60px;
+    gap: 1.5rem;
+  }
+
+  .heroSection .heroCenter {
+    flex-direction: column;
+    gap: 40px;
+    text-align: center;
+  }
+
+  .heroSection .heroCenter .heroContent {
+    width: 100%;
+    align-items: center;
+  }
+
+  .heroSection .heroCenter .heroContent h1 {
+    font-size: var(--fontStyleH4);
+    text-align: center;
+  }
+
+  .heroSection .heroCenter .heroContent p {
+    font-size: var(--fontStyleH6);
+    text-align: center;
+  }
+
+  .heroSection .heroContent .heroButtons {
+    justify-content: center;
+  }
+
+  .heroSection .heroStats {
+    justify-content: center;
+    gap: 30px;
+    margin-top: 30px;
+  }
+
+  .heroSection .heroStats p {
+    align-items: center;
+    text-align: center;
+  }
+
+  .heroSection .heroImage {
+    width: 100%;
+    max-width: 400px;
+  }
+}
+
+@media (max-width: 480px) {
+  .heroSection {
+    padding: 20px 10px 40px;
+  }
+
+  .heroSection .heroCenter .heroContent h1 {
+    font-size: var(--fontStyleH5);
+  }
+
+  .heroSection .heroCenter .heroContent p {
+    font-size: var(--fontStyleText1);
+  }
+
+  .heroSection .heroContent .heroButtons {
+    flex-direction: column;
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .heroSection .heroContent .heroButtons .btnPrimary,
+  .heroSection .heroContent .heroButtons .btnOutline {
+    width: 100%;
+  }
+
+  .heroSection .heroStats {
+    gap: 20px;
+  }
+
+  .heroSection .heroStats p {
+    font-size: var(--fontStyleH5);
+  }
+}

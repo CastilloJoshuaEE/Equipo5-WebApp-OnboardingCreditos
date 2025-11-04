@@ -83,3 +83,49 @@
   color: var(--graysAndTones3);
   line-height: 20px;
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .services {
+    padding: 40px 15px;
+    gap: 30px;
+  }
+
+  .services .headlineServices {
+    margin-bottom: 30px;
+    gap: 15px;
+  }
+
+  .services .headlineServices h2 {
+    font-size: var(--fontStyleH5);
+  }
+
+  .services .headlineServices p {
+    font-size: var(--fontStyleText1);
+  }
+
+  .services .cards {
+    gap: 20px;
+  }
+
+  .services .cards .card {
+    min-width: 100%;
+    padding: 25px 20px;
+    gap: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .services {
+    padding: 30px 10px;
+  }
+
+  .services .cards .card {
+    padding: 20px 15px;
+  }
+
+  .services .cards .card img {
+    width: 40px;
+    height: 40px;
+  }
+}
