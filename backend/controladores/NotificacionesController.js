@@ -1,5 +1,6 @@
 const NotificacionModel = require('../modelos/NotificacionModel');
 const { supabase } = require('../config/conexion');
+const { supabaseAdmin } = require('../config/supabaseAdmin');
 
 class NotificacionesController {
   // Obtener notificaciones del usuario
@@ -130,7 +131,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
             created_at: new Date().toISOString()
         };
 
-        const { error: notifError } = await supabase
+        const { error: notifError } = await supabaseAdmin
             .from('notificaciones')
             .insert([notificacionData]);
 
@@ -181,7 +182,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
                     created_at: new Date().toISOString()
                 };
 
-                const { error: notifError } = await supabase
+                const { error: notifError } = await supabaseAdmin 
                     .from('notificaciones')
                     .insert([notificacionData]);
 
@@ -237,7 +238,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
                   created_at: new Date().toISOString()
               });
   
-              await supabase
+              await supabaseAdmin 
                   .from('notificaciones')
                   .insert(notificaciones);
   
@@ -251,7 +252,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
      */
     static async notificarFirmaSolicitanteCompletada(contratoId) {
         try {
-            const { data: contrato } = await supabase
+            const { data: contrato } = await supabaseAdmin 
                 .from('contratos')
                 .select(`
                     *,
@@ -263,7 +264,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
                 .single();
 
             if (contrato && contrato.solicitudes_credito) {
-                await supabase
+                await supabaseAdmin 
                     .from('notificaciones')
                     .insert({
                         usuario_id: contrato.solicitudes_credito.operador_id,
@@ -284,7 +285,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
      */
     static async notificarFirmaOperadorCompletada(contratoId) {
         try {
-            const { data: contrato } = await supabase
+            const { data: contrato } = await supabaseAdmin 
                 .from('contratos')
                 .select(`
                     *,
@@ -296,7 +297,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
                 .single();
 
             if (contrato && contrato.solicitudes_credito) {
-                await supabase
+                await supabaseAdmin 
                     .from('notificaciones')
                     .insert({
                         usuario_id: contrato.solicitudes_credito.solicitante_id,
@@ -317,7 +318,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
      */
     static async notificarFirmaCompletada(contratoId, solicitudId) {
         try {
-            const { data: contrato } = await supabase
+            const { data: contrato } = await supabaseAdmin 
                 .from('contratos')
                 .select(`
                     *,
@@ -355,7 +356,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
                     created_at: new Date().toISOString()
                 });
 
-                await supabase
+                await supabaseAdmin 
                     .from('notificaciones')
                     .insert(notificaciones);
 
@@ -371,7 +372,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
      */
     static async notificarRechazoFirma(contratoId) {
         try {
-            const { data: contrato } = await supabase
+            const { data: contrato } = await supabaseAdmin 
                 .from('contratos')
                 .select(`
                     *,
@@ -387,7 +388,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
                 const solicitud = contrato.solicitudes_credito;
 
                 // Notificar al operador
-                await supabase
+                await supabaseAdmin 
                     .from('notificaciones')
                     .insert({
                         usuario_id: solicitud.operador_id,
@@ -408,7 +409,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
      */
     static async notificarExpiracionFirma(contratoId) {
         try {
-            const { data: contrato } = await supabase
+            const { data: contrato } = await supabaseAdmin 
                 .from('contratos')
                 .select(`
                     *,
@@ -444,7 +445,7 @@ static async crearNotificacionFirmaSolicitante(solicitanteId, solicitudId, firma
                     created_at: new Date().toISOString()
                 });
 
-                await supabase
+                await supabaseAdmin 
                     .from('notificaciones')
                     .insert(notificaciones);
             }

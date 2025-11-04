@@ -373,12 +373,11 @@ console.log('. Intentos fallidos después de limpieza:', intentosDespuesLimpieza
   const env = process.env.NODE_ENV;
 
   if (env === 'production') {
-    // En producción, prioriza variable de entorno si existe
-    // o selecciona automáticamente una de las dos URLs válidas
+   
     return (
       process.env.FRONTEND_URL ||
       'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com' || // Render
-      'https://equipo5-web-app-onboarding-creditos.vercel.app'        // Vercel
+      'https://nexia-sigma.vercel.app'        // Vercel
     );
   }
 

@@ -1,7 +1,8 @@
-const { supabase } = require('../config/conexion');
+const ContactosBancariosModel = require('../modelos/ContactosBancariosModel');
 
 class ContactosBancariosController {
-        /**
+    
+    /**
      * Obtener contactos para operador - VERSIÓN SIMPLIFICADA
      */
     static async obtenerContactosOperador(req, res) {
@@ -17,19 +18,13 @@ class ContactosBancariosController {
 
             console.log('. Obteniendo contactos para operador');
 
-            const { data: contactos, error } = await supabase
-                .from('contactos_bancarios')
-                .select('*')
-                .eq('estado', 'activo')
-                .order('created_at', { ascending: false });
+            const contactos = await ContactosBancariosModel.obtenerTodos();
 
-            if (error) throw error;
-
-            console.log(`. Contactos encontrados: ${contactos?.length || 0}`);
+            console.log(`. Contactos encontrados: ${contactos.length}`);
 
             res.json({
                 success: true,
-                data: contactos || []
+                data: contactos
             });
 
         } catch (error) {
@@ -40,6 +35,7 @@ class ContactosBancariosController {
             });
         }
     }
+
     /**
      * Buscar contactos por Número de cuenta
      */
@@ -57,25 +53,14 @@ class ContactosBancariosController {
                 });
             }
 
-            // Buscar contactos por número de cuenta (INDEPENDIENTES de solicitante)
-            const { data: contactos, error: contactosError } = await supabase
-                .from('contactos_bancarios')
-                .select('*')
-                .ilike('numero_cuenta', `%${numero_cuenta}%`)
-                .eq('estado', 'activo')
-                .order('created_at', { ascending: false });
+            const contactos = await ContactosBancariosModel.buscarPorNumeroCuenta(numero_cuenta);
 
-            if (contactosError) {
-                console.error('. Error buscando contactos:', contactosError);
-                throw contactosError;
-            }
-
-            console.log(`. Contactos encontrados: ${contactos?.length || 0}`);
+            console.log(`. Contactos encontrados: ${contactos.length}`);
 
             res.json({
                 success: true,
                 data: {
-                    contactos: contactos || []
+                    contactos: contactos
                 }
             });
 
@@ -87,7 +72,11 @@ class ContactosBancariosController {
             });
         }
     }
-       static async obtenerTodosContactos(req, res) {
+
+    /**
+     * Obtener todos los contactos
+     */
+    static async obtenerTodosContactos(req, res) {
         try {
             const usuario = req.usuario;
 
@@ -101,22 +90,13 @@ class ContactosBancariosController {
 
             console.log('. Obteniendo TODOS los contactos bancarios');
 
-            const { data: contactos, error } = await supabase
-                .from('contactos_bancarios')
-                .select('*')
-                .eq('estado', 'activo')
-                .order('created_at', { ascending: false });
+            const contactos = await ContactosBancariosModel.obtenerTodos();
 
-            if (error) {
-                console.error('. Error obteniendo contactos:', error);
-                throw error;
-            }
-
-            console.log(`. Contactos encontrados: ${contactos?.length || 0}`);
+            console.log(`. Contactos encontrados: ${contactos.length}`);
 
             res.json({
                 success: true,
-                data: contactos || []
+                data: contactos
             });
 
         } catch (error) {
@@ -127,6 +107,10 @@ class ContactosBancariosController {
             });
         }
     }
+
+    /**
+     * Crear contacto bancario
+     */
     static async crearContacto(req, res) {
         try {
             const {
@@ -138,47 +122,63 @@ class ContactosBancariosController {
                 telefono_contacto
             } = req.body;
 
-    // Validaciones básicas
-    if (!numero_cuenta || !numero_cuenta.toString().trim()) {
-      return res.status(400).json({ success: false, message: 'Número de cuenta es requerido' });
-    }
+            // Validaciones básicas
+            if (!numero_cuenta || !numero_cuenta.toString().trim()) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Número de cuenta es requerido' 
+                });
+            }
 
-    // Validar formato numero de cuenta: solo números, entre 6 y 24 dígitos (ajusta si necesitas alfanumérico)
-    const cuentaRegex = /^\d{6,24}$/;
-    if (!cuentaRegex.test(numero_cuenta.toString())) {
-      return res.status(400).json({ success: false, message: 'Número de cuenta inválido. Debe ser numérico (6-24 dígitos).' });
-    }
+            // Validar formato usando el modelo
+            if (!ContactosBancariosModel.validarNumeroCuenta(numero_cuenta)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Número de cuenta inválido. Debe ser numérico (6-24 dígitos).'
+                });
+            }
 
-    // Validar telefono (E.164-esque): + opcional y 7-15 dígitos
-    if (telefono_contacto && !/^\+?\d{7,15}$/.test(telefono_contacto)) {
-      return res.status(400).json({ success: false, message: 'Teléfono inválido. Formato: +593987654321 (solo dígitos, 7-15).' });
-    }
+            // Validar teléfono usando el modelo
+            if (!ContactosBancariosModel.validarTelefono(telefono_contacto)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Teléfono inválido. Formato: +593987654321 (solo dígitos, 7-15).'
+                });
+            }
 
-    // Validar formato de email si se proporciona
-    if (email_contacto && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email_contacto)) {
-      return res.status(400).json({ success: false, message: 'Formato de email inválido' });
-    }
-        console.log('    Buscando solicitante por email:', email_contacto);
-        const { data: usuarioSolicitante, error: usuarioError } = await supabase
-            .from('usuarios')
-            .select('id, rol')
-            .eq('email', email_contacto)
-            .eq('rol', 'solicitante')
-            .single();
+            // Validar email usando el modelo
+            if (!ContactosBancariosModel.validarEmail(email_contacto)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Formato de email inválido'
+                });
+            }
 
-        if (usuarioError || !usuarioSolicitante) {
-            console.log('    No se encontró solicitante con email:', email_contacto);
-            return res.status(404).json({
-                success: false,
-                message: 'No se encontró un solicitante registrado con ese email'
-            });
-        }
+            // Verificar si el email pertenece a un solicitante
+            console.log('    Buscando solicitante por email:', email_contacto);
+            const usuarioSolicitante = await ContactosBancariosModel.obtenerSolicitantePorEmail(email_contacto);
+            
+            if (!usuarioSolicitante) {
+                console.log('    No se encontró solicitante con email:', email_contacto);
+                return res.status(404).json({
+                    success: false,
+                    message: 'No se encontró un solicitante registrado con ese email'
+                });
+            }
 
-        // Obtener el ID del solicitante (que es el mismo que el ID de usuario)
-        const solicitante_id = usuarioSolicitante.id;
-        console.log('    Solicitante encontrado:', solicitante_id);
+            const solicitante_id = usuarioSolicitante.id;
+            console.log('    Solicitante encontrado:', solicitante_id);
 
+            // Verificar si ya existe un contacto con el mismo número de cuenta
+            const existeContacto = await ContactosBancariosModel.existeNumeroCuenta(numero_cuenta);
+            if (existeContacto) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Ya existe un contacto con ese número de cuenta'
+                });
+            }
 
+            // Preparar datos del contacto
             const contactoData = {
                 numero_cuenta,
                 tipo_cuenta,
@@ -192,29 +192,12 @@ class ContactosBancariosController {
                 updated_at: new Date().toISOString()
             };
 
-            console.log('📝 Guardando contacto bancario INDEPENDIENTE:', contactoData);
+            console.log('📝 Guardando contacto bancario:', contactoData);
 
-            const { data: contacto, error } = await supabase
-                .from('contactos_bancarios')
-                .insert([contactoData])
-                .select()
-                .single();
+            // Crear contacto usando el modelo
+            const contacto = await ContactosBancariosModel.crear(contactoData);
 
-            if (error) {
-                console.error('. Error de Supabase:', error);
-                
-                // Manejar error de duplicado
-                if (error.code === '23505') {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Ya existe un contacto con ese número de cuenta'
-                    });
-                }
-                
-                throw error;
-            }
-
-            console.log('. Contacto bancario creado exitosamente:', contacto);
+            console.log('. Contacto bancario creado exitosamente:', contacto.id);
 
             res.status(201).json({
                 success: true,
@@ -224,225 +207,164 @@ class ContactosBancariosController {
 
         } catch (error) {
             console.error('. Error creando contacto bancario:', error);
+            
+            // Manejar errores específicos de Supabase
+            if (error.code === '23505') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Ya existe un contacto con ese número de cuenta'
+                });
+            }
+
             res.status(500).json({
                 success: false,
                 message: 'Error interno del servidor al crear contacto bancario'
             });
         }
     }
-/**
- * Obtener mis contactos (para operador) - SOLUCIÓN CORREGIDA
- */
-static async obtenerMisContactos(req, res) {
-    try {
-        const usuario = req.usuario;
 
-        // . Validación defensiva
-        if (!usuario) {
-            return res.status(401).json({
-                success: false,
-                message: 'Usuario no autenticado'
-            });
-        }
+    /**
+     * Obtener mis contactos (para operador) - SOLUCIÓN CORREGIDA
+     */
+    static async obtenerMisContactos(req, res) {
+        try {
+            const usuario = req.usuario;
 
-        if (usuario.rol !== 'operador') {
-            return res.status(403).json({
-                success: false,
-                message: 'Solo los operadores pueden acceder a esta función'
-            });
-        }
+            // Validación defensiva
+            if (!usuario) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Usuario no autenticado'
+                });
+            }
 
-        console.log('. Iniciando consulta de contactos para operador:', usuario.email);
+            if (usuario.rol !== 'operador') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Solo los operadores pueden acceder a esta función'
+                });
+            }
 
-        // . PRIMERO: Obtener todos los contactos activos
-        const { data: contactos, error: contactosError } = await supabase
-            .from('contactos_bancarios')
-            .select('*')
-            .eq('estado', 'activo')
-            .order('created_at', { ascending: false });
+            console.log('. Iniciando consulta de contactos para operador:', usuario.email);
 
-        if (contactosError) {
-            console.error('Error obteniendo contactos:', contactosError);
-            throw contactosError;
-        }
+            // Obtener contactos con información de solicitantes usando el modelo
+            const contactosProcesados = await ContactosBancariosModel.obtenerConSolicitantes();
 
-        console.log(`. Contactos encontrados: ${contactos?.length || 0}`);
+            console.log(`. Contactos procesados exitosamente: ${contactosProcesados.length} registros`);
 
-        if (!contactos || contactos.length === 0) {
-            return res.json({
+            res.json({
                 success: true,
-                data: []
+                data: contactosProcesados
+            });
+
+        } catch (error) {
+            console.error('. Error obteniendo mis contactos:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener contactos',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
             });
         }
-
-        // . SEGUNDO: Obtener información de los solicitantes
-        const solicitantesIds = [...new Set(contactos.map(c => c.solicitante_id))];
-        
-        const { data: solicitantes, error: solicitantesError } = await supabase
-            .from('solicitantes')
-            .select(`
-                id,
-                usuario_id,
-                usuarios (
-                    nombre_completo,
-                    dni,
-                    email
-                )
-            `)
-            .in('id', solicitantesIds);
-
-        if (solicitantesError) {
-            console.error('Error obteniendo solicitantes:', solicitantesError);
-            throw solicitantesError;
-        }
-
-        // . TERCERO: Crear un mapa de solicitantes para fácil acceso
-        const solicitantesMap = {};
-        solicitantes?.forEach(sol => {
-            solicitantesMap[sol.id] = {
-                nombre_completo: sol.usuarios?.nombre_completo,
-                dni: sol.usuarios?.dni,
-                email: sol.usuarios?.email
-            };
-        });
-
-        // . CUARTO: Combinar la información
-        const contactosProcesados = contactos.map(contacto => {
-            const infoSolicitante = solicitantesMap[contacto.solicitante_id] || {};
-            
-            return {
-                id: contacto.id,
-                numero_cuenta: contacto.numero_cuenta,
-                tipo_cuenta: contacto.tipo_cuenta,
-                moneda: contacto.moneda,
-                nombre_banco: contacto.nombre_banco,
-                email_contacto: contacto.email_contacto,
-                telefono_contacto: contacto.telefono_contacto,
-                estado: contacto.estado,
-                created_at: contacto.created_at,
-                updated_at: contacto.updated_at,
-                solicitante_id: contacto.solicitante_id,
-                solicitante_nombre: infoSolicitante.nombre_completo,
-                solicitante_dni: infoSolicitante.dni,
-                solicitante_email: infoSolicitante.email
-            };
-        });
-
-        // . ORDENAR por nombre del solicitante
-        contactosProcesados.sort((a, b) => 
-            (a.solicitante_nombre || '').localeCompare(b.solicitante_nombre || '')
-        );
-
-        console.log(`. Contactos procesados exitosamente: ${contactosProcesados.length} registros`);
-
-        res.json({
-            success: true,
-            data: contactosProcesados
-        });
-
-    } catch (error) {
-        console.error('. Error obteniendo mis contactos:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error al obtener contactos',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
     }
-}
 
-/**
- * Editar contacto bancario existente
- */
-static async editarContacto(req, res) {
-    try {
-        const { id } = req.params;
-        const {
-            numero_cuenta,
-            tipo_cuenta,
-            moneda,
-            nombre_banco,
-            email_contacto,
-            telefono_contacto
-        } = req.body;
+    /**
+     * Editar contacto bancario existente
+     */
+    static async editarContacto(req, res) {
+        try {
+            const { id } = req.params;
+            const {
+                numero_cuenta,
+                tipo_cuenta,
+                moneda,
+                nombre_banco,
+                email_contacto,
+                telefono_contacto
+            } = req.body;
 
-        const usuario = req.usuario;
+            const usuario = req.usuario;
 
-        // Solo operadores pueden editar contactos
-        if (usuario.rol !== 'operador') {
-            return res.status(403).json({
-                success: false,
-                message: 'Solo los operadores pueden editar contactos bancarios'
-            });
-        }
+            // Solo operadores pueden editar contactos
+            if (usuario.rol !== 'operador') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Solo los operadores pueden editar contactos bancarios'
+                });
+            }
 
-        // Verificar que el contacto existe
-        const { data: contactoExistente, error: contactoError } = await supabase
-            .from('contactos_bancarios')
-            .select('*')
-            .eq('id', id)
-            .single();
+            // Verificar que el contacto existe
+            const contactoExistente = await ContactosBancariosModel.obtenerPorId(id);
+            if (!contactoExistente) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Contacto bancario no encontrado'
+                });
+            }
 
-        if (contactoError || !contactoExistente) {
-            return res.status(404).json({
-                success: false,
-                message: 'Contacto bancario no encontrado'
-            });
-        }
+            // Validaciones
+            if (numero_cuenta && !numero_cuenta.toString().trim()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Número de cuenta es requerido'
+                });
+            }
 
-        // Validaciones
-        if (numero_cuenta && !numero_cuenta.toString().trim()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Número de cuenta es requerido'
-            });
-        }
-
-        // Validar formato numero de cuenta
-        if (numero_cuenta) {
-            const cuentaRegex = /^\d{6,24}$/;
-            if (!cuentaRegex.test(numero_cuenta.toString())) {
+            // Validar formato usando el modelo
+            if (numero_cuenta && !ContactosBancariosModel.validarNumeroCuenta(numero_cuenta)) {
                 return res.status(400).json({
                     success: false,
                     message: 'Número de cuenta inválido. Debe ser numérico (6-24 dígitos).'
                 });
             }
-        }
 
-        // Validar telefono
-        if (telefono_contacto && !/^\+?\d{7,15}$/.test(telefono_contacto)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Teléfono inválido. Formato: +593987654321 (solo dígitos, 7-15).'
+            // Validar teléfono usando el modelo
+            if (telefono_contacto && !ContactosBancariosModel.validarTelefono(telefono_contacto)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Teléfono inválido. Formato: +593987654321 (solo dígitos, 7-15).'
+                });
+            }
+
+            // Validar email usando el modelo
+            if (email_contacto && !ContactosBancariosModel.validarEmail(email_contacto)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Formato de email inválido'
+                });
+            }
+
+            // Verificar duplicado de número de cuenta
+            if (numero_cuenta && numero_cuenta !== contactoExistente.numero_cuenta) {
+                const existeContacto = await ContactosBancariosModel.existeNumeroCuenta(numero_cuenta, id);
+                if (existeContacto) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Ya existe un contacto con ese número de cuenta'
+                    });
+                }
+            }
+
+            const updateData = {
+                ...(numero_cuenta && { numero_cuenta }),
+                ...(tipo_cuenta && { tipo_cuenta }),
+                ...(moneda && { moneda }),
+                ...(nombre_banco && { nombre_banco }),
+                ...(email_contacto !== undefined && { email_contacto }),
+                ...(telefono_contacto !== undefined && { telefono_contacto }),
+                updated_at: new Date().toISOString()
+            };
+
+            // Actualizar contacto usando el modelo
+            const contacto = await ContactosBancariosModel.actualizar(id, updateData);
+
+            res.json({
+                success: true,
+                message: 'Contacto bancario actualizado exitosamente',
+                data: contacto
             });
-        }
 
-        // Validar email
-        if (email_contacto && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email_contacto)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Formato de email inválido'
-            });
-        }
-
-        const updateData = {
-            ...(numero_cuenta && { numero_cuenta }),
-            ...(tipo_cuenta && { tipo_cuenta }),
-            ...(moneda && { moneda }),
-            ...(nombre_banco && { nombre_banco }),
-            ...(email_contacto !== undefined && { email_contacto }),
-            ...(telefono_contacto !== undefined && { telefono_contacto }),
-            updated_at: new Date().toISOString()
-        };
-
-        const { data: contacto, error } = await supabase
-            .from('contactos_bancarios')
-            .update(updateData)
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (error) {
-            console.error('Error actualizando contacto:', error);
+        } catch (error) {
+            console.error('Error editando contacto bancario:', error);
             
             if (error.code === '23505') {
                 return res.status(400).json({
@@ -450,82 +372,86 @@ static async editarContacto(req, res) {
                     message: 'Ya existe un contacto con ese número de cuenta'
                 });
             }
-            
-            throw error;
-        }
 
-        res.json({
-            success: true,
-            message: 'Contacto bancario actualizado exitosamente',
-            data: contacto
-        });
-
-    } catch (error) {
-        console.error('Error editando contacto bancario:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error interno del servidor al editar contacto bancario'
-        });
-    }
-}
-
-/**
- * Eliminar contacto bancario (soft delete)
- */
-static async eliminarContacto(req, res) {
-    try {
-        const { id } = req.params;
-        const usuario = req.usuario;
-
-        // Solo operadores pueden eliminar contactos
-        if (usuario.rol !== 'operador') {
-            return res.status(403).json({
+            res.status(500).json({
                 success: false,
-                message: 'Solo los operadores pueden eliminar contactos bancarios'
+                message: 'Error interno del servidor al editar contacto bancario'
             });
         }
+    }
 
-        // Verificar que el contacto existe
-        const { data: contactoExistente, error: contactoError } = await supabase
-            .from('contactos_bancarios')
-            .select('*')
-            .eq('id', id)
-            .single();
+    /**
+     * Eliminar contacto bancario (soft delete)
+     */
+    static async eliminarContacto(req, res) {
+        try {
+            const { id } = req.params;
+            const usuario = req.usuario;
 
-        if (contactoError || !contactoExistente) {
-            return res.status(404).json({
+            // Solo operadores pueden eliminar contactos
+            if (usuario.rol !== 'operador') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Solo los operadores pueden eliminar contactos bancarios'
+                });
+            }
+
+            // Verificar que el contacto existe
+            const contactoExistente = await ContactosBancariosModel.obtenerPorId(id);
+            if (!contactoExistente) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Contacto bancario no encontrado'
+                });
+            }
+
+            // Eliminar contacto usando el modelo
+            const contacto = await ContactosBancariosModel.eliminar(id);
+
+            res.json({
+                success: true,
+                message: 'Contacto bancario eliminado exitosamente',
+                data: contacto
+            });
+
+        } catch (error) {
+            console.error('Error eliminando contacto bancario:', error);
+            res.status(500).json({
                 success: false,
-                message: 'Contacto bancario no encontrado'
+                message: 'Error interno del servidor al eliminar contacto bancario'
             });
         }
-
-        // Soft delete - marcar como inactivo
-        const { data: contacto, error } = await supabase
-            .from('contactos_bancarios')
-            .update({
-                estado: 'inactivo',
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        res.json({
-            success: true,
-            message: 'Contacto bancario eliminado exitosamente',
-            data: contacto
-        });
-
-    } catch (error) {
-        console.error('Error eliminando contacto bancario:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error interno del servidor al eliminar contacto bancario'
-        });
     }
-}
+
+    /**
+     * Obtener estadísticas de contactos
+     */
+    static async obtenerEstadisticas(req, res) {
+        try {
+            const usuario = req.usuario;
+
+            if (usuario.rol !== 'operador') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Solo los operadores pueden ver estadísticas'
+                });
+            }
+
+            const estadisticas = await ContactosBancariosModel.obtenerEstadisticas();
+
+            res.json({
+                success: true,
+                data: estadisticas
+            });
+
+        } catch (error) {
+            console.error('Error obteniendo estadísticas:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener estadísticas de contactos'
+            });
+        }
+    }
 }
 
 module.exports = ContactosBancariosController;

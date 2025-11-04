@@ -9,7 +9,9 @@ import {
   Alert,
   Typography,
   Box,
-  Tooltip
+  Tooltip,
+  Backdrop,
+  CircularProgress
 } from '@mui/material';
 import { EditDocument, WarningAmber, Info } from '@mui/icons-material';
 import { getSession } from 'next-auth/react';
@@ -43,6 +45,8 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
   const [userRol, setUserRol] = useState<string>('');
   const [transferenciaEstado, setTransferenciaEstado] = useState<TransferenciaEstado | null>(null);
   const [firmaExpirada, setFirmaExpirada] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [overlayMessage, setOverlayMessage] = useState('');
 
   // Obtener el rol del usuario y verificar transferencia al cargar el componente
   useEffect(() => {
@@ -83,14 +87,28 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         const result = await response.json();
         setTransferenciaEstado(result.data);
         
-        // Verificar si la firma está expirada
-        if (result.data.estado_firma === 'expirado') {
-          setFirmaExpirada(true);
-        }
+        // Verificar explícitamente si existe transferencia
+        console.log('Estado de transferencia:', {
+          existe_transferencia: result.data?.existe_transferencia,
+          habilitado: result.data?.habilitado,
+          datos: result.data
+        });
       }
     } catch (error) {
       console.error('Error verificando estado de transferencia:', error);
     }
+  };
+
+  // Mostrar overlay de carga
+  const mostrarOverlay = (mensaje: string) => {
+    setOverlayMessage(mensaje);
+    setShowOverlay(true);
+  };
+
+  // Ocultar overlay de carga
+  const ocultarOverlay = () => {
+    setShowOverlay(false);
+    setOverlayMessage('');
   };
 
   // Verificar si el botón debe estar deshabilitado
@@ -209,17 +227,20 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
     try {
       setLoading(true);
       setError('');
+      mostrarOverlay('Iniciando proceso de firma digital...');
 
       console.log('. Verificando solicitudId:', solicitudId);
 
       if (!solicitudId) {
         setError('ID de solicitud no disponible');
+        ocultarOverlay();
         return;
       }
 
       const session = await getSession();
       if (!session?.accessToken) {
         setError('No estás autenticado');
+        ocultarOverlay();
         return;
       }
 
@@ -228,6 +249,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       
       // Primero, intentar reiniciar cualquier proceso existente
+      setOverlayMessage('Reiniciando proceso existente...');
       const reinicioResponse = await fetch(`${API_URL}/firmas/reiniciar-proceso/${solicitudId}`, {
         method: 'POST',
         headers: {
@@ -242,6 +264,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
       console.log('🔄 Respuesta de reinicio:', reinicioResponse.status);
 
       // Luego iniciar el nuevo proceso
+      setOverlayMessage('Creando nuevo proceso de firma...');
       const response = await fetch(`${API_URL}/firmas/iniciar-proceso/${solicitudId}`, {
         method: 'POST',
         headers: {
@@ -270,11 +293,13 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
             if (userRol === 'operador' && window.confirm('El proceso de firma anterior ha expirado. ¿Deseas crear uno nuevo?')) {
               await handleRenovarFirmaExpirada(solicitudId);
             }
+            ocultarOverlay();
             return;
           }
           
           // Si está activo, redirigir directamente
           setError(`Ya existe un proceso de firma activo. Redirigiendo...`);
+          setOverlayMessage('Redirigiendo a proceso de firma existente...');
           setTimeout(() => {
             window.location.href = `/firmar-contrato/${firma.id}`;
           }, 2000);
@@ -289,21 +314,27 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
 
       if (result.success) {
         console.log('. Firma iniciada exitosamente');
+        setOverlayMessage('Proceso iniciado exitosamente. Redirigiendo...');
         onFirmaIniciada(result.data);
         
         if (result.data.firma?.id) {
           console.log('🔄 Redirigiendo a:', `/firmar-contrato/${result.data.firma.id}`);
-          window.location.href = `/firmar-contrato/${result.data.firma.id}`;
+          setTimeout(() => {
+            window.location.href = `/firmar-contrato/${result.data.firma.id}`;
+          }, 1000);
         } else {
           setError('No se pudo obtener la URL de firma');
+          ocultarOverlay();
         }
       } else {
         console.error('. Error en respuesta:', result.message);
         setError(result.message || 'Error al iniciar proceso de firma');
+        ocultarOverlay();
       }
     } catch (error: any) {
       console.error('. Error en firma digital:', error);
       setError(error.message || 'Error de conexión al iniciar firma');
+      ocultarOverlay();
     } finally {
       setLoading(false);
     }
@@ -311,6 +342,8 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
 
   const handleRenovarFirmaExpirada = async (solicitudId: string) => {
     try {
+      mostrarOverlay('Renovando proceso de firma expirado...');
+      
       const session = await getSession();
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       
@@ -325,19 +358,39 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
       const result = await response.json();
       
       if (result.success) {
-        window.location.href = `/firmar-contrato/${result.data.firma_id}`;
+        setOverlayMessage('Proceso renovado. Redirigiendo...');
+        setTimeout(() => {
+          window.location.href = `/firmar-contrato/${result.data.firma_id}`;
+        }, 1000);
       } else {
         setError(result.message);
+        ocultarOverlay();
       }
     } catch (error) {
       console.error('Error renovando firma expirada:', error);
       setError('Error al renovar proceso de firma');
+      ocultarOverlay();
     }
   };
 
-  const handleContinuarFirmaExistente = () => {
+  const handleContinuarFirmaExistente = async () => {
     if (firmaExistente?.id) {
-      window.location.href = `/firmar-contrato/${firmaExistente.id}`;
+      try {
+        mostrarOverlay('Preparando proceso de firma existente...');
+        
+        // Pequeña pausa para mostrar el overlay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        setOverlayMessage('Redirigiendo al editor de firma...');
+        
+        // Redirigir después de mostrar el mensaje
+        setTimeout(() => {
+          window.location.href = `/firmar-contrato/${firmaExistente.id}`;
+        }, 500);
+      } catch (error) {
+        console.error('Error continuando con firma existente:', error);
+        ocultarOverlay();
+      }
     }
   };
 
@@ -370,6 +423,33 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
 
   return (
     <>
+      {/* Overlay de carga */}
+      <Backdrop
+        sx={{ 
+          color: '#fff', 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)'
+        }}
+        open={showOverlay}
+      >
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center',
+            gap: 2
+          }}
+        >
+          <CircularProgress color="inherit" size={60} />
+          <Typography variant="h6" align="center">
+            {overlayMessage}
+          </Typography>
+          <Typography variant="body2" align="center" sx={{ opacity: 0.8, maxWidth: 300 }}>
+            Por favor, espera mientras procesamos tu solicitud...
+          </Typography>
+        </Box>
+      </Backdrop>
+
       <Tooltip title={getTooltipMessage()} arrow>
         <span>
           <Button
@@ -387,7 +467,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
             {transferenciaEstado?.existe_transferencia ? (
               <>
                 <Info sx={{ fontSize: 16, mr: 0.5 }} />
-                Transferencia Realizada
+                Transferencia Realizada ya no se puede iniciar firma digital
               </>
             ) : (
               'Iniciar Firma Digital'
@@ -455,7 +535,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={() => setOpen(false)} disabled={loading}>
+          <Button onClick={() => setOpen(false)} disabled={loading || showOverlay}>
             Cancelar
           </Button>
           
@@ -464,9 +544,10 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
               <Button 
                 onClick={handleContinuarFirmaExistente}
                 variant="outlined"
-                disabled={loading}
+                disabled={loading || showOverlay}
+                startIcon={showOverlay ? <CircularProgress size={16} /> : null}
               >
-                Continuar Firma Existente
+                {showOverlay ? 'Cargando...' : 'Continuar Firma Existente'}
               </Button>
               
               {/* SOLO VISIBLE PARA OPERADORES */}
@@ -474,10 +555,11 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
                 <Button 
                   onClick={handleIniciarFirma}
                   variant="contained"
-                  disabled={loading}
+                  disabled={loading || showOverlay}
                   color="secondary"
+                  startIcon={showOverlay ? <CircularProgress size={16} /> : null}
                 >
-                  Crear Nueva Firma
+                  {showOverlay ? 'Creando...' : 'Crear Nueva Firma'}
                 </Button>
               )}
             </>
@@ -485,9 +567,10 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
             <Button 
               onClick={handleIniciarFirma} 
               variant="contained"
-              disabled={loading || !solicitudId}
+              disabled={loading || showOverlay || !solicitudId}
+              startIcon={showOverlay ? <CircularProgress size={16} /> : null}
             >
-              {loading ? 'Iniciando...' : 'Continuar a Firma'}
+              {showOverlay ? 'Iniciando...' : 'Continuar a Firma'}
             </Button>
           )}
         </DialogActions>

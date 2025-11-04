@@ -30,6 +30,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  DialogTitle
 } from '@mui/material';
 import {
   Description,
@@ -41,6 +42,7 @@ import {
   ReceiptLong,
   Search,
   FilterList,
+  Close
 } from '@mui/icons-material';
 import { useDocumentos } from '@/hooks/useDocumentos';
 import { getSession } from 'next-auth/react';
@@ -152,17 +154,6 @@ const cargarTodosLosDocumentos = async () => {
     setTabValue(newValue);
   };
 
-  const handleDescargarContrato = async (contrato: any) => {
-    try {
-      await descargarContrato(
-        contrato.id,
-        `contrato-${contrato.numero_contrato}.docx`
-      );
-    } catch (err) {
-      console.error('Error descargando contrato:', err);
-    }
-  };
-
   const handleDescargarComprobante = async (comprobante: any) => {
     try {
       await descargarComprobante(
@@ -183,15 +174,13 @@ const cargarTodosLosDocumentos = async () => {
       console.error('Error obteniendo vista previa:', err);
     }
   };
-const handleVerContratoFirmado = async (firmaId: string) => {
+const handleDescargarContratoFirmado = async (firmaId: string) => {
     try {
         const session = await getSession();
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         
-        // 🔍 DEBUG: Verificar qué se está enviando
-        console.log('ID de firma enviado:', firmaId);
-        
-        const response = await fetch(`${API_URL}/firmas/ver-contrato-firmado/${firmaId}`, {
+        // Usar el nuevo endpoint específico para contrato firmado
+        const response = await fetch(`${API_URL}/firmas/descargar-contrato-firmado/${firmaId}`, {
             headers: {
                 'Authorization': `Bearer ${session?.accessToken}`
             }
@@ -199,15 +188,36 @@ const handleVerContratoFirmado = async (firmaId: string) => {
 
         if (response.ok) {
             const blob = await response.blob();
+            
+            // Crear URL para descarga
             const url = window.URL.createObjectURL(blob);
-            window.open(url, '_blank');
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            
+            // Obtener nombre del archivo del header o usar uno por defecto
+            const contentDisposition = response.headers.get('content-disposition');
+            let fileName = `contrato-firmado-${firmaId}.docx`;
+            
+            if (contentDisposition) {
+                const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
+                if (fileNameMatch) {
+                    fileName = fileNameMatch[1];
+                }
+            }
+            
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
         } else {
-            console.error('Error response:', response.status, response.statusText);
-            alert('Error al cargar el contrato firmado');
+            const errorData = await response.json();
+            alert(errorData.message || 'Error al descargar el contrato firmado');
         }
     } catch (error) {
-        console.error('Error viendo contrato firmado:', error);
-        alert('Error de conexión');
+        console.error('Error descargando contrato firmado:', error);
+        alert('Error de conexión al descargar contrato firmado');
     }
 };
   const getEstadoColor = (estado: string) => {
@@ -292,7 +302,7 @@ const formatMonto = (monto: number, moneda?: string) => {
         <Description sx={{ fontSize: 40, color: 'primary.main' }} />
         <Box>
           <Typography variant="h4" component="h1">
-            Gestión de Documentos
+            Gestión de documentos
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Administra y revisa todos los documentos del sistema
@@ -416,10 +426,10 @@ const formatMonto = (monto: number, moneda?: string) => {
    
 
     {contrato.firma_digital?.id && (
-      <Tooltip title="Ver/Descargar contrato firmado">
+      <Tooltip title="Descargar contrato firmado">
         <IconButton
           size="small"
-          onClick={() => handleVerContratoFirmado(contrato.firma_digital.id)}
+          onClick={() => handleDescargarContratoFirmado(contrato.firma_digital.id)}
           color="success"
         >
           <CheckCircle />
@@ -529,20 +539,64 @@ const formatMonto = (monto: number, moneda?: string) => {
 
       {/* Dialog para vista previa */}
       <Dialog
-        open={vistaPreviaAbierta}
-        onClose={() => setVistaPreviaAbierta(false)}
-        maxWidth="lg"
-        fullWidth
+  open={vistaPreviaAbierta}
+  onClose={() => {
+    setVistaPreviaAbierta(false);
+    setUrlVistaPrevia('');
+  }}
+  maxWidth="lg"
+  fullWidth
+>
+  <DialogContent sx={{ p: 0, position: 'relative', height: '80vh' }}>
+    {/* ✅ Botón de cerrar arriba a la derecha */}
+    <Box
+      sx={{
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        zIndex: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        borderRadius: '50%',
+      }}
+    >
+      <Tooltip title="Cerrar vista previa">
+        <IconButton
+          size="small"
+          color="error"
+          onClick={() => {
+            setVistaPreviaAbierta(false);
+            setUrlVistaPrevia('');
+          }}
+        >
+          <Close />
+        </IconButton>
+      </Tooltip>
+    </Box>
+
+    {/* ✅ Vista previa del documento */}
+    {urlVistaPrevia ? (
+      <iframe
+        src={urlVistaPrevia}
+        width="100%"
+        height="100%"
+        style={{ border: 'none' }}
+        title="Vista previa del comprobante"
+      />
+    ) : (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="100%"
+        flexDirection="column"
       >
-        <DialogContent sx={{ p: 0, height: '80vh' }}>
-          <iframe
-            src={urlVistaPrevia}
-            width="100%"
-            height="100%"
-            style={{ border: 'none' }}
-            title="Vista previa del documento"
-          />
-        </DialogContent>
+        <Description sx={{ fontSize: 60, color: 'text.secondary', mb: 1 }} />
+        <Typography variant="body2" color="text.secondary">
+          No hay documento disponible para vista previa.
+        </Typography>
+      </Box>
+    )}
+  </DialogContent>
       </Dialog>
     </Container>
   );

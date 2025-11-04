@@ -70,9 +70,8 @@ export default function OperadorDashboard() {
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<RevisionData | null>(null);
   const [modalRevision, setModalRevision] = useState(false);
   const [revisionData, setRevisionData] = useState<RevisionData | null>(null);
+const [cargandoTransferencia, setCargandoTransferencia] = useState(false);
 
-  // Función para calcular métricas basadas en las solicitudes
-// Función para calcular métricas basadas en las solicitudes
 const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
   const totalSolicitudes = solicitudesData.length;
   
@@ -289,15 +288,21 @@ const verificarHabilitaciones = async () => {
   const nuevasHabilitaciones: {[key: string]: HabilitacionTransferencia} = {};
   const session = await getSession();
 
+  if (!session?.accessToken) {
+    console.error('No hay token de acceso para verificar habilitaciones');
+    return;
+  }
+
   for (const solicitud of solicitudes) {
     if (solicitud.estado === 'aprobado') {
       try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         
-        // SOLO verificar habilitación, NO forzar actualización aquí
+        console.log(`Verificando habilitación para solicitud: ${solicitud.id}`);
+        
         const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitud.id}`, {
           headers: {
-            'Authorization': `Bearer ${session?.accessToken}`,
+            'Authorization': `Bearer ${session.accessToken}`,
             'Content-Type': 'application/json'
           }
         });
@@ -306,13 +311,17 @@ const verificarHabilitaciones = async () => {
           const data = await response.json();
           nuevasHabilitaciones[solicitud.id] = data.data;
           
-          console.log(`. Estado transferencia para ${solicitud.id}:`, {
+          console.log(`, Estado transferencia para ${solicitud.id}:`, {
             habilitado: data.data.habilitado,
             motivo: data.data.motivo,
             estado_firma: data.data.estado_firma
           });
+        } else if (response.status === 403) {
+          console.error(`, Permiso denegado para verificar habilitación de ${solicitud.id}`);
+          // Continuar con el siguiente en lugar de bloquear
+          continue;
         } else {
-          console.error(`Error verificando habilitación para ${solicitud.id}:`, response.status);
+          console.error(`, Error verificando habilitación para ${solicitud.id}:`, response.status);
         }
       } catch (error) {
         console.error('Error verificando habilitación:', error);
@@ -464,11 +473,13 @@ useEffect(() => {
         verificarHabilitaciones(); // Verificación inicial
     }
 }, [solicitudes]);
+const handleTransferir = (solicitudId: string) => {
+  setCargandoTransferencia(true); 
 
-  const handleTransferir = (solicitudId: string) => {
-    // Navegar a la página de transferencia
+  setTimeout(() => {
     window.location.href = `/operador/transferencias/nueva?solicitud_id=${solicitudId}`;
-  };
+  }, 800);
+};
 
   const cargarDashboard = async () => {
     try {
@@ -632,13 +643,13 @@ useEffect(() => {
       <Typography variant="h4" className="metric-value">
         {formatearMonto(metricas.montoDesembolsado)} 
       </Typography>
-      <Typography className="metric-subtext">Capital realmente transferido</Typography> 
+      <Typography className="metric-subtext">Capital transferido</Typography> 
     </CardContent>
   </Card>
 </Grid>
       </Grid>
 
-      {/* El resto del código se mantiene igual... */}
+      
       <Card className="content-box filters-box">
         <Typography variant="h6" gutterBottom>Filtros y búsqueda</Typography>
         <Grid container spacing={2} className="filter-grid">
@@ -941,6 +952,47 @@ useEffect(() => {
           onDocumentoActualizado={handleDocumentoActualizado}
         />
       )}
+      {cargandoTransferencia && (
+  <Box
+    sx={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: 'rgba(0, 0, 0, 0.45)',
+      zIndex: 9999,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backdropFilter: 'blur(2px)',
+      color: '#fff'
+    }}
+  >
+    <Box
+      sx={{
+        width: 60,
+        height: 60,
+        border: '6px solid rgba(255,255,255,0.3)',
+        borderTopColor: '#fff',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite',
+        mb: 2
+      }}
+    />
+    <Typography variant="h6" sx={{ fontWeight: 500 }}>
+      Procesando transferencia...
+    </Typography>
+    <style jsx global>{`
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    `}</style>
+  </Box>
+)}
+
     </Box>
   );
 }

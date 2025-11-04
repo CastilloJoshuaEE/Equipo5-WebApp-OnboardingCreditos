@@ -38,26 +38,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [loadingOverlay, setLoadingOverlay] = useState(false); // nuevo
+  const [loadingOverlay, setLoadingOverlay] = useState(false);
+  const [lastPathname, setLastPathname] = useState(pathname); // Para trackear cambios reales
 
-const handleLogout = async () => {
-  try {
-    // Mostrar overlay antes de cerrar sesión
-    setLoadingOverlay(true);
-
-    // Pequeño delay opcional para que se note visualmente el overlay (150ms)
-    await new Promise((res) => setTimeout(res, 150));
-
-    await signOut({
-      callbackUrl: '/login',
-      redirect: true,
-    });
-  } catch (error) {
-    console.error('Error al cerrar sesión:', error);
-    setLoadingOverlay(false);
-  }
-};
-
+  const handleLogout = async () => {
+    try {
+      setLoadingOverlay(true);
+      await new Promise((res) => setTimeout(res, 150));
+      await signOut({
+        callbackUrl: '/login',
+        redirect: true,
+      });
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      setLoadingOverlay(false);
+    }
+  };
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -65,13 +61,15 @@ const handleLogout = async () => {
     }
   }, [status, router]);
 
-  // Cuando cambia la ruta, ocultamos el overlay (navegación completada)
+  // SOLUCIÓN: Solo ocultar overlay cuando hay un cambio REAL de ruta
   useEffect(() => {
-    if (loadingOverlay) {
-      setLoadingOverlay(false);
+    if (pathname !== lastPathname) {
+      setLastPathname(pathname);
+      if (loadingOverlay) {
+        setLoadingOverlay(false);
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, loadingOverlay, lastPathname]);
 
   if (status === 'loading') {
     return (
@@ -83,10 +81,15 @@ const handleLogout = async () => {
 
   if (!session) return null;
 
-  // Navegación con overlay: activar overlay, luego push
+  // Navegación con overlay: SOLO si no estamos ya en esa ruta
   const navigateWithOverlay = (path: string) => {
+    if (pathname === path) {
+      // Ya estamos en esta ruta, no hacer nada
+      if (isMobile) setSidebarOpen(false);
+      return;
+    }
+    
     setLoadingOverlay(true);
-    // Cerrar sidebar en mobile
     if (isMobile) setSidebarOpen(false);
     router.push(path);
   };
@@ -105,7 +108,7 @@ const handleLogout = async () => {
             color: 'primary.main'
           }}
         >
-          {session.user.rol === 'operador' ? 'Panel de Operador' : 'Mi Espacio'}
+          {session.user.rol === 'operador' ? 'Panel de Operador' : 'Mi espacio'}
         </Typography>
         <Typography 
           variant="body2" 
@@ -117,7 +120,6 @@ const handleLogout = async () => {
       </Box>
       
       <nav className="sidebar-nav">
-        
         <DynamicNavigation 
           navigationHandler={navigateWithOverlay} 
           onNavigate={() => { if (isMobile) setSidebarOpen(false); }} 
@@ -223,10 +225,10 @@ const handleLogout = async () => {
                     '&:hover': { backgroundColor: 'action.hover' },
                   }}
                 >
-                  Mi Perfil
+                  Mi perfil
                 </Button>
 
-                <NotificacionesBell /* Si NotificacionesBell hace navegación, idealmente pasarle navigationHandler */ />
+                <NotificacionesBell />
               </Box>
             </Toolbar>
           </AppBar>

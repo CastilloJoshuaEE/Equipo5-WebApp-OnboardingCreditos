@@ -931,8 +931,7 @@ static formatearContenidoContrato(contenido) {
             return false;
         }
 
-        // CORRECCIÓN: Integridad es true cuando AMBAS partes han firmado
-        // Y debe retornar un BOOLEAN, no una fecha
+    
         const ambasFirmasPresentes = firma.fecha_firma_operador && firma.fecha_firma_solicitante;
         
         console.log('. Verificación de integridad:', {

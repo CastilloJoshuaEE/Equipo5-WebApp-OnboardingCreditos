@@ -31,7 +31,7 @@ const swaggerOptions = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "API Sistema de Créditos",
+      title: "API Nexia",
       version: "1.0.0",
       description: "API para el sistema de onboarding y gestión de créditos",
       contact: {
@@ -92,7 +92,7 @@ app.use(
   swaggerUI.serve,
   swaggerUI.setup(swaggerSpec, {
     customCss: ".swagger-ui .topbar { display: none }",
-    customSiteTitle: "API Sistema de Créditos",
+    customSiteTitle: "API Nexia",
   })
 );
 app.use('/api/firmas', routesFirmas);
@@ -300,11 +300,6 @@ const iniciarServidor = async () => {
       console.log(`. Documentación API: http://localhost:${PORT}/api-docs`);
       console.log(`\n. Endpoints disponibles:`);
       console.log(`   Health:    GET  http://localhost:${PORT}/api/health`);
-      console.log(`   Registro:  POST http://localhost:${PORT}/api/usuarios/registro`);
-      console.log(`   Login:     POST http://localhost:${PORT}/api/usuarios/login`);
-      console.log(`   Session:   GET  http://localhost:${PORT}/api/usuarios/session`);
-      console.log(`   Perfil:    GET  http://localhost:${PORT}/api/usuario/perfil`);
-      console.log(`   Operador:  GET  http://localhost:${PORT}/api/operador/dashboard`);
     });
 
     // Manejo elegante de cierre

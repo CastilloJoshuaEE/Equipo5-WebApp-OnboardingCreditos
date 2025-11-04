@@ -139,7 +139,7 @@ const crearPlantillaReactivacionHTML = (nombre, enlaceReactivacion) => {
         </div>
         <div class="content">
             <p>Estimado/a <strong>${nombre}</strong>,</p>
-            <p>Hemos recibido una solicitud para reactivar tu cuenta en el Sistema de Créditos.</p>
+            <p>Hemos recibido una solicitud para reactivar tu cuenta en el Sistema de Créditos de Nexia.</p>
             
             <div class="info">
                 <p><strong>Información importante:</strong></p>
@@ -158,7 +158,7 @@ const crearPlantillaReactivacionHTML = (nombre, enlaceReactivacion) => {
             <p>Si no solicitaste esta reactivación, puedes ignorar este mensaje.</p>
         </div>
         <div class="footer">
-            <p>Sistema de Créditos - Seguridad</p>
+            <p>Sistema de Créditos de Nexia - Seguridad</p>
         </div>
     </div>
 </body>
@@ -170,7 +170,7 @@ const crearPlantillaReactivacionTexto = (nombre, enlaceReactivacion) => {
 
 Hola ${nombre},
 
-Hemos recibido una solicitud para reactivar tu cuenta en el Sistema de Créditos.
+Hemos recibido una solicitud para reactivar tu cuenta en el Sistema de Créditos de Nexia.
 
 Tu cuenta estaba desactivada y ahora puede ser reactivada.
 
@@ -181,7 +181,7 @@ IMPORTANTE: Si no solicitaste esta reactivación, puedes ignorar este mensaje.
 
 Este enlace expirará en 1 hora por seguridad.
 
-Sistema de Créditos - Seguridad`;
+Sistema de Créditos de Nexia- Seguridad`;
 };
 const crearPlantillaRecuperacionHTML = (nombre, enlaceRecuperacion) => {
   return `
@@ -242,7 +242,7 @@ const crearPlantillaRecuperacionHTML = (nombre, enlaceRecuperacion) => {
         </div>
         <div class="content">
             <p>Estimado/a <strong>${nombre}</strong>,</p>
-            <p>Hemos recibido una solicitud para recuperar el acceso a tu cuenta en el Sistema de Créditos.</p>
+            <p>Hemos recibido una solicitud para recuperar el acceso a tu cuenta en el Sistema de Créditos de Nexia.</p>
             
             <p style="text-align: center;">
                 <a href="${enlaceRecuperacion}" class="button">Recuperar Mi Cuenta</a>
@@ -256,7 +256,7 @@ const crearPlantillaRecuperacionHTML = (nombre, enlaceRecuperacion) => {
             <p>Si no solicitaste esta recuperación, puedes ignorar este mensaje.</p>
         </div>
         <div class="footer">
-            <p>Sistema de Créditos - Seguridad</p>
+            <p>Sistema de Créditos de Nexia - Seguridad</p>
         </div>
     </div>
 </body>
@@ -268,7 +268,7 @@ const crearPlantillaRecuperacionTexto = (nombre, enlaceRecuperacion) => {
 
 Hola ${nombre},
 
-Hemos recibido una solicitud para recuperar el acceso a tu cuenta en el Sistema de Créditos.
+Hemos recibido una solicitud para recuperar el acceso a tu cuenta en el Sistema de Créditos de Nexia.
 
 Para recuperar tu cuenta, haz clic en el siguiente enlace:
 ${enlaceRecuperacion}
@@ -277,7 +277,7 @@ IMPORTANTE: Si no solicitaste esta recuperación, puedes ignorar este mensaje.
 
 Este enlace expirará en 1 hora por seguridad.
 
-Sistema de Créditos - Seguridad`;
+Sistema de Créditos de Nexia - Seguridad`;
 };
 module.exports = {
   enviarEmailRecuperacionCuenta,

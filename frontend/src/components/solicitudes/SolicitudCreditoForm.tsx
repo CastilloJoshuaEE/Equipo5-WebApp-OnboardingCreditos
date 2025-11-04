@@ -622,7 +622,7 @@ formData.append('tipo', obtenerTipoDocumento(documento.file.name));
               sx={{ mt: 3 }}
               onClick={() => window.location.href = '/solicitante'}
             >
-              Ver Mis Solicitudes
+              Ver mis solicitudes
             </Button>
           </Box>
         );

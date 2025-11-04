@@ -12,7 +12,7 @@ import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 
 export const metadata: Metadata = {
-  title: "Sistema de Créditos PYME",
+  title: "Nexia",
   description: "Plataforma integral para la gestión de créditos empresariales",
 };
 

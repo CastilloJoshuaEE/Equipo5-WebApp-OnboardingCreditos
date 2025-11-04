@@ -26,6 +26,7 @@ import {
   Tooltip,
   Dialog,
   DialogContent,
+  DialogTitle, // Agregado
 } from '@mui/material';
 import {
   Description,
@@ -36,6 +37,7 @@ import {
   Error as ErrorIcon,
   ReceiptLong,
   Search,
+  Close, // Agregado
 } from '@mui/icons-material';
 import { getSession } from 'next-auth/react';
 
@@ -121,6 +123,7 @@ export default function MisDocumentosPage() {
   const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
   const [urlVistaPrevia, setUrlVistaPrevia] = useState('');
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
+  const [documentoCargando, setDocumentoCargando] = useState(false); // Nuevo estado para carga
 
   useEffect(() => {
     cargarTodosLosDocumentos();
@@ -179,35 +182,37 @@ export default function MisDocumentosPage() {
     setTabValue(newValue);
   };
 
-  const handleDescargarContrato = async (contrato: Contrato) => {
+  const handleVerContrato = async (contrato: any) => {
     try {
-      const session = await getSession();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      
-      const response = await fetch(`${API_URL}/contratos/${contrato.id}/descargar`, {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`
-        }
-      });
+        setDocumentoCargando(true); // Iniciar carga
+        const session = await getSession();
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+        // Si tiene firma digital y está firmado, mostrar el firmado
+        if (contrato.firma_digital) {
+            const response = await fetch(
+                `${API_URL}/firmas/ver-contrato-firmado/${contrato.firma_digital.id}`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${session?.accessToken}`
+                    }
+                }
+            );
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `contrato-${contrato.numero_contrato}.docx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        console.error('Error descargando contrato:', response.status);
-        alert('Error al descargar el contrato');
-      }
-    } catch (err) {
-      console.error('Error descargando contrato:', err);
-      alert('Error de conexión al descargar contrato');
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                setUrlVistaPrevia(url);
+                setVistaPreviaAbierta(true);
+            } else {
+                alert('Error al cargar el contrato');
+            }
+        }        
+    } catch (error) {
+        console.error('Error viendo contrato:', error);
+        alert('Error al cargar el contrato');
+    } finally {
+        setDocumentoCargando(false); // Finalizar carga
     }
   };
 
@@ -243,8 +248,9 @@ export default function MisDocumentosPage() {
     }
   };
 
-  const handleVerVistaPrevia = async (tipo: 'contrato' | 'comprobante', id: string) => {
+  const handleVerVistaPrevia = async (tipo: 'comprobante', id: string) => {
     try {
+      setDocumentoCargando(true);
       const session = await getSession();
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       
@@ -265,56 +271,42 @@ export default function MisDocumentosPage() {
     } catch (err) {
       console.error('Error obteniendo vista previa:', err);
       alert('Error de conexión al cargar vista previa');
+    } finally {
+      setDocumentoCargando(false);
     }
   };
 
-  const handleVerContratoFirmado = async (firmaId: string) => {
-    try {
-      const session = await getSession();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      
-      console.log('ID de firma enviado:', firmaId);
-      
-      const response = await fetch(`${API_URL}/firmas/ver-contrato-firmado/${firmaId}`, {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`
-        }
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        window.open(url, '_blank');
-      } else {
-        console.error('Error response:', response.status, response.statusText);
-        alert('Error al cargar el contrato firmado');
-      }
-    } catch (error) {
-      console.error('Error viendo contrato firmado:', error);
-      alert('Error de conexión');
+  // Función para cerrar la vista previa y limpiar la URL
+  const handleCerrarVistaPrevia = () => {
+    setVistaPreviaAbierta(false);
+    // Limpiar la URL para liberar memoria
+    if (urlVistaPrevia) {
+      window.URL.revokeObjectURL(urlVistaPrevia);
+      setUrlVistaPrevia('');
     }
   };
 
-  const getEstadoColor = (estado: string) => {
-    switch (estado?.toLowerCase()) {
-      case 'firmado_completo':
-      case 'vigente':
-      case 'completada':
-      case 'aprobado':
-        return 'success';
-      case 'pendiente_firma':
-      case 'generado':
-      case 'procesando':
-      case 'pendiente':
-        return 'warning';
-      case 'expirado':
-      case 'rechazado':
-      case 'fallida':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
+const getEstadoColor = (estado: string) => {
+  switch (estado?.toLowerCase()) {
+    case 'firmado_completo':
+    case 'vigente':
+    case 'completada':
+    case 'aprobado':
+    case 'firmado': // Agregar este caso
+      return 'success';
+    case 'pendiente_firma':
+    case 'generado':
+    case 'processando':
+    case 'pendiente':
+      return 'warning';
+    case 'expirado':
+    case 'rechazado':
+    case 'fallida':
+      return 'error';
+    default:
+      return 'default';
+  }
+};
 
   const getEstadoIcon = (estado: string) => {
     switch (estado?.toLowerCase()) {
@@ -356,15 +348,55 @@ export default function MisDocumentosPage() {
     });
   };
 
-  // Extraer todos los contratos para la tabla
-  const todosLosContratos = solicitudesConDocumentos.flatMap(solicitud => 
-    (Array.isArray(solicitud.contratos) ? solicitud.contratos : [solicitud.contratos]).filter(Boolean).map((contrato: any) => ({
+// CORRECCIÓN: Extraer y filtrar contratos completamente firmados
+const todosLosContratos = solicitudesConDocumentos.flatMap(solicitud => {
+  const contratosSolicitud = Array.isArray(solicitud.contratos) 
+    ? solicitud.contratos 
+    : solicitud.contratos 
+      ? [solicitud.contratos] 
+      : [];
+
+  return contratosSolicitud
+    .filter(Boolean)
+    // ✅ FILTRO CORREGIDO: Mostrar contratos que estén completamente firmados
+    .filter((contrato: any) => {
+      // Verificar si tiene firma digital con estado 'firmado_completo'
+      const tieneFirmaCompleta = 
+        contrato.firma_digital && 
+        contrato.firma_digital.estado === 'firmado_completo';
+      
+      // También verificar si el contrato mismo está marcado como firmado
+      const contratoFirmado = 
+        contrato.estado === 'firmado_completo' || 
+        contrato.estado === 'vigente';
+
+      console.log(`📋 Contrato ${contrato.numero_contrato}:`, {
+        tieneFirmaCompleta,
+        contratoFirmado,
+        estadoFirma: contrato.firma_digital?.estado,
+        estadoContrato: contrato.estado
+      });
+
+      return tieneFirmaCompleta || contratoFirmado;
+    })
+    .map((contrato: any) => ({
       ...contrato,
       solicitud_numero: solicitud.numero_solicitud,
       monto_solicitud: solicitud.monto,
-      moneda_solicitud: solicitud.moneda
-    }))
-  );
+      moneda_solicitud: solicitud.moneda,
+      // Asegurar que firma_digital esté disponible
+      firma_digital: contrato.firma_digital || contrato.firmas_digitales?.[0] || null
+    }));
+});
+
+console.log(`✅ Contratos completamente firmados encontrados: ${todosLosContratos.length}`);
+todosLosContratos.forEach(contrato => {
+  console.log(`📄 Contrato firmado: ${contrato.numero_contrato}`, {
+    estado: contrato.estado,
+    estadoFirma: contrato.firma_digital?.estado,
+    tieneFirmaDigital: !!contrato.firma_digital
+  });
+});
 
   // Filtrar documentos según búsqueda
   const contratosFiltrados = todosLosContratos.filter(contrato => {
@@ -401,7 +433,7 @@ export default function MisDocumentosPage() {
         <Description sx={{ fontSize: 40, color: 'primary.main' }} />
         <Box>
           <Typography variant="h4" component="h1">
-            Mis Documentos
+            Mis documentos
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Consulta y descarga tus contratos y comprobantes de transferencia
@@ -506,38 +538,38 @@ export default function MisDocumentosPage() {
                             {formatMonto(contrato.monto_solicitud || contrato.monto_aprobado, contrato.moneda_solicitud)}
                           </Typography>
                         </TableCell>
-
                         <TableCell>
                           <Typography variant="body2">
                             {contrato.created_at ? new Date(contrato.created_at).toLocaleDateString('es-ES') : '—'}
                           </Typography>
                         </TableCell>
-                        <TableCell align="center">
-                          <Box display="flex" gap={1} justifyContent="center">
-                            <Tooltip title="Descargar contrato">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleDescargarContrato(contrato)}
-                                disabled={!contrato.ruta_documento}
-                                color="primary"
-                              >
-                                <Download />
-                              </IconButton>
-                            </Tooltip>
+                      <TableCell align="center">
+  <Box display="flex" gap={1} justifyContent="center">
+    {/* Botón para ver el contrato FIRMADO si existe, sino el original */}
+    <Tooltip title="Ver documento">
+      <IconButton
+        size="small"
+        onClick={() => handleVerContrato(contrato)}
+        color="primary"
+        disabled={documentoCargando}
+      >
+        <Visibility />
+      </IconButton>
+    </Tooltip>
 
-                            {contrato.firma_digital?.id && (
-                              <Tooltip title="Ver contrato firmado">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleVerContratoFirmado(contrato.firma_digital.id)}
-                                  color="success"
-                                >
-                                  <CheckCircle />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
-                        </TableCell>
+    {/* Indicador de estado */}
+    {contrato.firma_digital && (
+      <Tooltip title={`Estado de firma: ${contrato.firma_digital.estado}`}>
+        <Chip 
+          size="small" 
+          label={contrato.firma_digital.estado === 'firmado_completo' ? 'FIRMADO' : 'PENDIENTE'}
+          color={contrato.firma_digital.estado === 'firmado_completo' ? 'success' : 'warning'}
+          variant="outlined"
+        />
+      </Tooltip>
+    )}
+  </Box>
+</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -624,7 +656,7 @@ export default function MisDocumentosPage() {
                               <IconButton
                                 size="small"
                                 onClick={() => handleVerVistaPrevia('comprobante', transferencia.id)}
-                                disabled={!transferencia.ruta_comprobante || transferencia.estado !== 'completada'}
+                                disabled={!transferencia.ruta_comprobante || transferencia.estado !== 'completada' || documentoCargando}
                                 color="info"
                               >
                                 <Visibility />
@@ -642,22 +674,86 @@ export default function MisDocumentosPage() {
         </>
       )}
 
-      {/* Dialog para vista previa */}
+      {/* Dialog para vista previa - CON BOTÓN DE CERRAR */}
       <Dialog
         open={vistaPreviaAbierta}
-        onClose={() => setVistaPreviaAbierta(false)}
+        onClose={handleCerrarVistaPrevia}
         maxWidth="lg"
         fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            height: '90vh'
+          }
+        }}
       >
-        <DialogContent sx={{ p: 0, height: '80vh' }}>
-          <iframe
-            src={urlVistaPrevia}
-            width="100%"
-            height="100%"
-            style={{ border: 'none' }}
-            title="Vista previa del documento"
-          />
-        </DialogContent>
+        <DialogTitle 
+          sx={{ 
+            m: 0, 
+            p: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            backgroundColor: 'primary.main',
+            color: 'white'
+          }}
+        >
+          <Typography variant="h6" component="div">
+            📄 Vista previa del documento
+          </Typography>
+          <IconButton
+            aria-label="close"
+            onClick={handleCerrarVistaPrevia}
+            sx={{
+              color: 'white',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              },
+            }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 0, height: 'calc(100% - 64px)' }}>
+  {documentoCargando ? (
+    <Box 
+      display="flex" 
+      justifyContent="center" 
+      alignItems="center" 
+      height="100%"
+    >
+      <CircularProgress />
+      <Typography variant="body1" sx={{ ml: 2 }}>
+        Cargando documento...
+      </Typography>
+    </Box>
+  ) : urlVistaPrevia ? (
+    // ✅ Solo renderizar el iframe si hay una URL válida
+    <iframe
+      src={urlVistaPrevia}
+      width="100%"
+      height="100%"
+      style={{ border: 'none' }}
+      title="Vista previa del documento"
+      onLoad={() => setDocumentoCargando(false)}
+    />
+  ) : (
+    // ✅ Mostrar mensaje en caso de que la URL esté vacía
+    <Box 
+      display="flex" 
+      justifyContent="center" 
+      alignItems="center" 
+      height="100%"
+      flexDirection="column"
+    >
+      <Description sx={{ fontSize: 60, color: 'text.secondary', mb: 1 }} />
+      <Typography variant="body2" color="text.secondary">
+        No hay documento disponible para vista previa.
+      </Typography>
+    </Box>
+  )}
+</DialogContent>
+
       </Dialog>
     </Container>
   );

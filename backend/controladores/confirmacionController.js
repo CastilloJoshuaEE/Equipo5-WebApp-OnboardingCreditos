@@ -18,7 +18,7 @@ class ConfirmacionController {
     return (
       process.env.FRONTEND_URL ||
       'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com' || // Render
-      'https://equipo5-web-app-onboarding-creditos.vercel.app'        // Vercel
+      'https://nexia-sigma.vercel.app'        // Vercel
     );
   }
 
@@ -379,8 +379,8 @@ class ConfirmacionController {
    */
   static crearPlantillaBienvenida(nombre, rol) {
     const asunto = rol === 'operador' 
-      ? '¡Bienvenido Operador al Sistema de Créditos!' 
-      : '¡Bienvenido Solicitante al Sistema de Créditos!';
+      ? '¡Bienvenido Operador a Nexia!' 
+      : '¡Bienvenido Solicitante al Nexia!';
     
     const mensaje = rol === 'operador'
       ? `Hola <strong>${nombre}</strong>, bienvenido como operador del sistema de créditos. Tu cuenta ha sido creada exitosamente y ya puedes comenzar a gestionar solicitudes.`
@@ -459,7 +459,7 @@ ${mensaje}
 
 Puedes iniciar sesión en: ${frontendUrl}/login
 
-Sistema de Créditos`
+Nexia`
     };
   }
 

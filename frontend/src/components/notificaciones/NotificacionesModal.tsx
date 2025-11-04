@@ -92,7 +92,7 @@ export function NotificacionesModal({
     <Dialog open={abierto} onClose={onCerrar} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">Notificaciones Pendientes</Typography>
+          <Typography variant="h6">Notificaciones pendientes</Typography>
           {notificaciones.length > 0 && (
             <Button
               variant="outlined"

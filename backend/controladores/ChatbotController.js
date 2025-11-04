@@ -1,5 +1,4 @@
-const geminiService = require('../servicios/GeminiService');
-const { supabase } = require('../config/conexion');
+const ChatbotModel = require('../modelos/ChatbotModel');
 
 class ChatbotController {
     
@@ -9,43 +8,24 @@ class ChatbotController {
     static async procesarMensaje(req, res) {
         try {
             const { mensaje } = req.body;
-            const usuario = req.usuario || null; // Puede ser null para usuarios no autenticados
+            const usuario = req.usuario || null;
 
             console.log(`. Chatbot - Mensaje recibido:`, {
                 usuario: usuario ? usuario.email : 'No autenticado',
                 mensaje: mensaje.substring(0, 100)
             });
 
-            if (!mensaje || mensaje.trim().length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'El mensaje no puede estar vacío'
-                });
-            }
+            // Usar el modelo para procesar el mensaje
+            const resultado = await ChatbotModel.procesarMensaje(mensaje, usuario);
 
-            // Validar longitud del mensaje
-            if (mensaje.length > 1000) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'El mensaje es demasiado largo (máximo 1000 caracteres)'
-                });
-            }
-
-            // Generar respuesta usando Gemini
-            const respuesta = await geminiService.generarRespuesta(mensaje, usuario);
-
-            // Registrar la interacción en la base de datos (opcional)
-            if (usuario) {
-                await ChatbotController.registrarInteraccion(usuario.id, mensaje, respuesta);
-            }
-
-            console.log(`. Chatbot - Respuesta generada: ${respuesta.substring(0, 100)}...`);
+            console.log(`. Chatbot - Respuesta generada: ${resultado.respuesta.substring(0, 100)}...`);
 
             res.json({
                 success: true,
                 data: {
-                    respuesta,
-                    timestamp: new Date().toISOString(),
+                    respuesta: resultado.respuesta,
+                    interaccionId: resultado.interaccionId,
+                    timestamp: resultado.timestamp,
                     usuario: usuario ? {
                         id: usuario.id,
                         nombre: usuario.nombre_completo,
@@ -56,59 +36,29 @@ class ChatbotController {
 
         } catch (error) {
             console.error('. Error en ChatbotController:', error);
-            res.status(500).json({
+            
+            const statusCode = error.message.includes('vacío') || error.message.includes('largo') ? 400 : 500;
+            
+            res.status(statusCode).json({
                 success: false,
-                message: 'Error interno del servidor al procesar el mensaje'
+                message: error.message || 'Error interno del servidor al procesar el mensaje'
             });
         }
     }
 
     /**
-     * Registrar interacción del chatbot (opcional)
-     */
-    static async registrarInteraccion(usuarioId, pregunta, respuesta) {
-        try {
-            const interaccionData = {
-                usuario_id: usuarioId,
-                pregunta,
-                respuesta,
-                sentimiento: geminiService.analizarSentimiento(pregunta),
-                created_at: new Date().toISOString()
-            };
-
-            const { error } = await supabase
-                .from('chatbot_interacciones')
-                .insert([interaccionData]);
-
-            if (error) {
-                console.warn('. Error registrando interacción del chatbot:', error);
-            }
-
-        } catch (error) {
-            console.warn('. Error en registrarInteraccion:', error);
-        }
-    }
-
-    /**
-     * Obtener historial de conversaciones (solo para usuarios autenticados)
+     * Obtener historial de conversaciones
      */
     static async obtenerHistorial(req, res) {
         try {
             const usuarioId = req.usuario.id;
             const { limit = 20, offset = 0 } = req.query;
 
-            const { data: interacciones, error } = await supabase
-                .from('chatbot_interacciones')
-                .select('*')
-                .eq('usuario_id', usuarioId)
-                .order('created_at', { ascending: false })
-                .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
-
-            if (error) throw error;
+            const resultado = await ChatbotModel.obtenerHistorial(usuarioId, limit, offset);
 
             res.json({
                 success: true,
-                data: interacciones || []
+                data: resultado
             });
 
         } catch (error) {
@@ -121,21 +71,93 @@ class ChatbotController {
     }
 
     /**
+     * Buscar en historial
+     */
+    static async buscarEnHistorial(req, res) {
+        try {
+            const usuarioId = req.usuario.id;
+            const { query, limit = 10 } = req.query;
+
+            if (!query || query.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'La consulta de búsqueda no puede estar vacía'
+                });
+            }
+
+            const resultados = await ChatbotModel.buscarEnHistorial(usuarioId, query, limit);
+
+            res.json({
+                success: true,
+                data: resultados
+            });
+
+        } catch (error) {
+            console.error('. Error buscando en historial del chatbot:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al buscar en el historial'
+            });
+        }
+    }
+
+    /**
+     * Obtener estadísticas
+     */
+    static async obtenerEstadisticas(req, res) {
+        try {
+            const usuarioId = req.usuario.id;
+            const estadisticas = await ChatbotModel.obtenerEstadisticas(usuarioId);
+
+            res.json({
+                success: true,
+                data: estadisticas
+            });
+
+        } catch (error) {
+            console.error('. Error obteniendo estadísticas del chatbot:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener las estadísticas'
+            });
+        }
+    }
+
+    /**
+     * Eliminar historial
+     */
+    static async eliminarHistorial(req, res) {
+        try {
+            const usuarioId = req.usuario.id;
+            const { interaccionIds } = req.body; // Array opcional de IDs específicos
+
+            const resultado = await ChatbotModel.eliminarInteracciones(usuarioId, interaccionIds);
+
+            res.json({
+                success: true,
+                data: resultado
+            });
+
+        } catch (error) {
+            console.error('. Error eliminando historial del chatbot:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al eliminar el historial'
+            });
+        }
+    }
+
+    /**
      * Endpoint de salud del chatbot
      */
     static async healthCheck(req, res) {
         try {
-            // Probar con un mensaje simple para verificar que Gemini funciona
-            const testResponse = await geminiService.generarRespuesta('Hola', null);
+            const healthStatus = await ChatbotModel.healthCheck();
             
             res.json({
                 success: true,
                 message: 'Chatbot funcionando correctamente',
-                data: {
-                    servicio: 'Gemini API',
-                    estado: 'activo',
-                    prueba: testResponse ? 'exitosa' : 'fallida'
-                }
+                data: healthStatus
             });
 
         } catch (error) {

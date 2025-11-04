@@ -67,7 +67,7 @@ NODE_ENV=development
 JWT_SECRET="tu_jwt_secret_aqui"
 JWT_EXPIRE=30d
 
-EMAIL_FROM_NAME="Sistema de Créditos"
+EMAIL_FROM_NAME="Nexia"
 BREVO_API_KEY="tu_brevo_api_key_aqui"
 EMAIL_SERVICE=brevo-api
 EMAIL_FROM_EMAIL="tu_correo_aqui"
