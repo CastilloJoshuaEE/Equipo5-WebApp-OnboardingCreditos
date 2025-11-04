@@ -266,76 +266,90 @@ const renderListaDocumentos = () => (
   </Box>
 );
   const onSubmit = async (data: SolicitudCreditoInput) => {
-    try {
-      setError('');
-      setSuccess('');
- setLoadingOverlay(true); 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const session = await getSession();
+  try {
+    setError('');
+    setSuccess('');
+    setLoadingOverlay(true); 
 
-      if (!session?.accessToken) throw new Error('No estás autenticado');
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const session = await getSession();
 
-      let nuevaSolicitudId = solicitudId;
+    if (!session?.accessToken) throw new Error('No estás autenticado');
 
-      // Si no existe solicitud aún, crearla
-      if (!nuevaSolicitudId) {
-        const solicitudResponse = await fetch(`${API_URL}/solicitudes`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.accessToken}`
-          },
-          body: JSON.stringify(data)
-        });
-        if (!solicitudResponse.ok) throw new Error('Error al crear la solicitud');
+    let nuevaSolicitudId = solicitudId;
 
-        const solicitudResult = await solicitudResponse.json();
-        nuevaSolicitudId = solicitudResult.data.id;
-        setSolicitudId(nuevaSolicitudId);
-      }
+    // Si no existe solicitud aún, crearla
+    if (!nuevaSolicitudId) {
+      const solicitudResponse = await fetch(`${API_URL}/solicitudes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.accessToken}`
+        },
+        body: JSON.stringify(data)
+      });
+      if (!solicitudResponse.ok) throw new Error('Error al crear la solicitud');
 
-      // Subir documentos
-      for (const documento of documentos) {
-        const formData = new FormData();
-        if (!nuevaSolicitudId) throw new Error('ID de solicitud inválido');
-formData.append('archivo', documento.file);
-        formData.append('solicitud_id', nuevaSolicitudId);
-formData.append('tipo', obtenerTipoDocumento(documento.file.name));
+      const solicitudResult = await solicitudResponse.json();
+      nuevaSolicitudId = solicitudResult.data.id;
+      setSolicitudId(nuevaSolicitudId);
+    }
 
-        const documentoResponse = await fetch(`${API_URL}/solicitudes/${nuevaSolicitudId}/documentos`, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Authorization': `Bearer ${session.accessToken}`
-          }
-        });
+    // Subir documentos
+    for (const documento of documentos) {
+      const formData = new FormData();
+      if (!nuevaSolicitudId) throw new Error('ID de solicitud inválido');
+      formData.append('archivo', documento.file);
+      formData.append('solicitud_id', nuevaSolicitudId);
+      formData.append('tipo', obtenerTipoDocumento(documento.file.name));
 
-        if (!documentoResponse.ok) {
-          console.error('Error subiendo documento:', documento.file.name);
-        }
-      }
-
-      // Enviar solicitud
-      const enviarResponse = await fetch(`${API_URL}/solicitudes/${nuevaSolicitudId}/enviar`, {
-        method: 'PUT',
+      const documentoResponse = await fetch(`${API_URL}/solicitudes/${nuevaSolicitudId}/documentos`, {
+        method: 'POST',
+        body: formData,
         headers: {
           'Authorization': `Bearer ${session.accessToken}`
         }
       });
-      if (!enviarResponse.ok) throw new Error('Error al enviar la solicitud');
 
-      setSuccess('Solicitud de crédito enviada exitosamente');
-      setActiveStep(3);
-      localStorage.removeItem('solicitud_borrador'); // Limpiar borrador
-    } catch (error) {
-      console.error('Error en solicitud:', error);
-      setError(error instanceof Error ? error.message : 'Error al procesar la solicitud');
+      if (!documentoResponse.ok) {
+        console.error('Error subiendo documento:', documento.file.name);
+      }
     }
-    finally {
-      setLoadingOverlay(false); // 🟢 Ocultar overlay al finalizar
-    }
-  };
 
+    // Enviar solicitud
+    const enviarResponse = await fetch(`${API_URL}/solicitudes/${nuevaSolicitudId}/enviar`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${session.accessToken}`
+      }
+    });
+    if (!enviarResponse.ok) throw new Error('Error al enviar la solicitud');
+
+    // . LIMPIAR BORRADOR DESPUÉS DE ENVÍO EXITOSO
+    limpiarBorrador();
+
+    setSuccess('Solicitud de crédito enviada exitosamente');
+    setActiveStep(3);
+    
+  } catch (error) {
+    console.error('Error en solicitud:', error);
+    setError(error instanceof Error ? error.message : 'Error al procesar la solicitud');
+  } finally {
+    setLoadingOverlay(false);
+  }
+};
+// Función específica para limpiar el borrador
+const limpiarBorrador = () => {
+  if (session?.user?.id) {
+    const borradorKey = `solicitud_borrador_${session.user.id}`;
+    localStorage.removeItem(borradorKey);
+    console.log('. Borrador eliminado del localStorage:', borradorKey);
+  }
+  
+  // También limpiar la clave genérica por si acaso
+  localStorage.removeItem('solicitud_borrador');
+  console.log('. Borrador genérico eliminado del localStorage');
+};
   const obtenerTipoDocumento = (nombreArchivo: string): string => {
     if (nombreArchivo.includes('dni')) return 'dni';
     if (nombreArchivo.includes('cuit')) return 'cuit';

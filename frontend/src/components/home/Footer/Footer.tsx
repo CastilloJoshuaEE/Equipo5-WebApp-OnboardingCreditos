@@ -122,6 +122,8 @@ export default function Footer() {
           </div>
         </div>
       </section>
+      <br />
+      <br />
        {/* Mensaje de advertencia final */}
       <section className={styles.disclaimerSection}>
         <p className={styles.disclaimerText}>

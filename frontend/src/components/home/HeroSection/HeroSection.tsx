@@ -1,4 +1,3 @@
-// frontend/src/components/home/HeroSection/HeroSection.tsx
 "use client";
 
 import Image from "next/image";
@@ -34,7 +33,8 @@ export default function HeroSection() {
         <div className={styles.heroCenter}>
           <div className={styles.heroContent}>
             <h1>
-              Bienvenido de vuelta, <span>{session.user.name}</span>
+              Bienvenido de vuelta, <br />
+              <span>{session.user.name}</span>
             </h1>
             <p>
               Continúa gestionando tus {session.user.rol === UserRole.SOLICITANTE ? 'solicitudes de crédito' : 'operaciones'} desde tu dashboard.
@@ -56,7 +56,34 @@ export default function HeroSection() {
               )}
             </div>
           </div>
-         
+          <div className={styles.heroImageContainer}>
+            <Image
+              className={styles.heroImage}
+              src="/ilustraciones/heroSectionIllustration.webp"
+              alt="Dashboard"
+              width={500}
+              height={400}
+              priority
+            />
+          </div>
+        </div>
+        <div className={styles.heroStats}>
+          <div className={styles.statItem}>
+            <strong>500+</strong>
+            <span>Empresas Financiadas</span>
+          </div>
+          <div className={styles.statItem}>
+            <strong>24h</strong>
+            <span>Tiempo Promedio</span>
+          </div>
+          <div className={styles.statItem}>
+            <strong>94%</strong>
+            <span>Satisfacción</span>
+          </div>
+          <div className={styles.statItem}>
+            <strong>$50M+</strong>
+            <span>Desembolsados</span>
+          </div>
         </div>
       </section>
     );
@@ -65,14 +92,26 @@ export default function HeroSection() {
   // Si no está autenticado, mostrar los botones normales
   return (
     <section className={styles.heroSection}>
-      <div className={styles.heroCenter}>
+              <div className={styles.heroImageContainer}>
+          <Image
+            className={styles.heroImage}
+            src="/ilustraciones/heroSectionIllustration.webp"
+            alt="Crédito Inteligente para PYMES"
+            width={600}
+            height={500}
+            priority
+          />
+        </div>
+        <div className={styles.heroCenter}>
+
         <div className={styles.heroContent}>
           <h1>
             Impulsa tu PYME con <span>Crédito Inteligente</span>
           </h1>
           <p>
             Acceso rápido y flexible a la financiación que tu negocio necesita
-            para crecer.
+            para crecer. Soluciones diseñadas específicamente para el crecimiento
+            de pequeñas y medianas empresas.
           </p>
           <div className={styles.heroButtons}>
             <button
@@ -89,32 +128,25 @@ export default function HeroSection() {
             </button>
           </div>
         </div>
-        <Image
-          className={styles.heroImage}
-          src="/ilustraciones/heroSectionIllustration.webp"
-          alt="Crédito Inteligente"
-          width={600}
-          height={500}
-          priority
-        />
+        
       </div>
       <div className={styles.heroStats}>
-        <p>
+        <div className={styles.statItem}>
           <strong>500+</strong>
-          <span> Empresas Financiadas</span>
-        </p>
-        <p>
+          <span>Empresas Financiadas</span>
+        </div>
+        <div className={styles.statItem}>
           <strong>24h</strong>
-          <span> Tiempo Promedio</span>
-        </p>
-        <p>
+          <span>Tiempo Promedio</span>
+        </div>
+        <div className={styles.statItem}>
           <strong>94%</strong>
-          <span> Satisfacción</span>
-        </p>
-        <p>
+          <span>Satisfacción</span>
+        </div>
+        <div className={styles.statItem}>
           <strong>$50M+</strong>
-          <span> Desembolsados</span>
-        </p>
+          <span>Desembolsados</span>
+        </div>
       </div>
     </section>
   );

@@ -1,5 +1,5 @@
 'use client';
-
+import { getSession } from 'next-auth/react';
 import React, { useState } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -106,7 +106,12 @@ export default function LoginForm() {
 
       // Login exitoso - obtener información del usuario para determinar el rol
       console.log('Login exitoso, obteniendo información del usuario...');
-      
+      await getSession();
+    // Disparar evento personalizado para notificar a otros componentes
+    window.dispatchEvent(new Event('session-update'));
+    
+    // Actualizar localStorage para sincronización entre tabs
+    localStorage.setItem('session-refresh', Date.now().toString());
       // Obtener la sesión actualizada
       const sessionResponse = await fetch('/api/auth/session');
       const session = await sessionResponse.json();

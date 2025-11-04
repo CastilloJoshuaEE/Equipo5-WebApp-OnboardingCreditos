@@ -54,6 +54,7 @@ export default function LoginPage() {
           pt: '25px',
         }}
       >
+        
         {/* Columna izquierda - Formulario */}
         <Box
           sx={{
@@ -66,6 +67,19 @@ export default function LoginPage() {
             justifyContent: 'space-between',
           }}
         >
+                  <Box
+                    sx={{
+                      textAlign: 'center',
+                      py: '15px',
+                      cursor: 'pointer',
+                      color: '#213126',
+                      fontSize: '0.9rem',
+                      '&:hover': { textDecoration: 'underline' },
+                    }}
+                    onClick={handleVolverInicio}
+                  >
+                    &larr; Volver al inicio
+                  </Box>
           {/* Logo */}
           <Box sx={{ mb: 2 }}>
             <Image
@@ -161,19 +175,7 @@ export default function LoginPage() {
       </Box>
 
       {/* Footer con enlace de volver */}
-        <Box
-          sx={{
-            textAlign: 'center',
-            py: '15px',
-            cursor: 'pointer',
-            color: '#213126',
-            fontSize: '0.9rem',
-            '&:hover': { textDecoration: 'underline' },
-          }}
-          onClick={handleVolverInicio}
-        >
-          &larr; Volver al inicio
-        </Box>
+
     </Box>
     </>
   );

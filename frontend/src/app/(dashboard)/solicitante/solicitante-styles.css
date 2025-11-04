@@ -18,6 +18,9 @@
   min-height: 100vh;
   font-family: 'Roboto', sans-serif;
   background-color: var(--color-bg-light);
+  /* Eliminar márgenes y paddings que causan el espacio */
+  margin: 0;
+  padding: 0;
 }
 
 /* Main Content */
@@ -26,6 +29,9 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  /* Asegurar que ocupe todo el espacio disponible */
+  margin: 0;
+  padding: 0;
 }
 
 .page-content {
@@ -33,6 +39,11 @@
   flex-grow: 1;
   max-width: 100%;
   overflow-x: hidden;
+  /* Eliminar márgenes que causan espacio */
+  margin: 0;
+  /* Asegurar que el contenido use todo el ancho disponible */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Component Styles */
@@ -56,11 +67,15 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   margin-bottom: 24px;
   border: 1px solid var(--color-border);
+  /* Asegurar que las cajas usen el ancho completo */
+  width: 100%;
+  box-sizing: border-box;
 }
 
-/* Summary Cards */
+/* Summary Cards - CORREGIDO para eliminar espacios */
 .metrics-grid {
   margin-bottom: 24px;
+  width: 100%;
 }
 
 .summary-card {
@@ -69,6 +84,8 @@
   border: 1px solid var(--color-border);
   border-radius: 12px;
   overflow: hidden;
+  /* Asegurar que las tarjetas usen el ancho completo de su contenedor */
+  width: 100%;
 }
 
 .summary-card:hover {
@@ -105,6 +122,21 @@
 .card-subtitle {
   color: var(--color-text-light);
   line-height: 1.4;
+}
+
+/* Contenedor de métricas - CORREGIDO */
+.metrics-container {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  margin-bottom: 24px;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.metric-card {
+  flex: 1;
+  min-width: 0; /* Permite que las tarjetas se reduzcan */
 }
 
 /* Tabs */
@@ -245,9 +277,14 @@
     border-radius: 8px;
   }
   
-  .metrics-grid {
+  .metrics-container {
+    flex-direction: column;
     gap: 12px;
     margin-bottom: 20px;
+  }
+  
+  .metric-card {
+    width: 100%;
   }
   
   .summary-card {
@@ -288,7 +325,7 @@
     border-radius: 6px;
   }
   
-  .metrics-grid {
+  .metrics-container {
     gap: 8px;
   }
   
@@ -394,4 +431,39 @@
   .section-spacing {
     margin-bottom: 16px;
   }
+}
+
+/* CORRECCIÓN ESPECÍFICA PARA EL ESPACIO CON EL MENÚ LATERAL */
+.dashboard-container {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+.main-content {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+/* Asegurar que el contenido principal ocupe todo el espacio disponible */
+.page-content {
+  margin-left: 0;
+  padding-left: 16px;
+  padding-right: 16px;
+  width: calc(100% - 32px);
+}
+
+/* Si hay un sidebar, ajustar el margen */
+.dashboard-container.with-sidebar .main-content {
+  margin-left: var(--sidebar-width);
+}
+
+/* Eliminar cualquier padding/margin global que cause el espacio */
+body {
+  margin: 0;
+  padding: 0;
+}
+
+#__next {
+  margin: 0;
+  padding: 0;
 }

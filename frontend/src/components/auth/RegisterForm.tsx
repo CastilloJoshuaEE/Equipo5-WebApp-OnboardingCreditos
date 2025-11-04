@@ -1,5 +1,5 @@
 'use client';
-
+import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -210,6 +210,42 @@ useEffect(() => {
             justifyContent: 'space-around',
           }}
         >
+                            <Box
+                              sx={{
+                                textAlign: 'center',
+                                py: '15px',
+                                cursor: 'pointer',
+                                color: '#213126',
+                                fontSize: '0.9rem',
+                                '&:hover': { textDecoration: 'underline' },
+                              }}
+                              onClick={handleVolverInicio}
+                            >
+                              &larr; Volver al inicio
+                            </Box>
+                    {/* Logo */}
+                    <Box sx={{ mb: 2 }}>
+                      <Image
+                        src="/images/auth/logoVariante3.png"
+                        alt="Logo plataforma"
+                        width={180}
+                        height={60}
+                        style={{ display: 'block', margin: '0 auto' }}
+                      />
+                    </Box>
+          
+                    {/* Título */}
+                    <Typography
+                      variant="h2"
+                      sx={{
+                        fontSize: '1.5rem',
+                        textAlign: 'center',
+                        mb: 2,
+                        color: '#213126',
+                      }}
+                    >
+                      Plataforma de créditos para PYMES
+                    </Typography>
           <Typography
             variant="h1"
             sx={{ fontSize: '1.6rem', textAlign: 'center', fontWeight: 'bold', mb: 2 }}
@@ -471,21 +507,6 @@ useEffect(() => {
           </Box>
         </Fade>
       </Box>
-
-      {/* Enlace para volver al inicio */}
-        <Box
-          sx={{
-            textAlign: 'center',
-            py: '15px',
-            cursor: 'pointer',
-            color: '#213126',
-            fontSize: '0.9rem',
-            '&:hover': { textDecoration: 'underline' },
-          }}
-          onClick={handleVolverInicio}
-        >
-          &larr; Volver al inicio
-        </Box>
       <Box sx={{ mt: 1, mb: 2 }}>
     
 </Box>
