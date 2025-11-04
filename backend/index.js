@@ -8,8 +8,6 @@ const swaggerJsDoc = require("swagger-jsdoc");
 const routes = require("./routes/routes");
 const routesFirmas = require('./routes/routes');
 const corsOptions = require('./config/cors');
-
-const datosIniciales = require("./datos_iniciales");
 const { verificarConexion } = require("./config/conexion");
 const { configurarStorage } = require("./config/configStorage");
 const { proteger, autorizar } = require("./middleware/auth"); // . AGREGAR ESTA IMPORTACIÓN
@@ -202,14 +200,6 @@ const iniciarServidor = async () => {
     }
 
     console.log(". Conectado a Supabase PostgreSQL");
-
-    // Ejecutar datos iniciales
-    console.log(". Cargando datos iniciales...");
-    try {
-      await datosIniciales();
-    } catch (error) {
-      console.log(". Error en datos iniciales:", error.message);
-    }
 
     console.log(' Verificando configuración de Storage...');
     await configurarStorage();
