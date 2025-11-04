@@ -47,8 +47,8 @@ La plataforma incluirá paneles para operadores con filtros y tareas.
 - Chat de soporte (bot o humano) para dudas.
 ### Enlaces del Proyecto
 
-Frontend (Next.js desplegado en Render):
-🔗 https://equipo5-webapp-onboardingcreditos-orxk.onrender.com
+Frontend (Next.js desplegado en Vercel):
+🔗 https://nexia-sigma.vercel.app/ 
 
 Backend (API REST desplegada en Render):
 🔗 https://equipo5-webapp-onboardingcreditos-backend.onrender.com/api
