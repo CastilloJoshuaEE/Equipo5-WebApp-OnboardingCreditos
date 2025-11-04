@@ -4936,7 +4936,40 @@ router.get('/firmas/descargar-contrato-firmado/:firma_id',
  *       - bearerAuth: []
  */
 router.get('/:firma_id/documento-actual', FirmaDigitalController.obtenerDocumentoActual);
-
+/**
+ * @swagger
+ * /api/usuario/eliminar-cuenta:
+ *   delete:
+ *     summary: Eliminar cuenta completamente
+ *     tags: [Usuario]
+ *     description: Elimina permanentemente todos los datos del usuario del sistema
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - password
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 description: Contraseña actual para confirmar la eliminación
+ *     responses:
+ *       200:
+ *         description: Cuenta eliminada completamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessResponse'
+ *       400:
+ *         description: Contraseña incorrecta o datos inválidos
+ *       401:
+ *         description: No autorizado
+ */
+router.delete('/usuario/eliminar-cuenta', AuthMiddleware.proteger, usuariosController.eliminarCuentaCompletamente);
 /**
  * @swagger
  * /api/{firma_id}/verificar-integridad:

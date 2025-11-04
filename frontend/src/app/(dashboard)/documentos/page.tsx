@@ -279,14 +279,14 @@ export default function DocumentosOperadorPage() {
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
             
-            console.log('✅ Contrato firmado descargado exitosamente');
+            console.log('. Contrato firmado descargado exitosamente');
         } else {
             const errorData = await response.json();
-            console.error('❌ Error descargando contrato:', errorData);
+            console.error('. Error descargando contrato:', errorData);
             alert(errorData.message || 'Error al descargar el contrato firmado');
         }
     } catch (error) {
-        console.error('❌ Error de conexión:', error);
+        console.error('. Error de conexión:', error);
         alert('Error de conexión al descargar contrato firmado');
     }
   };

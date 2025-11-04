@@ -6,6 +6,11 @@ import {
   EditarPerfilInput,
   PerfilUsuario 
 } from '@/types/usuario.types';
+interface ApiResponse<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+}
 
 export const UsuarioService = {
 
@@ -115,5 +120,17 @@ export const UsuarioService = {
       console.error('Error obteniendo configuración de cuenta:', error);
       throw new Error('No se pudo obtener la configuración de la cuenta');
     }
-  }
+  },
+    eliminarCuentaCompletamente: async (password: string): Promise<ApiResponse<{ message: string }>> => {
+    try {
+      const response = await api.delete('/usuario/eliminar-cuenta', {
+        data: { password }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error eliminando cuenta:', error);
+      throw new Error(error.response?.data?.message || 'Error al eliminar la cuenta completamente');
+    }
+  },
+
 };
