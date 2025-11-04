@@ -19,7 +19,8 @@ import {
   Chip,
   Divider,
   CircularProgress,
-  Snackbar
+  Snackbar,
+  
 } from '@mui/material';
 import { 
   Person, 
@@ -32,7 +33,8 @@ import {
   DesktopWindows,
   Dashboard,
   CreditCard,
-  Notifications
+  Notifications,
+  Warning
 } from '@mui/icons-material';
 import { useSession, signOut } from 'next-auth/react';
 import { UsuarioService } from '@/services/usuario.service';
@@ -42,7 +44,7 @@ import DesactivarCuentaModal from '@/components/usuario/DesactivarCuentaModal';
 import EmailRecuperacionForm from '@/components/usuario/EmailRecuperacionForm';
 import CambiarContrasenaForm from '@/components/usuario/CambiarContrasenaForm';
 import '@/styles/tabs.css';
-
+import EliminarCuentaModal from '@/components/usuario/EliminarCuentaModal';
 export default function PerfilCompleto() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState('personal-info');
@@ -54,6 +56,46 @@ export default function PerfilCompleto() {
   const [modalCambiarContrasenaOpen, setModalCambiarContrasenaOpen] = useState<boolean>(false);
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   const [redirecting, setRedirecting] = useState<boolean>(false);
+const [modalEliminarOpen, setModalEliminarOpen] = useState<boolean>(false);
+const handleEliminarCuenta = async (password: string): Promise<void> => {
+  try {
+    if (!session?.accessToken) {
+      throw new Error('No estás autenticado');
+    }
+
+    const response = await UsuarioService.eliminarCuentaCompletamente(password);
+    
+    if (response.success) {
+      setMessage('Cuenta eliminada completamente. Serás redirigido...');
+      setSnackbarOpen(true);
+
+      // Limpiar todo el localStorage
+      localStorage.clear();
+      
+      // Limpiar sessionStorage
+      sessionStorage.clear();
+
+      // Salir y redirigir al login
+      setTimeout(async () => {
+        try {
+          await signOut({ 
+            callbackUrl: '/login?message=cuenta_eliminada',
+            redirect: true 
+          });
+        } catch (logoutError) {
+          console.error('Error durante logout:', logoutError);
+          window.location.href = '/login?message=cuenta_eliminada';
+        }
+      }, 2000);
+
+    } else {
+      throw new Error(response.message || 'Error al eliminar la cuenta');
+    }
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Error al eliminar la cuenta';
+    throw new Error(errorMessage);
+  }
+};
 
   useEffect(() => {
     cargarPerfilCompleto();
@@ -420,6 +462,29 @@ export default function PerfilCompleto() {
                   >
                     Desactivar mi cuenta
                   </Button>
+                  <Box sx={{ mt: 3, p: 2, border: '1px solid', borderColor: 'error.main', borderRadius: 1 }}>
+  <Typography variant="h6" gutterBottom color="error">
+    Eliminación Completa de Cuenta
+  </Typography>
+  <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+    Esta acción eliminará permanentemente todos tus datos del sistema. 
+    Se borrarán solicitudes, documentos, historial y toda información asociada a tu cuenta.
+    Esta acción es irreversible.
+  </Typography>
+  <Button
+    variant="contained"
+    color="error"
+    onClick={() => setModalEliminarOpen(true)}
+    startIcon={<Warning />}
+  >
+    Eliminar Cuenta Permanentemente
+  </Button>
+</Box>
+<EliminarCuentaModal
+  open={modalEliminarOpen}
+  onClose={() => setModalEliminarOpen(false)}
+  onConfirm={handleEliminarCuenta}
+/>
                 </Box>
               </Card>
             </Box>
@@ -452,5 +517,6 @@ export default function PerfilCompleto() {
         message={message}
       />
     </Container>
+    
   );
 }

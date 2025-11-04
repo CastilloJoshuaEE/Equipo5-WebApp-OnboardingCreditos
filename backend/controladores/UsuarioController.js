@@ -1384,6 +1384,175 @@ static async obtenerPerfilUsuario(req, res) {
   static async compararHashContrasena(contrasena, hash) {
     return await bcrypt.compare(contrasena, hash);
   }
+static async eliminarCuentaCompletamente(req, res) {
+  try {
+    console.log('🗑️ Eliminando cuenta completamente para usuario ID:', req.usuario.id);
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña es requerida para eliminar la cuenta'
+      });
+    }
+
+    // Verificar contraseña
+    const { supabase } = require('../config/conexion.js');
+    const { data: verifyData, error: verifyError } = await supabase.auth.signInWithPassword({
+      email: req.usuario.email,
+      password: password
+    });
+
+    if (verifyError) {
+      console.error('Error verificando contraseña:', verifyError);
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña es incorrecta'
+      });
+    }
+
+    const usuarioId = req.usuario.id;
+    
+    console.log('📋 Ejecutando función de eliminación para usuario:', usuarioId);
+    
+    // Primero eliminar datos de la base de datos
+    const { data: result, error: transactionError } = await supabase.rpc('eliminar_usuario_completamente', {
+      p_usuario_id: usuarioId
+    });
+
+    if (transactionError) {
+      console.error('Error en transacción de eliminación:', transactionError);
+      
+      // Si la función no existe, ejecutar las eliminaciones manualmente
+      if (transactionError.message.includes('function eliminar_usuario_completamente(uuid) does not exist')) {
+        console.log('⚠️ Función no existe, ejecutando eliminaciones manualmente...');
+        await UsuarioController.ejecutarEliminacionManual(usuarioId);
+      } else {
+        throw new Error('Error al eliminar los datos del usuario: ' + transactionError.message);
+      }
+    }
+
+    // Luego eliminar usuario de Supabase Auth usando el servicio admin
+    try {
+      console.log('🔐 Eliminando usuario de Supabase Auth...');
+      const { supabaseAdmin } = require('../config/supabaseAdmin');
+      const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(usuarioId);
+      
+      if (deleteAuthError) {
+        console.warn('⚠️ No se pudo eliminar usuario de auth:', deleteAuthError.message);
+        // Continuamos aunque falle la eliminación en auth, porque los datos principales ya se eliminaron
+      } else {
+        console.log('. Usuario eliminado de auth correctamente');
+      }
+    } catch (authError) {
+      console.warn('⚠️ Error eliminando usuario de auth:', authError.message);
+    }
+
+    // Cerrar sesión
+    await supabase.auth.signOut();
+
+    console.log('. Cuenta eliminada completamente para:', req.usuario.email);
+    
+    res.json({
+      success: true,
+      message: 'Cuenta eliminada completamente. Serás redirigido...',
+      data: {
+        usuario_id: usuarioId,
+        fecha_eliminacion: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('. Error en eliminarCuentaCompletamente:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Error al eliminar la cuenta completamente'
+    });
+  }
+}
+
+// Método auxiliar para eliminación manual si la función no existe
+static async ejecutarEliminacionManual(usuarioId) {
+  try {
+    console.log('🛠️ Ejecutando eliminación manual para usuario:', usuarioId);
+    
+    const { supabase } = require('../config/conexion.js');
+    
+    // Ejecutar las eliminaciones en el orden correcto
+    const queries = [
+      // 1. Eliminar auditoría
+      `DELETE FROM auditoria WHERE usuario_id = '${usuarioId}' OR solicitud_id IN (SELECT id FROM solicitudes_credito WHERE solicitante_id = '${usuarioId}' OR operador_id = '${usuarioId}')`,
+      
+      // 2. Eliminar auditoría de firmas
+      `DELETE FROM auditoria_firmas WHERE usuario_id = '${usuarioId}' OR firma_id IN (SELECT id FROM firmas_digitales WHERE solicitud_id IN (SELECT id FROM solicitudes_credito WHERE solicitante_id = '${usuarioId}' OR operador_id = '${usuarioId}'))`,
+      
+      // 3. Eliminar interacciones del chatbot
+      `DELETE FROM chatbot_interacciones WHERE usuario_id = '${usuarioId}'`,
+      
+      // 4. Eliminar intentos de login
+      `DELETE FROM intentos_login WHERE usuario_id = '${usuarioId}'`,
+      
+      // 5. Eliminar historial de contraseñas
+      `DELETE FROM historial_contrasenas WHERE usuario_id = '${usuarioId}'`,
+      
+      // 6. Eliminar notificaciones
+      `DELETE FROM notificaciones WHERE usuario_id = '${usuarioId}' OR solicitud_id IN (SELECT id FROM solicitudes_credito WHERE solicitante_id = '${usuarioId}' OR operador_id = '${usuarioId}')`,
+      
+      // 7. Eliminar comentarios
+      `DELETE FROM comentarios_solicitud WHERE usuario_id = '${usuarioId}' OR solicitud_id IN (SELECT id FROM solicitudes_credito WHERE solicitante_id = '${usuarioId}' OR operador_id = '${usuarioId}')`,
+      
+      // 8. Eliminar condiciones de aprobación
+      `DELETE FROM condiciones_aprobacion WHERE creado_por = '${usuarioId}'`,
+      
+      // 9. Eliminar solicitudes de información
+      `DELETE FROM solicitudes_informacion WHERE solicitado_por = '${usuarioId}'`,
+      
+      // 10. Eliminar verificaciones KYC
+      `DELETE FROM verificaciones_kyc WHERE solicitud_id IN (SELECT id FROM solicitudes_credito WHERE solicitante_id = '${usuarioId}')`,
+      
+      // 11. Eliminar documentos
+      `DELETE FROM documentos WHERE solicitud_id IN (SELECT id FROM solicitudes_credito WHERE solicitante_id = '${usuarioId}' OR operador_id = '${usuarioId}')`,
+      
+      // 12. Eliminar firmas digitales
+      `DELETE FROM firmas_digitales WHERE solicitud_id IN (SELECT id FROM solicitudes_credito WHERE solicitante_id = '${usuarioId}' OR operador_id = '${usuarioId}')`,
+      
+      // 13. Eliminar transferencias
+      `DELETE FROM transferencias_bancarias WHERE contrato_id IN (SELECT id FROM contratos WHERE solicitud_id IN (SELECT id FROM solicitudes_credito WHERE solicitante_id = '${usuarioId}' OR operador_id = '${usuarioId}'))`,
+      
+      // 14. Eliminar contratos
+      `DELETE FROM contratos WHERE solicitud_id IN (SELECT id FROM solicitudes_credito WHERE solicitante_id = '${usuarioId}' OR operador_id = '${usuarioId}')`,
+      
+      // 15. Eliminar solicitudes de crédito
+      `DELETE FROM solicitudes_credito WHERE solicitante_id = '${usuarioId}' OR operador_id = '${usuarioId}'`,
+      
+      // 16. Eliminar contactos bancarios
+      `DELETE FROM contactos_bancarios WHERE solicitante_id = '${usuarioId}'`,
+      
+      // 17. Eliminar registros de roles específicos
+      `DELETE FROM operadores WHERE id = '${usuarioId}'`,
+      `DELETE FROM solicitantes WHERE id = '${usuarioId}'`,
+      
+      // 18. Finalmente eliminar el usuario principal
+      `DELETE FROM usuarios WHERE id = '${usuarioId}'`
+    ];
+
+    // Ejecutar cada query secuencialmente
+    for (const query of queries) {
+      console.log(`📝 Ejecutando: ${query.substring(0, 100)}...`);
+      const { error } = await supabase.rpc('exec_sql', { sql_query: query });
+      if (error) {
+        console.warn(`⚠️ Advertencia en query: ${error.message}`);
+        // Continuar con las siguientes eliminaciones
+      }
+    }
+    
+    console.log('. Eliminación manual completada para usuario:', usuarioId);
+    
+  } catch (error) {
+    console.error('. Error en eliminación manual:', error);
+    throw error;
+  }
+}
 }
   
 module.exports= UsuarioController;
