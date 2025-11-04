@@ -548,7 +548,7 @@ const formatMonto = (monto: number, moneda?: string) => {
   fullWidth
 >
   <DialogContent sx={{ p: 0, position: 'relative', height: '80vh' }}>
-    {/* ✅ Botón de cerrar arriba a la derecha */}
+    {/* . Botón de cerrar arriba a la derecha */}
     <Box
       sx={{
         position: 'absolute',
@@ -573,7 +573,7 @@ const formatMonto = (monto: number, moneda?: string) => {
       </Tooltip>
     </Box>
 
-    {/* ✅ Vista previa del documento */}
+    {/* . Vista previa del documento */}
     {urlVistaPrevia ? (
       <iframe
         src={urlVistaPrevia}

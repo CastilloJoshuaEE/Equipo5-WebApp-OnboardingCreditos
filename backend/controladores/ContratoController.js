@@ -292,7 +292,7 @@ class ContratoController {
      */
     static async generarWordContrato(contratoId, solicitud) {
         try {
-            console.log('📄 Generando word para contrato:', contratoId);
+            console.log('. Generando word para contrato:', contratoId);
 
             // Generar contenido DOCX
             const pdfBuffer = await ContratoController.crearDOCXContrato(solicitud);

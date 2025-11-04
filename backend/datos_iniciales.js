@@ -202,7 +202,6 @@ const crearUsuariosAuth = async () => {
         
         if (getUserError || !existingUser || !existingUser.user) {
           // Si no existe, crearlo
-          console.log(`➡️  Creando nuevo usuario: ${usuario.email}`);
           const { data, error: createError } = await supabaseAdmin.auth.admin.createUser({
             email: usuario.email,
             password: usuario.password,

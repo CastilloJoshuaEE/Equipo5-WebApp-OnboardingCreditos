@@ -895,7 +895,7 @@ class DocumentoController {
             const { solicitud_id } = req.params;
             const usuario = req.usuario;
 
-            console.log(`📄 Obteniendo documentos de contrato para solicitud: ${solicitud_id}`);
+            console.log(`. Obteniendo documentos de contrato para solicitud: ${solicitud_id}`);
 
             // Verificar permisos según rol
             let query = supabase
@@ -1495,13 +1495,13 @@ static async obtenerMisSolicitudesConDocumentos(req, res) {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ Error en consulta de solicitante:', error);
+        console.error('. Error en consulta de solicitante:', error);
         throw error;
       }
 
       solicitudes = solicitudesData || [];
 
-      // ✅ CORRECCIÓN CRÍTICA: Obtener firmas digitales para TODOS los contratos
+      // . CORRECCIÓN CRÍTICA: Obtener firmas digitales para TODOS los contratos
       if (solicitudes.length > 0) {
         const contratosIds = [];
         
@@ -1526,9 +1526,9 @@ static async obtenerMisSolicitudesConDocumentos(req, res) {
             .in('contrato_id', contratosIds);
 
           if (firmasError) {
-            console.error('❌ Error obteniendo firmas digitales:', firmasError);
+            console.error('. Error obteniendo firmas digitales:', firmasError);
           } else {
-            console.log(`✅ Encontradas ${firmasDigitales?.length || 0} firmas digitales`);
+            console.log(`. Encontradas ${firmasDigitales?.length || 0} firmas digitales`);
             
             // Asociar firmas a sus contratos correspondientes
             solicitudes = solicitudes.map(solicitud => {
@@ -1576,7 +1576,7 @@ static async obtenerMisSolicitudesConDocumentos(req, res) {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ Error en consulta de operador:', error);
+        console.error('. Error en consulta de operador:', error);
         throw error;
       }
 
@@ -1588,7 +1588,7 @@ static async obtenerMisSolicitudesConDocumentos(req, res) {
       });
     }
 
-    console.log(`✅ Encontradas ${solicitudes?.length || 0} solicitudes con documentos`);
+    console.log(`. Encontradas ${solicitudes?.length || 0} solicitudes con documentos`);
 
     res.json({
       success: true,
@@ -1596,7 +1596,7 @@ static async obtenerMisSolicitudesConDocumentos(req, res) {
     });
 
   } catch (error) {
-    console.error('❌ Error obteniendo solicitudes con documentos:', error);
+    console.error('. Error obteniendo solicitudes con documentos:', error);
     res.status(500).json({
       success: false,
       message: 'Error al obtener solicitudes con documentos',

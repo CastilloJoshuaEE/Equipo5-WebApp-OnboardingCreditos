@@ -17,8 +17,9 @@ class ConfirmacionController {
     // o selecciona automáticamente una de las dos URLs válidas
     return (
       process.env.FRONTEND_URL ||
-      'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com' || // Render
-      'https://nexia-sigma.vercel.app'        // Vercel
+      'https://nexia-sigma.vercel.app'|| // Render
+      'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com' 
+             
     );
   }
 

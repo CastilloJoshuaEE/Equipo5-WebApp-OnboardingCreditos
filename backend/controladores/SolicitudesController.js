@@ -352,7 +352,7 @@ static async aprobarSolicitud(req, res) {
     try {
       const contrato = await ContratoController.generarContratoParaSolicitud(solicitud_id);
       
-      console.log(`📄 Contrato generado para solicitud ${solicitud_id}: ${contrato.id}`);
+      console.log(`. Contrato generado para solicitud ${solicitud_id}: ${contrato.id}`);
       
       // NOTIFICAR AL SOLICITANTE SOBRE LA APROBACIÓN Y PRÓXIMOS PASOS
       await NotificacionService.notificarAprobacionSolicitud(

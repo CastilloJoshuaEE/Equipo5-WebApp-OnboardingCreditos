@@ -802,7 +802,7 @@ if (!contratoExistente) {
             console.error('. . Documento no encontrado en storage:', fileError);
             
             try {
-                console.log('. 🔄 Regenerando documento...');
+                console.log('. . Regenerando documento...');
                 await ContratoController.generarWordContrato(contratoFinal.id, solicitud);
                 
                 const { data: fileDataRetry, error: fileErrorRetry } = await supabase.storage
@@ -1236,7 +1236,7 @@ if (!contratoExistente) {
                 success: true,
                 message: esIntegridadValida ? 
                     '. CONTRATO COMPLETAMENTE FIRMADO - Integridad válida' : 
-                    '📝 Firma procesada exitosamente - Esperando contrafirma',
+                    '. Firma procesada exitosamente - Esperando contrafirma',
                 data: {
                     firma_id: firma_id,
                     estado: nuevoEstado,
@@ -1564,7 +1564,7 @@ if (!contratoExistente) {
             // Notificar a todas las partes
             await NotificacionesController.notificarFirmaCompletada(firma.contrato_id, firma.solicitud_id);
 
-            console.log('📄 Contrato completamente firmado:', firma.contrato_id);
+            console.log('. Contrato completamente firmado:', firma.contrato_id);
 
         } catch (error) {
             console.error('. Error marcando firma como completa:', error);

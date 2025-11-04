@@ -3,7 +3,8 @@ const brevoAPIService = require('./emailBrevoAPIService');
 const getFrontendUrl = () => {
   // En producción, usar siempre el dominio de Render
   if (process.env.NODE_ENV === 'production') {
-    return 'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
+    return 'https://nexia-sigma.vercel.app';
+    //'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com';
   }
   
   // En desarrollo

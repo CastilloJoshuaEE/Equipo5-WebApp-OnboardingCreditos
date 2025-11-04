@@ -235,7 +235,7 @@ const handleFirmarDocumento = async (documentoFirmado: DocumentoFirmado) => {
         
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-        console.log('📝 Enviando firma acumulativa...', { tipoFirma, firma_id });
+        console.log('. Enviando firma acumulativa...', { tipoFirma, firma_id });
 
         // . USAR EL NUEVO ENDPOINT
         const response = await fetch(`${API_URL}/firmas/procesar-firma-word/${firma_id}`, {
@@ -251,7 +251,7 @@ const handleFirmarDocumento = async (documentoFirmado: DocumentoFirmado) => {
         });
 
         const result = await response.json();
-        console.log('📄 Resultado de firma acumulativa:', result);
+        console.log('. Resultado de firma acumulativa:', result);
 
         if (result.success) {
             setFirmaCompletada(true);
@@ -263,7 +263,7 @@ const handleFirmarDocumento = async (documentoFirmado: DocumentoFirmado) => {
                 // Mostrar mensaje de éxito completo
             } else {
                 // Mostrar mensaje de éxito parcial
-                setError('📝 Firma procesada exitosamente - Esperando contrafirma');
+                setError('. Firma procesada exitosamente - Esperando contrafirma');
                 setTimeout(() => setError(''), 5000);
             }
         } else {

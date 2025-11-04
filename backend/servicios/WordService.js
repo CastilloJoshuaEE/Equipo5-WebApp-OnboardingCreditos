@@ -11,7 +11,7 @@ class WordService {
      */
    static async procesarFirmaAcumulativa(firma_id, datosFirma, tipo) {
     try {
-        console.log('. 🔄 Procesando firma acumulativa CORREGIDA para:', firma_id);
+        console.log('. . Procesando firma acumulativa CORREGIDA para:', firma_id);
 
         // 1. Obtener información COMPLETA de la firma con estado actual
         const { data: firma, error: firmaError } = await supabase
@@ -757,7 +757,7 @@ static formatearContenidoContrato(contenido) {
      */
     static async subirDocumento(nombreArchivo, buffer, metadatos = {}) {
         try {
-            console.log('📄 Subiendo documento a Supabase Storage:', {
+            console.log('. Subiendo documento a Supabase Storage:', {
                 nombreArchivo,
                 tamanio: buffer.length,
                 metadatos

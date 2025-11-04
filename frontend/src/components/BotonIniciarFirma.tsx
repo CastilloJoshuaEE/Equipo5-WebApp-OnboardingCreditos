@@ -244,7 +244,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         return;
       }
 
-      console.log('📝 Iniciando firma para solicitud:', solicitudId);
+      console.log('. Iniciando firma para solicitud:', solicitudId);
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       
@@ -261,7 +261,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         }),
       });
 
-      console.log('🔄 Respuesta de reinicio:', reinicioResponse.status);
+      console.log('. Respuesta de reinicio:', reinicioResponse.status);
 
       // Luego iniciar el nuevo proceso
       setOverlayMessage('Creando nuevo proceso de firma...');
@@ -310,7 +310,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
       }
 
       const result = await response.json();
-      console.log('📄 Resultado de firma:', result);
+      console.log('. Resultado de firma:', result);
 
       if (result.success) {
         console.log('. Firma iniciada exitosamente');
@@ -318,7 +318,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         onFirmaIniciada(result.data);
         
         if (result.data.firma?.id) {
-          console.log('🔄 Redirigiendo a:', `/firmar-contrato/${result.data.firma.id}`);
+          console.log('. Redirigiendo a:', `/firmar-contrato/${result.data.firma.id}`);
           setTimeout(() => {
             window.location.href = `/firmar-contrato/${result.data.firma.id}`;
           }, 1000);

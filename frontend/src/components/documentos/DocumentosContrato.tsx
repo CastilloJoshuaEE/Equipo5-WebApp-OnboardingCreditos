@@ -143,7 +143,7 @@ export const DocumentosContrato: React.FC<DocumentosContratoProps> = ({ solicitu
         <CardContent>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6" component="h2">
-              📄 Documentos del Contrato
+              . Documentos del Contrato
             </Typography>
             <Chip
               icon={getEstadoIcon(documentos.contrato.estado)}
