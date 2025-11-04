@@ -53,7 +53,6 @@ const allowedTypes = [
     }
   }
 });
-
 // ==================== COMPONENTS SCHEMAS ====================
 
 /**
@@ -305,6 +304,77 @@ const allowedTypes = [
  *           type: string
  *         informacion_extraida:
  *           type: object
+ * 
+ *     TransferenciaBancaria:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         solicitud_id:
+ *           type: string
+ *           format: uuid
+ *         contacto_bancario_id:
+ *           type: string
+ *           format: uuid
+ *         monto:
+ *           type: number
+ *         moneda:
+ *           type: string
+ *           enum: [ARS, USD]
+ *         concepto:
+ *           type: string
+ *         estado:
+ *           type: string
+ *           enum: [pendiente, completada, fallida]
+ *         fecha_creacion:
+ *           type: string
+ *           format: date-time
+ * 
+ *     ContactoBancario:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         numero_cuenta:
+ *           type: string
+ *         tipo_cuenta:
+ *           type: string
+ *           enum: [ahorros, corriente]
+ *         moneda:
+ *           type: string
+ *           enum: [USD, ARS]
+ *         nombre_banco:
+ *           type: string
+ *         email_contacto:
+ *           type: string
+ *           format: email
+ *         telefono_contacto:
+ *           type: string
+ * 
+ *     Notificacion:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         usuario_id:
+ *           type: string
+ *           format: uuid
+ *         titulo:
+ *           type: string
+ *         mensaje:
+ *           type: string
+ *         tipo:
+ *           type: string
+ *           enum: [sistema, solicitud, documento, transferencia]
+ *         leida:
+ *           type: boolean
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ * 
  *     Comentario:
  *       type: object
  *       properties:
@@ -403,47 +473,26 @@ const allowedTypes = [
  *               type: integer
  *               description: Número de comentarios no leídos
  *               example: 3
+ * 
+ *     ContadorNotificaciones:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         data:
+ *           type: object
+ *           properties:
+ *             count:
+ *               type: integer
+ *               description: Número de notificaciones no leídas
+ *               example: 3
+ * 
  *   securitySchemes:
  *     bearerAuth:
  *       type: http
  *       scheme: bearer
  *       bearerFormat: JWT
- */
-/**
- * @swagger
- * tags:
- *   - name: Autenticación
- *     description: Endpoints de autenticación y gestión de usuarios
- *   - name: Confirmación
- *     description: Endpoints de confirmación de email
- *   - name: Usuario
- *     description: Endpoints de gestión de perfil de usuario
- *   - name: Contraseña
- *     description: Endpoints de gestión de contraseñas
- *   - name: Cuenta
- *     description: Endpoints de gestión de cuenta
- *   - name: Administración
- *     description: Endpoints administrativos
- *   - name: Solicitudes
- *     description: Endpoints de gestión de solicitudes de crédito
- *   - name: Documentos
- *     description: Endpoints de gestión de documentos
- *   - name: Operadores
- *     description: Endpoints específicos para operadores
- *   - name: KYC/AML
- *     description: Endpoints de verificación KYC/AML
- *   - name: Comentarios
- *     description: Endpoints para gestión de comentarios entre operadores y solicitantes
- *   - name: Estadísticas
- *     description: Endpoints de estadísticas del sistema
- *   - name: Webhooks
- *     description: Endpoints para webhooks externos
- *   - name: Notificaciones
- *     description: Endpoints de gestión de notificaciones
- * 
- * @swagger
- * security:
- *   - bearerAuth: []
  */
 // ==================== RUTAS DE CONFIRMACIÓN ====================
 
@@ -1578,6 +1627,32 @@ router.post("/auth/refresh", authController.refreshToken);
  *         description: Sin permisos (para operadores)
  */
 router.post('/solicitudes', AuthMiddleware.proteger, SolicitudesController.crearSolicitud);
+/**
+ * @swagger
+ * /api/solicitudes:
+ *   get:
+ *     summary: Obtener mis solicitudes
+ *     tags: [Solicitudes]
+ *     description: Obtiene las solicitudes del usuario autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de solicitudes obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/SolicitudCredito'
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ */
 router.get('/solicitudes', AuthMiddleware.proteger, SolicitudesController.obtenerMisSolicitudes);
 
 /**
@@ -2601,6 +2676,7 @@ router.get('/operador/health', AuthMiddleware.proteger, AuthMiddleware.autorizar
     timestamp: new Date().toISOString()
   });
 });
+// ==================== RUTAS DE NOTIFICACIONES ====================
 
 /**
  * @swagger
@@ -3269,7 +3345,42 @@ router.get('/firmas/descargar/:firma_id',
 
     FirmaDigitalController.descargarDocumentoFirmado
 );
-// Agregar esta ruta en el backend si no existe
+// ==================== RUTAS DE CONTRATOS ====================
+
+/**
+ * @swagger
+ * /api/contratos/{contrato_id}/descargar-firmado:
+ *   get:
+ *     summary: Descargar contrato firmado
+ *     tags: [Contratos]
+ *     description: Descarga el documento de contrato firmado desde el storage
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: contrato_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del contrato
+ *     responses:
+ *       200:
+ *         description: Contrato descargado exitosamente
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Contrato no encontrado o documento no disponible
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         $ref: '#/components/responses/ErrorServidor'
+ */
 router.get('/contratos/:contrato_id/descargar-firmado', 
   AuthMiddleware.proteger,
   async (req, res) => {
@@ -4639,11 +4750,84 @@ router.get('/contactos-bancarios/buscar',
   AuthMiddleware.proteger, 
   ContactosBancariosController.buscarContactosPorNumeroCuenta
 );
+// ==================== RUTAS DE CONTACTOS BANCARIOS ====================
 
+/**
+ * @swagger
+ * /api/contactos-bancarios:
+ *   get:
+ *     summary: Obtener todos los contactos bancarios
+ *     tags: [Contactos Bancarios]
+ *     description: Obtiene todos los contactos bancarios del sistema (solo operadores)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de contactos bancarios obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             format: uuid
+ *                           numero_cuenta:
+ *                             type: string
+ *                           tipo_cuenta:
+ *                             type: string
+ *                             enum: [ahorros, corriente]
+ *                           moneda:
+ *                             type: string
+ *                             enum: [USD, ARS]
+ *                           nombre_banco:
+ *                             type: string
+ *                           email_contacto:
+ *                             type: string
+ *                           telefono_contacto:
+ *                             type: string
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       403:
+ *         $ref: '#/components/responses/Prohibido'
+ */
 router.get('/contactos-bancarios', 
   AuthMiddleware.proteger, 
   ContactosBancariosController.obtenerTodosContactos
 );
+/**
+ * @swagger
+ * /api/contactos-bancarios/mis-contactos:
+ *   get:
+ *     summary: Obtener mis contactos bancarios
+ *     tags: [Contactos Bancarios]
+ *     description: Obtiene los contactos bancarios del operador autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de contactos bancarios obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ */
 router.get('/contactos-bancarios/mis-contactos', 
   AuthMiddleware.proteger, 
   ContactosBancariosController.obtenerContactosOperador
@@ -4765,22 +4949,205 @@ router.post('/contactos-bancarios',
   AuthMiddleware.proteger, 
   ContactosBancariosController.crearContacto
 );
+/**
+ * @swagger
+ * /api/transferencias/habilitacion/{solicitud_id}:
+ *   get:
+ *     summary: Verificar habilitación para transferencia
+ *     tags: [Transferencias]
+ *     description: Verifica si una solicitud está habilitada para realizar transferencia
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Estado de habilitación obtenido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         habilitado:
+ *                           type: boolean
+ *                         motivo:
+ *                           type: string
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       404:
+ *         description: Solicitud no encontrada
+ */
 router.get('/transferencias/habilitacion/:solicitud_id', 
   AuthMiddleware.proteger, 
   TransferenciasBancariasController.verificarHabilitacionTransferencia
 );
-
+/**
+ * @swagger
+ * /api/transferencias:
+ *   post:
+ *     summary: Crear nueva transferencia bancaria
+ *     tags: [Transferencias]
+ *     description: Crea una nueva transferencia bancaria (solo operadores)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - solicitud_id
+ *               - contacto_bancario_id
+ *               - monto
+ *             properties:
+ *               solicitud_id:
+ *                 type: string
+ *                 format: uuid
+ *               contacto_bancario_id:
+ *                 type: string
+ *                 format: uuid
+ *               monto:
+ *                 type: number
+ *                 minimum: 0.01
+ *               concepto:
+ *                 type: string
+ *               moneda:
+ *                 type: string
+ *                 enum: [ARS, USD]
+ *                 default: ARS
+ *     responses:
+ *       201:
+ *         description: Transferencia creada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         transferencia:
+ *                           type: object
+ *       400:
+ *         description: Datos inválidos o fondos insuficientes
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       403:
+ *         $ref: '#/components/responses/Prohibido'
+ */
 router.post('/transferencias', 
   AuthMiddleware.proteger, 
   AuthMiddleware.autorizar('operador'), 
   TransferenciasBancariasController.crearTransferencia
 );
-
+/**
+ * @swagger
+ * /api/transferencias/comprobante/{transferencia_id}:
+ *   get:
+ *     summary: Obtener comprobante de transferencia
+ *     tags: [Transferencias]
+ *     description: Obtiene el comprobante de una transferencia específica
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: transferencia_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la transferencia
+ *     responses:
+ *       200:
+ *         description: Comprobante obtenido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         comprobante:
+ *                           type: object
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       404:
+ *         description: Transferencia no encontrada
+ */
 router.get('/transferencias/comprobante/:transferencia_id', 
   AuthMiddleware.proteger, 
   TransferenciasBancariasController.obtenerComprobante
 );
-
+/**
+ * @swagger
+ * /api/transferencias/historial:
+ *   get:
+ *     summary: Obtener historial de transferencias
+ *     tags: [Transferencias]
+ *     description: Obtiene el historial de transferencias del usuario autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Número de página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Límite de resultados por página
+ *     responses:
+ *       200:
+ *         description: Historial obtenido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         page:
+ *                           type: integer
+ *                         limit:
+ *                           type: integer
+ *                         total:
+ *                           type: integer
+ *                         totalPages:
+ *                           type: integer
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ */
 router.get('/transferencias/historial', 
   AuthMiddleware.proteger, 
   TransferenciasBancariasController.obtenerHistorial
@@ -4859,11 +5226,188 @@ router.get('/transferencias/verificar-firma/:solicitud_id',
         }
     }
 );
-// Agregar estas rutas a tu archivo de rutas
+// ==================== RUTAS DE DOCUMENTOS ====================
+
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/contrato/documentos:
+ *   get:
+ *     summary: Obtener documentos de contrato
+ *     tags: [Documentos]
+ *     description: Obtiene los documentos asociados al contrato de una solicitud
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Documentos de contrato obtenidos exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Documento'
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       404:
+ *         description: Solicitud no encontrada
+ */
 router.get('/solicitudes/:solicitud_id/contrato/documentos', AuthMiddleware.proteger, DocumentoController.obtenerDocumentosContrato);
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/comprobantes:
+ *   get:
+ *     summary: Obtener comprobantes de transferencia
+ *     tags: [Documentos]
+ *     description: Obtiene los comprobantes de transferencia asociados a una solicitud
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Comprobantes obtenidos exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ */
 router.get('/solicitudes/:solicitud_id/comprobantes', AuthMiddleware.proteger, DocumentoController.obtenerComprobantesTransferencia);
+/**
+ * @swagger
+ * /api/contratos/{contrato_id}/descargar:
+ *   get:
+ *     summary: Descargar contrato
+ *     tags: [Documentos]
+ *     description: Descarga el documento de contrato original
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: contrato_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del contrato
+ *     responses:
+ *       200:
+ *         description: Contrato descargado exitosamente
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       404:
+ *         description: Contrato no encontrado
+ */
 router.get('/contratos/:contrato_id/descargar', AuthMiddleware.proteger, DocumentoController.descargarContrato);
+/**
+ * @swagger
+ * /api/transferencias/{transferencia_id}/comprobante/descargar:
+ *   get:
+ *     summary: Descargar comprobante de transferencia
+ *     tags: [Documentos]
+ *     description: Descarga el comprobante de una transferencia específica
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: transferencia_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la transferencia
+ *     responses:
+ *       200:
+ *         description: Comprobante descargado exitosamente
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       404:
+ *         description: Comprobante no encontrado
+ */
 router.get('/transferencias/:transferencia_id/comprobante/descargar', AuthMiddleware.proteger, DocumentoController.descargarComprobante);
+
+/**
+ * @swagger
+ * /api/documentos/{tipo}/{id}/ver:
+ *   get:
+ *     summary: Ver documento en navegador
+ *     tags: [Documentos]
+ *     description: Muestra un documento directamente en el navegador según tipo e ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tipo
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [contrato, comprobante, documento]
+ *         description: Tipo de documento
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del documento o recurso
+ *     responses:
+ *       200:
+ *         description: Documento mostrado exitosamente
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           image/jpeg:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           image/png:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ *       404:
+ *         description: Documento no encontrado
+ */
 router.get('/documentos/:tipo/:id/ver', AuthMiddleware.proteger, DocumentoController.verDocumento);
 
 /**
@@ -4881,15 +5425,78 @@ router.get('/documentos/:tipo/:id/ver', AuthMiddleware.proteger, DocumentoContro
 router.get('/operador/todos-los-documentos', 
   AuthMiddleware.proteger,
   AuthMiddleware.autorizar('operador'),
-  DocumentoController.obtenerTodosLosDocumentos // Asegúrate de que este método existe
+  DocumentoController.obtenerTodosLosDocumentos 
 );
-// Nueva ruta para listar documentos del storage
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/documentos-storage:
+ *   get:
+ *     summary: Listar documentos del storage
+ *     tags: [Documentos]
+ *     description: Lista los documentos almacenados en el storage para una solicitud
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Lista de documentos obtenida
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ */
 router.get('/solicitudes/:solicitud_id/documentos-storage', 
     AuthMiddleware.proteger, 
     DocumentoController.listarDocumentosStorage
 );
-
-// Ruta . para documentos de contrato
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}/contrato/documentos-completos:
+ *   get:
+ *     summary: Obtener documentos completos de contrato
+ *     tags: [Documentos]
+ *     description: Obtiene todos los documentos relacionados con el contrato de una solicitud
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Documentos completos obtenidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *       401:
+ *         $ref: '#/components/responses/NoAutorizado'
+ */
 router.get('/solicitudes/:solicitud_id/contrato/documentos-completos', 
     AuthMiddleware.proteger, 
     DocumentoController.obtenerDocumentosContrato
