@@ -263,7 +263,7 @@ const handleFirmarDocumento = async (documentoFirmado: DocumentoFirmado) => {
                 // Mostrar mensaje de éxito completo
             } else {
                 // Mostrar mensaje de éxito parcial
-                setError('. Firma procesada exitosamente - Esperando contrafirma');
+                setError('. Firma procesada exitosamente');
                 setTimeout(() => setError(''), 5000);
             }
         } else {
@@ -378,17 +378,6 @@ const handleDescargarContratoFirmado = async (firmaId: string) => {
   if (error && !infoFirma) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Alert 
-          severity="error" 
-          sx={{ mb: 2 }}
-          action={
-            <Button color="inherit" size="small" onClick={handleRetry}>
-              Reintentar
-            </Button>
-          }
-        >
-          {error}
-        </Alert>
         <Button onClick={handleLogin} variant="contained">
           Ir al Login
         </Button>

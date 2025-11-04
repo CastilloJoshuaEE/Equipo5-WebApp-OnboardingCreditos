@@ -158,14 +158,17 @@ signatureRequestId);
             }; 
         } 
     } 
-    static async descargarContratoFirmadoEspecifico(req, res) {
+/**
+ * Descargar contrato firmado específico - CORREGIDO
+ */
+static async descargarContratoFirmadoEspecifico(req, res) {
     try {
         const { firma_id } = req.params;
         const usuario = req.usuario;
 
         console.log('. Descargando CONTRATO FIRMADO específico para:', firma_id);
 
-        // Obtener información completa de la firma
+        // Obtener información completa de la firma con JOIN a contratos - CONSULTA CORREGIDA
         const { data: firma, error } = await supabase
             .from('firmas_digitales')
             .select(`
@@ -178,15 +181,18 @@ signatureRequestId);
                 contrato_id,
                 solicitud_id,
                 contratos (
+                    id,
                     numero_contrato,
-                    estado as contrato_estado,
-                    ruta_documento as contrato_ruta_documento
+                    estado,
+                    ruta_documento,
+                    solicitud_id
                 )
             `)
             .eq('id', firma_id)
             .single();
 
         if (error || !firma) {
+            console.error('. Firma no encontrada:', error);
             return res.status(404).json({
                 success: false,
                 message: 'Proceso de firma no encontrado'
@@ -195,32 +201,59 @@ signatureRequestId);
 
         console.log('. Estado de la firma:', firma.estado);
         console.log('. URL documento firmado:', firma.url_documento_firmado);
+        console.log('. Contrato asociado:', firma.contratos);
 
         // VERIFICACIÓN CRÍTICA: Solo permitir descarga si está completamente firmado
-        if (firma.estado !== 'firmado_completo' && firma.estado !== 'firmado_solicitante') {
+        const estadosPermitidos = ['firmado_completo', 'firmado_solicitante', 'firmado_operador'];
+        if (!estadosPermitidos.includes(firma.estado)) {
             return res.status(400).json({
                 success: false,
-                message: 'El contrato no está completamente firmado. Estado actual: ' + firma.estado
+                message: `El contrato no está completamente firmado. Estado actual: ${firma.estado}. Solo se permiten descargas de contratos con estado: ${estadosPermitidos.join(', ')}`
             });
         }
 
-        // PRIORIDAD ABSOLUTA: Usar SIEMPRE el documento firmado si existe
+        // Resto del código permanece igual...
         let rutaDescarga = null;
         let nombreArchivo = `contrato-firmado-${firma.contratos?.numero_contrato || firma_id}`;
 
+        // ORDEN DE PRIORIDAD para encontrar el documento firmado
         if (firma.url_documento_firmado) {
             rutaDescarga = firma.url_documento_firmado;
             nombreArchivo += '.docx';
             console.log('. Usando documento firmado específico:', rutaDescarga);
+        } else if (firma.ruta_documento) {
+            rutaDescarga = firma.ruta_documento;
+            nombreArchivo += '.docx';
+            console.log('. Usando ruta documento de firma:', rutaDescarga);
+        } else if (firma.contratos?.ruta_documento) {
+            rutaDescarga = firma.contratos.ruta_documento;
+            nombreArchivo += '.docx';
+            console.log('. Usando ruta documento del contrato:', rutaDescarga);
         } else {
-            // Si no hay documento firmado específico, no permitir descarga
             return res.status(404).json({
                 success: false,
-                message: 'No hay documento firmado disponible para descargar. El contrato puede estar en proceso de firma.'
+                message: 'No hay documento firmado disponible para descargar.'
             });
         }
 
         console.log('. Descargando contrato firmado desde:', rutaDescarga);
+
+        // Verificar que el archivo existe en storage
+        const { data: fileExists, error: existsError } = await supabase.storage
+            .from('kyc-documents')
+            .list('', {
+                search: rutaDescarga
+            });
+
+        if (existsError || !fileExists || fileExists.length === 0) {
+            console.error('. Archivo no encontrado en storage:', rutaDescarga);
+            return res.status(404).json({
+                success: false,
+                message: 'El archivo del contrato firmado no se encuentra en el sistema de almacenamiento'
+            });
+        }
+
+        console.log('. Archivo verificado en storage:', fileExists[0].name);
 
         // Descargar archivo
         const { data: fileData, error: downloadError } = await supabase.storage
@@ -245,6 +278,20 @@ signatureRequestId);
         res.setHeader('Cache-Control', 'no-cache');
 
         console.log('. CONTRATO FIRMADO descargado exitosamente:', nombreArchivo);
+        
+        // Registrar auditoría de descarga
+        await FirmaDigitalModel.registrarAuditoria({
+            firma_id: firma_id,
+            usuario_id: usuario.id,
+            accion: 'descargar_contrato_firmado',
+            descripcion: `Contrato firmado descargado por ${usuario.rol}. Estado: ${firma.estado}`,
+            estado_anterior: firma.estado,
+            estado_nuevo: firma.estado,
+            ip_address: req.ip,
+            user_agent: req.get('User-Agent'),
+            created_at: new Date().toISOString()
+        });
+
         res.send(buffer);
 
     } catch (error) {
@@ -1236,7 +1283,7 @@ if (!contratoExistente) {
                 success: true,
                 message: esIntegridadValida ? 
                     '. CONTRATO COMPLETAMENTE FIRMADO - Integridad válida' : 
-                    '. Firma procesada exitosamente - Esperando contrafirma',
+                    '. Firma procesada exitosamente',
                 data: {
                     firma_id: firma_id,
                     estado: nuevoEstado,

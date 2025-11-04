@@ -4865,6 +4865,35 @@ router.get('/solicitudes/:solicitud_id/comprobantes', AuthMiddleware.proteger, D
 router.get('/contratos/:contrato_id/descargar', AuthMiddleware.proteger, DocumentoController.descargarContrato);
 router.get('/transferencias/:transferencia_id/comprobante/descargar', AuthMiddleware.proteger, DocumentoController.descargarComprobante);
 router.get('/documentos/:tipo/:id/ver', AuthMiddleware.proteger, DocumentoController.verDocumento);
+
+/**
+ * @swagger
+ * /api/operador/todos-los-documentos:
+ *   get:
+ *     summary: Obtener todos los documentos del sistema (Operadores)
+ *     tags: [Operador]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de todos los documentos
+ */
+router.get('/operador/todos-los-documentos', 
+  AuthMiddleware.proteger,
+  AuthMiddleware.autorizar('operador'),
+  DocumentoController.obtenerTodosLosDocumentos // Asegúrate de que este método existe
+);
+// Nueva ruta para listar documentos del storage
+router.get('/solicitudes/:solicitud_id/documentos-storage', 
+    AuthMiddleware.proteger, 
+    DocumentoController.listarDocumentosStorage
+);
+
+// Ruta . para documentos de contrato
+router.get('/solicitudes/:solicitud_id/contrato/documentos-completos', 
+    AuthMiddleware.proteger, 
+    DocumentoController.obtenerDocumentosContrato
+);
 /**
  * @swagger
  * /api/firmas/descargar-contrato-firmado/{firma_id}:
@@ -4899,34 +4928,6 @@ router.get('/firmas/descargar-contrato-firmado/:firma_id',
 
 /**
  * @swagger
- * /api/operador/todos-los-documentos:
- *   get:
- *     summary: Obtener todos los documentos del sistema (Operadores)
- *     tags: [Operador]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Lista de todos los documentos
- */
-router.get('/operador/todos-los-documentos', 
-  AuthMiddleware.proteger,
-  AuthMiddleware.autorizar('operador'),
-  DocumentoController.obtenerTodosLosDocumentos // Asegúrate de que este método existe
-);
-// Nueva ruta para listar documentos del storage
-router.get('/solicitudes/:solicitud_id/documentos-storage', 
-    AuthMiddleware.proteger, 
-    DocumentoController.listarDocumentosStorage
-);
-
-// Ruta . para documentos de contrato
-router.get('/solicitudes/:solicitud_id/contrato/documentos-completos', 
-    AuthMiddleware.proteger, 
-    DocumentoController.obtenerDocumentosContrato
-);
-/**
- * @swagger
  * /api/{firma_id}/documento-actual:
  *   get:
  *     summary: Obtener documento actual para firma
@@ -4935,6 +4936,7 @@ router.get('/solicitudes/:solicitud_id/contrato/documentos-completos',
  *       - bearerAuth: []
  */
 router.get('/:firma_id/documento-actual', FirmaDigitalController.obtenerDocumentoActual);
+
 /**
  * @swagger
  * /api/{firma_id}/verificar-integridad:
