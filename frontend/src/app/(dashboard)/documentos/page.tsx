@@ -46,6 +46,52 @@ import {
 } from '@mui/icons-material';
 import { useDocumentos } from '@/hooks/useDocumentos';
 import { getSession } from 'next-auth/react';
+
+// Interfaces TypeScript para los tipos de datos
+interface FirmaDigital {
+  id: string;
+  estado: string;
+  fecha_firma_completa: string;
+  url_documento_firmado: string;
+  ruta_documento: string;
+  integridad_valida: boolean;
+}
+
+interface Contrato {
+  id: string;
+  tipo: string;
+  numero_contrato: string;
+  estado: string;
+  ruta_documento: string;
+  monto: number;
+  moneda: string;
+  created_at: string;
+  updated_at: string;
+  numero_solicitud: string;
+  solicitante_nombre: string;
+  firma_digital?: FirmaDigital;
+  tiene_documento_firmado?: boolean;
+  url_documento_firmado?: string;
+  firma_id?: string;
+}
+
+interface Transferencia {
+  id: string;
+  tipo: string;
+  numero_comprobante: string;
+  estado: string;
+  ruta_comprobante: string;
+  monto: number;
+  moneda: string;
+  fecha_procesamiento: string;
+  fecha_completada: string;
+  banco_destino: string;
+  cuenta_destino: string;
+  numero_solicitud: string;
+  solicitante_nombre: string;
+  contacto_bancario?: any;
+}
+
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -69,7 +115,7 @@ function TabPanel(props: TabPanelProps) {
 
 export default function DocumentosOperadorPage() {
   const [tabValue, setTabValue] = useState(0);
-  const [documentos, setDocumentos] = useState<any[]>([]);
+  const [documentos, setDocumentos] = useState<(Contrato | Transferencia)[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
@@ -90,71 +136,77 @@ export default function DocumentosOperadorPage() {
     cargarTodosLosDocumentos();
   }, []);
 
- // En frontend/components/DocumentosOperadorPage.jsx - corregir la función cargarTodosLosDocumentos
-const cargarTodosLosDocumentos = async () => {
-  try {
-    setLoading(true);
-    const session = await getSession();
-    if (!session?.accessToken) {
-      console.error('No se encontró token de sesión');
-      return;
-    }
-
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    const response = await fetch(`${API_URL}/operador/todos-los-documentos`, {
-      headers: {
-        'Authorization': `Bearer ${session.accessToken}`,
-        'Content-Type': 'application/json'
+  // Función corregida con tipos TypeScript
+  const cargarTodosLosDocumentos = async () => {
+    try {
+      setLoading(true);
+      const session = await getSession();
+      if (!session?.accessToken) {
+        console.error('No se encontró token de sesión');
+        return;
       }
-    });
 
-    if (response.ok) {
-      const data = await response.json();
-      
-      // Formatear datos para la tabla - .
-      const documentosFormateados = [
-        // Contratos
-...(data.data.contratos || []).map((contrato: any) => ({
-          ...contrato,
-          tipo: 'contrato',
-          solicitante_nombre: contrato.solicitante_nombre || 'N/A',
-          numero_solicitud: contrato.numero_solicitud || 'N/A',
-          // Asegurar que los campos críticos existan
-          estado: contrato.estado || 'desconocido',
-          ruta_documento: contrato.ruta_documento || null
-        })),
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/operador/todos-los-documentos`, {
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
         
-        // Transferencias
-...(data.data.transferencias || []).map((transferencia: any) => ({
-          ...transferencia,
-          tipo: 'comprobante',
-          solicitante_nombre: transferencia.solicitante_nombre || 'N/A',
-          numero_solicitud: transferencia.numero_solicitud || 'N/A',
-          // Asegurar que los campos críticos existan
-          estado: transferencia.estado || 'desconocido',
-          ruta_comprobante: transferencia.ruta_comprobante || null,
-          banco_destino: transferencia.banco_destino || 'N/A'
-        }))
-      ];
-      
-      console.log('Documentos formateados:', documentosFormateados);
-      setDocumentos(documentosFormateados);
-    } else {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error al cargar documentos');
+        // Formatear datos para la tabla con tipos correctos
+        const documentosFormateados: (Contrato | Transferencia)[] = [
+          // Contratos
+          ...(data.data.contratos || []).map((contrato: any): Contrato => ({
+            ...contrato,
+            tipo: 'contrato',
+            solicitante_nombre: contrato.solicitante_nombre || 'N/A',
+            numero_solicitud: contrato.numero_solicitud || 'N/A',
+            estado: contrato.estado || 'desconocido',
+            ruta_documento: contrato.ruta_documento || null,
+            monto: contrato.monto || 0,
+            moneda: contrato.moneda || 'USD',
+            tiene_documento_firmado: contrato.tiene_documento_firmado || false,
+            url_documento_firmado: contrato.url_documento_firmado || null,
+            firma_id: contrato.firma_id || null
+          })),
+          
+          // Transferencias
+          ...(data.data.transferencias || []).map((transferencia: any): Transferencia => ({
+            ...transferencia,
+            tipo: 'comprobante',
+            solicitante_nombre: transferencia.solicitante_nombre || 'N/A',
+            numero_solicitud: transferencia.numero_solicitud || 'N/A',
+            estado: transferencia.estado || 'desconocido',
+            ruta_comprobante: transferencia.ruta_comprobante || null,
+            banco_destino: transferencia.banco_destino || 'N/A',
+            monto: transferencia.monto || 0,
+            moneda: transferencia.moneda || 'USD'
+          }))
+        ];
+        
+        console.log('Documentos formateados:', documentosFormateados);
+        setDocumentos(documentosFormateados);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al cargar documentos');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al cargar documentos');
+      console.error('Error cargando documentos:', err);
+    } finally {
+      setLoading(false);
     }
-  } catch (err: any) {
-    setError(err.message || 'Error al cargar documentos');
-    console.error('Error cargando documentos:', err);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  const handleDescargarComprobante = async (comprobante: any) => {
+  const handleDescargarComprobante = async (comprobante: Transferencia) => {
     try {
       await descargarComprobante(
         comprobante.id,
@@ -174,13 +226,28 @@ const cargarTodosLosDocumentos = async () => {
       console.error('Error obteniendo vista previa:', err);
     }
   };
-const handleDescargarContratoFirmado = async (firmaId: string) => {
+
+  // FUNCIÓN CORREGIDA con tipo Contrato
+  const handleDescargarContratoFirmado = async (contrato: Contrato) => {
     try {
         const session = await getSession();
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         
-        // Usar el nuevo endpoint específico para contrato firmado
-        const response = await fetch(`${API_URL}/firmas/descargar-contrato-firmado/${firmaId}`, {
+        // VERIFICACIÓN CRÍTICA: Solo permitir descarga si está completamente firmado
+        if (!contrato.firma_digital || contrato.firma_digital.estado !== 'firmado_completo') {
+            alert('El contrato no está completamente firmado. No se puede descargar.');
+            return;
+        }
+
+        if (!contrato.firma_digital.url_documento_firmado) {
+            alert('No hay documento firmado disponible para descargar.');
+            return;
+        }
+
+        console.log('📥 Descargando contrato firmado:', contrato.firma_digital.id);
+        
+        // Usar el endpoint específico para contrato firmado
+        const response = await fetch(`${API_URL}/firmas/descargar-contrato-firmado/${contrato.firma_digital.id}`, {
             headers: {
                 'Authorization': `Bearer ${session?.accessToken}`
             }
@@ -195,9 +262,9 @@ const handleDescargarContratoFirmado = async (firmaId: string) => {
             a.style.display = 'none';
             a.href = url;
             
-            // Obtener nombre del archivo del header o usar uno por defecto
+            // Obtener nombre del archivo
             const contentDisposition = response.headers.get('content-disposition');
-            let fileName = `contrato-firmado-${firmaId}.docx`;
+            let fileName = `contrato-firmado-${contrato.numero_contrato}.docx`;
             
             if (contentDisposition) {
                 const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
@@ -211,15 +278,19 @@ const handleDescargarContratoFirmado = async (firmaId: string) => {
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
+            
+            console.log('✅ Contrato firmado descargado exitosamente');
         } else {
             const errorData = await response.json();
+            console.error('❌ Error descargando contrato:', errorData);
             alert(errorData.message || 'Error al descargar el contrato firmado');
         }
     } catch (error) {
-        console.error('Error descargando contrato firmado:', error);
+        console.error('❌ Error de conexión:', error);
         alert('Error de conexión al descargar contrato firmado');
     }
-};
+  };
+
   const getEstadoColor = (estado: string) => {
     switch (estado) {
       case 'firmado_completo':
@@ -258,22 +329,21 @@ const handleDescargarContratoFirmado = async (firmaId: string) => {
     }
   };
 
-const formatMonto = (monto: number, moneda?: string) => {
-  const monedaValida = moneda && moneda.trim() !== '' ? moneda : 'USD'; // Moneda por defecto
-  return new Intl.NumberFormat('es-ES', {
-    style: 'currency',
-    currency: monedaValida,
-    minimumFractionDigits: 2,
-  }).format(monto ?? 0);
-};
-
+  const formatMonto = (monto: number, moneda?: string) => {
+    const monedaValida = moneda && moneda.trim() !== '' ? moneda : 'USD';
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: monedaValida,
+      minimumFractionDigits: 2,
+    }).format(monto ?? 0);
+  };
 
   // Filtrar documentos según los filtros aplicados
   const documentosFiltrados = documentos.filter(doc => {
     const coincideBusqueda = 
       doc.numero_solicitud?.toLowerCase().includes(filtroBusqueda.toLowerCase()) ||
-      doc.numero_contrato?.toLowerCase().includes(filtroBusqueda.toLowerCase()) ||
-      doc.numero_comprobante?.toLowerCase().includes(filtroBusqueda.toLowerCase()) ||
+      (doc.tipo === 'contrato' && (doc as Contrato).numero_contrato?.toLowerCase().includes(filtroBusqueda.toLowerCase())) ||
+      (doc.tipo === 'comprobante' && (doc as Transferencia).numero_comprobante?.toLowerCase().includes(filtroBusqueda.toLowerCase())) ||
       doc.solicitante_nombre?.toLowerCase().includes(filtroBusqueda.toLowerCase());
 
     const coincideEstado = 
@@ -283,8 +353,9 @@ const formatMonto = (monto: number, moneda?: string) => {
     return coincideBusqueda && coincideEstado;
   });
 
-  const contratos = documentosFiltrados.filter(doc => doc.tipo === 'contrato');
-  const comprobantes = documentosFiltrados.filter(doc => doc.tipo === 'comprobante');
+  // Filtrar por tipo con Type Guards
+  const contratos = documentosFiltrados.filter((doc): doc is Contrato => doc.tipo === 'contrato');
+  const comprobantes = documentosFiltrados.filter((doc): doc is Transferencia => doc.tipo === 'comprobante');
 
   if (loading) {
     return (
@@ -335,7 +406,6 @@ const formatMonto = (monto: number, moneda?: string) => {
                 }}
               />
             </Grid>
-        
                 <Grid size={{ xs: 12, md: 3}}>
               <Typography variant="body2" color="text.secondary">
                 {documentosFiltrados.length} documentos encontrados
@@ -384,65 +454,74 @@ const formatMonto = (monto: number, moneda?: string) => {
                     <TableCell align="center">Acciones</TableCell>
                   </TableRow>
                 </TableHead>
-               <TableBody>
-  {contratos.map((contrato) => {
-    // 🔹 Corregir campo de solicitud
-    const numeroSolicitud = contrato.numero_solicitud || contrato.id_solicitud || contrato.solicitud_id || '—';
+                <TableBody>
+                  {contratos.map((contrato) => {
+                    // 🔹 Corregir campo de solicitud
+                    const numeroSolicitud = contrato.numero_solicitud || '—';
 
-    // 🔹 Manejar fecha segura
-    const fechaValida = contrato.updated_at
-      ? new Date(contrato.updated_at)
-      : null;
-    const fechaFormateada =
-      fechaValida && !isNaN(fechaValida.getTime())
-        ? fechaValida.toLocaleDateString('es-ES')
-        : 'Sin fecha';
+                    // 🔹 Manejar fecha segura
+                    const fechaValida = contrato.updated_at
+                      ? new Date(contrato.updated_at)
+                      : null;
+                    const fechaFormateada =
+                      fechaValida && !isNaN(fechaValida.getTime())
+                        ? fechaValida.toLocaleDateString('es-ES')
+                        : 'Sin fecha';
 
-    return (
-      <TableRow key={contrato.id}>
-        <TableCell>
-          <Typography variant="body2" fontWeight="medium">
-            {contrato.numero_contrato || '—'}
-          </Typography>
-        </TableCell>
+                    return (
+                      <TableRow key={contrato.id}>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {contrato.numero_contrato || '—'}
+                          </Typography>
+                        </TableCell>
 
-        <TableCell>
-          <Typography variant="body2">{numeroSolicitud}</Typography>
-        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{numeroSolicitud}</Typography>
+                        </TableCell>
 
-        <TableCell>
-          <Typography variant="body2">
-            {contrato.solicitante_nombre || '—'}
-          </Typography>
-        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {contrato.solicitante_nombre || '—'}
+                          </Typography>
+                        </TableCell>
 
+                        <TableCell>
+                          <Typography variant="body2">{fechaFormateada}</Typography>
+                        </TableCell>
 
-        <TableCell>
-          <Typography variant="body2">{fechaFormateada}</Typography>
-        </TableCell>
-
-     <TableCell align="center">
-  <Box display="flex" gap={1} justifyContent="center">
-   
-
-    {contrato.firma_digital?.id && (
-      <Tooltip title="Descargar contrato firmado">
-        <IconButton
-          size="small"
-          onClick={() => handleDescargarContratoFirmado(contrato.firma_digital.id)}
-          color="success"
-        >
-          <CheckCircle />
-        </IconButton>
-      </Tooltip>
-    )}
-  </Box>
-</TableCell>
-      </TableRow>
-    );
-  })}
-</TableBody>
-
+                        <TableCell align="center">
+                          <Box display="flex" gap={1} justifyContent="center">
+                            {/* Botón para descargar contrato firmado */}
+                            {contrato.firma_digital?.estado === 'firmado_completo' && (
+                              <Tooltip title="Descargar contrato firmado">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDescargarContratoFirmado(contrato)}
+                                  color="success"
+                                >
+                                  <Download />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            
+                            {/* Indicador de estado */}
+                            {contrato.firma_digital && (
+                              <Tooltip title={`Estado: ${contrato.firma_digital.estado}`}>
+                                <Chip 
+                                  size="small" 
+                                  label={contrato.firma_digital.estado === 'firmado_completo' ? 'FIRMADO' : contrato.firma_digital.estado.toUpperCase()}
+                                  color={contrato.firma_digital.estado === 'firmado_completo' ? 'success' : 'warning'}
+                                  variant="outlined"
+                                />
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
               </Table>
             </TableContainer>
           </TabPanel>
@@ -472,7 +551,7 @@ const formatMonto = (monto: number, moneda?: string) => {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-  {comprobante.numero_solicitud || comprobante.solicitud_id || '—'}
+                          {comprobante.numero_solicitud || '—'}
                         </Typography>
                       </TableCell>
                       <TableCell>
@@ -539,64 +618,64 @@ const formatMonto = (monto: number, moneda?: string) => {
 
       {/* Dialog para vista previa */}
       <Dialog
-  open={vistaPreviaAbierta}
-  onClose={() => {
-    setVistaPreviaAbierta(false);
-    setUrlVistaPrevia('');
-  }}
-  maxWidth="lg"
-  fullWidth
->
-  <DialogContent sx={{ p: 0, position: 'relative', height: '80vh' }}>
-    {/* . Botón de cerrar arriba a la derecha */}
-    <Box
-      sx={{
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        zIndex: 10,
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
-        borderRadius: '50%',
-      }}
-    >
-      <Tooltip title="Cerrar vista previa">
-        <IconButton
-          size="small"
-          color="error"
-          onClick={() => {
-            setVistaPreviaAbierta(false);
-            setUrlVistaPrevia('');
-          }}
-        >
-          <Close />
-        </IconButton>
-      </Tooltip>
-    </Box>
-
-    {/* . Vista previa del documento */}
-    {urlVistaPrevia ? (
-      <iframe
-        src={urlVistaPrevia}
-        width="100%"
-        height="100%"
-        style={{ border: 'none' }}
-        title="Vista previa del comprobante"
-      />
-    ) : (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        height="100%"
-        flexDirection="column"
+        open={vistaPreviaAbierta}
+        onClose={() => {
+          setVistaPreviaAbierta(false);
+          setUrlVistaPrevia('');
+        }}
+        maxWidth="lg"
+        fullWidth
       >
-        <Description sx={{ fontSize: 60, color: 'text.secondary', mb: 1 }} />
-        <Typography variant="body2" color="text.secondary">
-          No hay documento disponible para vista previa.
-        </Typography>
-      </Box>
-    )}
-  </DialogContent>
+        <DialogContent sx={{ p: 0, position: 'relative', height: '80vh' }}>
+          {/* Botón de cerrar arriba a la derecha */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              zIndex: 10,
+              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              borderRadius: '50%',
+            }}
+          >
+            <Tooltip title="Cerrar vista previa">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => {
+                  setVistaPreviaAbierta(false);
+                  setUrlVistaPrevia('');
+                }}
+              >
+                <Close />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          {/* Vista previa del documento */}
+          {urlVistaPrevia ? (
+            <iframe
+              src={urlVistaPrevia}
+              width="100%"
+              height="100%"
+              style={{ border: 'none' }}
+              title="Vista previa del comprobante"
+            />
+          ) : (
+            <Box
+              display="flex"
+              justifyContent="center"
+              alignItems="center"
+              height="100%"
+              flexDirection="column"
+            >
+              <Description sx={{ fontSize: 60, color: 'text.secondary', mb: 1 }} />
+              <Typography variant="body2" color="text.secondary">
+                No hay documento disponible para vista previa.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
       </Dialog>
     </Container>
   );

@@ -1604,6 +1604,7 @@ static async obtenerMisSolicitudesConDocumentos(req, res) {
     });
   }
 }
+// En controladores/DocumentoController.js - corregir el método obtenerTodosLosDocumentos
 
 static async obtenerTodosLosDocumentos(req, res) {
   try {
@@ -1619,7 +1620,7 @@ static async obtenerTodosLosDocumentos(req, res) {
       });
     }
 
-    // CONSULTA .: Obtener contratos con información completa
+    // CONSULTA CORREGIDA: Obtener contratos con información completa y SOLO FIRMADOS COMPLETOS
     const { data: contratos, error: errorContratos } = await supabase
       .from('contratos')
       .select(`
@@ -1642,14 +1643,17 @@ static async obtenerTodosLosDocumentos(req, res) {
             )
           )
         ),
-        firmas_digitales(
+        firmas_digitales!inner(
           id,
           estado,
           fecha_firma_completa,
           url_documento_firmado,
-          ruta_documento
+          ruta_documento,
+          integridad_valida
         )
       `)
+      .eq('firmas_digitales.estado', 'firmado_completo') // SOLO CONTRATOS COMPLETAMENTE FIRMADOS
+      .eq('firmas_digitales.integridad_valida', true) // SOLO INTEGRIDAD VÁLIDA
       .order('created_at', { ascending: false });
 
     if (errorContratos) {
@@ -1684,6 +1688,7 @@ static async obtenerTodosLosDocumentos(req, res) {
           tipo_cuenta
         )
       `)
+      .eq('estado', 'completada') // SOLO TRANSFERENCIAS COMPLETADAS
       .order('created_at', { ascending: false });
 
     if (errorTransferencias) {
@@ -1705,7 +1710,11 @@ static async obtenerTodosLosDocumentos(req, res) {
         updated_at: contrato.updated_at,
         numero_solicitud: contrato.solicitudes_credito?.numero_solicitud,
         solicitante_nombre: contrato.solicitudes_credito?.solicitantes?.usuarios?.nombre_completo,
-        firma_digital: contrato.firmas_digitales?.[0] || null
+        firma_digital: contrato.firmas_digitales?.[0] || null,
+        // INFORMACIÓN CRÍTICA PARA DESCARGA
+        tiene_documento_firmado: !!contrato.firmas_digitales?.[0]?.url_documento_firmado,
+        url_documento_firmado: contrato.firmas_digitales?.[0]?.url_documento_firmado,
+        firma_id: contrato.firmas_digitales?.[0]?.id
       })),
       transferencias: (transferencias || []).map(transferencia => ({
         id: transferencia.id,
@@ -1725,7 +1734,7 @@ static async obtenerTodosLosDocumentos(req, res) {
       }))
     };
 
-    console.log(`. Documentos cargados: ${documentosFormateados.contratos.length} contratos, ${documentosFormateados.transferencias.length} transferencias`);
+    console.log(`. Documentos cargados: ${documentosFormateados.contratos.length} contratos FIRMADOS, ${documentosFormateados.transferencias.length} transferencias`);
 
     res.json({
       success: true,
