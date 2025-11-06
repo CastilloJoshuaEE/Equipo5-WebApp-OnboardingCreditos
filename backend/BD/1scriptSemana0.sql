@@ -10,17 +10,6 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- =========================================
 -- TABLAS PRINCIPALES
 -- =========================================
-
--- =========================================
--- TABLA USUARIOS (Base para herencia)
--- Almacena datos comunes de solicitantes y operadores
--- Agregar columnas para tokens de confirmación (opcional)
--- ALTER TABLE usuarios 
--- ADD COLUMN IF NOT EXISTS token_confirmacion TEXT,
--- ADD COLUMN IF NOT EXISTS token_expiracion TIMESTAMPTZ;
-
--- Crear índice para búsquedas por token
--- CREATE INDEX IF NOT EXISTS idx_usuarios_token_confirmacion ON usuarios(token_confirmacion);
 -- =========================================
 CREATE TABLE usuarios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
