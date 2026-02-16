@@ -1,0 +1,4 @@
+CREATE INDEX idx_transferencias_solicitud ON transferencias_bancarias(solicitud_id);
+CREATE INDEX idx_transferencias_estado ON transferencias_bancarias(estado);
+CREATE INDEX idx_transferencias_comprobante ON transferencias_bancarias(numero_comprobante);
+CREATE INDEX idx_transferencias_fecha ON transferencias_bancarias(created_at DESC);

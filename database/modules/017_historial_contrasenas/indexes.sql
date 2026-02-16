@@ -1,0 +1,1 @@
+CREATE INDEX idx_historial_contrasenas_usuario ON historial_contrasenas(usuario_id);

@@ -42,8 +42,6 @@ La plataforma incluirá paneles para operadores con filtros y tareas.
 - Carga de documentos y firma digital.
 
 ### Nice-to-have
-- Pre-evaluación de riesgo basada en reglas simples o IA opcional.
-- Integración con sistemas de contabilidad de las PYMES.
 - Chat de soporte (bot o humano) para dudas.
 ### Enlaces del Proyecto
 
