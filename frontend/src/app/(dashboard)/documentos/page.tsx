@@ -1,3 +1,4 @@
+// frontend/src/app/(dashboard)/documentos/page.tsx
 'use client';
 import React, { useState, useEffect } from 'react';
 import {
@@ -47,60 +48,12 @@ import {
   FilterList,
   Close
 } from '@mui/icons-material';
-import { useDocumentos } from '@/hooks/useDocumentos';
+import { useDocumentos } from '@/features/documentos/hooks/useDocumentos';
 import { getSession } from 'next-auth/react';
-
-// Interfaces TypeScript para los tipos de datos
-interface FirmaDigital {
-  id: string;
-  estado: string;
-  fecha_firma_completa: string;
-  url_documento_firmado: string;
-  ruta_documento: string;
-  integridad_valida: boolean;
-}
-
-interface Contrato {
-  id: string;
-  tipo: string;
-  numero_contrato: string;
-  estado: string;
-  ruta_documento: string;
-  monto: number;
-  moneda: string;
-  created_at: string;
-  updated_at: string;
-  numero_solicitud: string;
-  solicitante_nombre: string;
-  firma_digital?: FirmaDigital;
-  tiene_documento_firmado?: boolean;
-  url_documento_firmado?: string;
-  firma_id?: string;
-}
-
-interface Transferencia {
-  id: string;
-  tipo: string;
-  numero_comprobante: string;
-  estado: string;
-  ruta_comprobante: string;
-  monto: number;
-  moneda: string;
-  fecha_procesamiento: string;
-  fecha_completada: string;
-  banco_destino: string;
-  cuenta_destino: string;
-  numero_solicitud: string;
-  solicitante_nombre: string;
-  contacto_bancario?: any;
-}
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
+import { FirmaDigital } from '@/features/firma_digital/firmaDigital.types';
+import { ContratoOperador } from '@/features/operador/contratoOperador.types';
+import { TransferenciaOperador } from '@/features/operador/transferenciaOperador.types';
+import { TabPanelProps } from '@/components/ui/tab';
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
@@ -122,7 +75,7 @@ export default function DocumentosOperadorPage() {
   const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const [tabValue, setTabValue] = useState(0);
-  const [documentos, setDocumentos] = useState<(Contrato | Transferencia)[]>([]);
+  const [documentos, setDocumentos] = useState<(ContratoOperador | TransferenciaOperador)[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
@@ -163,8 +116,8 @@ export default function DocumentosOperadorPage() {
       if (response.ok) {
         const data = await response.json();
         
-        const documentosFormateados: (Contrato | Transferencia)[] = [
-          ...(data.data.contratos || []).map((contrato: any): Contrato => ({
+        const documentosFormateados: (ContratoOperador | TransferenciaOperador)[] = [
+          ...(data.data.contratos || []).map((contrato: any): ContratoOperador => ({
             ...contrato,
             tipo: 'contrato',
             solicitante_nombre: contrato.solicitante_nombre || 'N/A',
@@ -178,7 +131,7 @@ export default function DocumentosOperadorPage() {
             firma_id: contrato.firma_id || null
           })),
           
-          ...(data.data.transferencias || []).map((transferencia: any): Transferencia => ({
+          ...(data.data.transferencias || []).map((transferencia: any): TransferenciaOperador => ({
             ...transferencia,
             tipo: 'comprobante',
             solicitante_nombre: transferencia.solicitante_nombre || 'N/A',
@@ -208,7 +161,7 @@ export default function DocumentosOperadorPage() {
     setTabValue(newValue);
   };
 
-  const handleDescargarComprobante = async (comprobante: Transferencia) => {
+  const handleDescargarComprobante = async (comprobante: TransferenciaOperador) => {
     try {
       await descargarComprobante(
         comprobante.id,
@@ -229,7 +182,7 @@ export default function DocumentosOperadorPage() {
     }
   };
 
-  const handleDescargarContratoFirmado = async (contrato: Contrato) => {
+  const handleDescargarContratoFirmado = async (contrato: ContratoOperador) => {
     try {
         const session = await getSession();
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -338,8 +291,8 @@ export default function DocumentosOperadorPage() {
   const documentosFiltrados = documentos.filter(doc => {
     const coincideBusqueda = 
       doc.numero_solicitud?.toLowerCase().includes(filtroBusqueda.toLowerCase()) ||
-      (doc.tipo === 'contrato' && (doc as Contrato).numero_contrato?.toLowerCase().includes(filtroBusqueda.toLowerCase())) ||
-      (doc.tipo === 'comprobante' && (doc as Transferencia).numero_comprobante?.toLowerCase().includes(filtroBusqueda.toLowerCase())) ||
+      (doc.tipo === 'contrato' && (doc as ContratoOperador).numero_contrato?.toLowerCase().includes(filtroBusqueda.toLowerCase())) ||
+      (doc.tipo === 'comprobante' && (doc as TransferenciaOperador).numero_comprobante?.toLowerCase().includes(filtroBusqueda.toLowerCase())) ||
       doc.solicitante_nombre?.toLowerCase().includes(filtroBusqueda.toLowerCase());
 
     const coincideEstado = 
@@ -350,11 +303,11 @@ export default function DocumentosOperadorPage() {
   });
 
   // Filtrar por tipo con Type Guards
-  const contratos = documentosFiltrados.filter((doc): doc is Contrato => doc.tipo === 'contrato');
-  const comprobantes = documentosFiltrados.filter((doc): doc is Transferencia => doc.tipo === 'comprobante');
+  const contratos = documentosFiltrados.filter((doc): doc is ContratoOperador => doc.tipo === 'contrato');
+  const comprobantes = documentosFiltrados.filter((doc): doc is TransferenciaOperador => doc.tipo === 'comprobante');
 
   // Componente para tarjetas responsive de contratos
-  const ContratoCard = ({ contrato }: { contrato: Contrato }) => {
+  const ContratoCard = ({ contrato }: { contrato: ContratoOperador }) => {
     const numeroSolicitud = contrato.numero_solicitud || '—';
     const fechaValida = contrato.updated_at ? new Date(contrato.updated_at) : null;
     const fechaFormateada = fechaValida && !isNaN(fechaValida.getTime())
@@ -426,7 +379,7 @@ export default function DocumentosOperadorPage() {
   };
 
   // Componente para tarjetas responsive de comprobantes
-  const ComprobanteCard = ({ comprobante }: { comprobante: Transferencia }) => (
+  const ComprobanteCard = ({ comprobante }: { comprobante: TransferenciaOperador }) => (
     <Card variant="outlined" sx={{ mb: 2 }}>
       <CardContent>
         <Stack spacing={2}>

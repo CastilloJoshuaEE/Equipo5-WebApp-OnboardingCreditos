@@ -1,5 +1,5 @@
+// frontend/src/components/home/Testimonials/Testimonials.tsx
 "use client";
-
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import styles from "./Testimonials.module.css";

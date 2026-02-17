@@ -2,7 +2,7 @@
 'use client';
 import React, { useState } from 'react';
 import { getSession } from 'next-auth/react';
-import { SolicitudOperador } from '@/types/operador';
+import { SolicitudOperador } from '@/features/solicitudes/solicitud.types';
 import { useEffect } from 'react';
 import {
     Box,
@@ -17,30 +17,16 @@ import {
     TextField,
     Alert,
     Chip,
-    Divider,
-    LinearProgress,
-    Grid,
-    Stack
+    Divider
 } from '@mui/material';
 import { 
     CheckCircle, 
     Cancel, 
-    Comment, 
-    Send,
-    Warning,
     ThumbUp,
     ThumbDown,
     Block
 } from '@mui/icons-material';
-
-interface DecisionStepProps {
-    solicitud: any;
-    onClose: () => void;
-    onComentarioEnviado?: (comentario: string) => void;
-    onDecisionTomada?: (decision: string, motivo?: string) => void;
-    onDashboardActualizado?: () => void;
-    loading?: boolean;
-}
+import { DecisionStepProps } from '@/components/ui/decisionStepProps';
 
 // Criterios para la decisión final
 const CRITERIOS_DECISION = {
@@ -115,7 +101,7 @@ export default function DecisionStep({
             
             setSolicitudYaRevisada(yaRevisada);
         } else {
-            console.log('⚠️ No se pudo obtener el estado de la solicitud');
+            console.log('. No se pudo obtener el estado de la solicitud');
         }
     };
 
@@ -311,7 +297,7 @@ export default function DecisionStep({
     const handleAbrirDecision = (tipo: 'aprobacion' | 'rechazo') => {
         // Verificar nuevamente antes de abrir el diálogo
         if (solicitudYaRevisada) {
-            setMensaje('⚠️ Esta solicitud ya ha sido revisada y no se pueden realizar más cambios');
+            setMensaje('. Esta solicitud ya ha sido revisada y no se pueden realizar más cambios');
             return;
         }
         
@@ -341,7 +327,7 @@ export default function DecisionStep({
     const handleConfirmarDecision = () => {
         // Verificar nuevamente antes de confirmar
         if (solicitudYaRevisada) {
-            setMensaje('⚠️ Esta solicitud ya ha sido revisada y no se pueden realizar más cambios');
+            setMensaje('. Esta solicitud ya ha sido revisada y no se pueden realizar más cambios');
             handleCerrarDecision();
             return;
         }
@@ -449,7 +435,7 @@ export default function DecisionStep({
                 </CardContent>
             </Card>
 
-            {/* Botones de decisión principal - CORREGIDOS */}
+            {/* Botones de decisión principal - .S */}
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', mb: 3 }}>
                 <Button 
                     variant="contained" 
@@ -486,7 +472,7 @@ export default function DecisionStep({
 
             <Divider sx={{ my: 2 }} />
 
-            {/* Diálogo para decisión con criterios - CORREGIDO */}
+            {/* Diálogo para decisión con criterios - . */}
             <Dialog 
                 open={dialogoDecision} 
                 onClose={handleCerrarDecision}

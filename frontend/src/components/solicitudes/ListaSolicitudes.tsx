@@ -1,9 +1,7 @@
 // frontend/src/components/solicitudes/ListaSolicitudes.tsx
 'use client';
-
 import React, { useEffect, useState } from 'react';
 import { getSession } from 'next-auth/react';
-
 import {
   Box,
   Typography,
@@ -16,22 +14,8 @@ import {
   Backdrop,
   CircularProgress
 } from '@mui/material';
-
-interface Solicitud {
-  id: string;
-  numero_solicitud: string;
-  monto: number;
-  plazo_meses: number;
-  moneda: string;
-  estado: string;
-  nivel_riesgo?: string;
-  created_at: string;
-  fecha_envio?: string;
-}
-
-interface ListaSolicitudesProps {
-  onUpdate: () => Promise<void>;
-}
+import { Solicitud } from '@/features/solicitudes/solicitud.types';
+import { ListaSolicitudesProps } from '../ui/listaSolicitudesProps';
 
 export default function ListaSolicitudes({ onUpdate }: ListaSolicitudesProps) {
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);

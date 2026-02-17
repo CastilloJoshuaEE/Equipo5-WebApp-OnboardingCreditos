@@ -1,5 +1,5 @@
+// frontend/src/app/404.tsx
 'use client';
-
 import { Box, Typography, Button } from '@mui/material';
 import { useRouter } from 'next/navigation';
 

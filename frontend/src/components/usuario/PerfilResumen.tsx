@@ -1,3 +1,4 @@
+// frontend/src/components/usuario/PerfilResumen.tsx
 import React from 'react';
 import {
   Card,
@@ -13,13 +14,9 @@ import {
   Email, 
   Phone 
 } from '@mui/icons-material';
-import { PerfilCompleto } from '@/types/usuario.types';
+import { PerfilCompleto } from '@/features/usuario/perfil/perfil.types';
 import { esPerfilSolicitante } from '@/utils/perfil.utils';
-
-interface PerfilResumenProps {
-  perfil: PerfilCompleto | null;
-  onClick?: () => void;
-}
+import { PerfilResumenProps } from '../ui/perfilResumenProps';
 
 const PerfilResumen: React.FC<PerfilResumenProps> = ({ perfil, onClick }) => {
   if (!perfil) return null;

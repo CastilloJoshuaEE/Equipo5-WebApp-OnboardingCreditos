@@ -1,6 +1,10 @@
+// frontend/src/services/auth.service.ts
 import api from '../lib/axios';
-import { AuthResponse, LoginCredentials, RegisterSolicitante, RegisterOperador, AuthUser } from '../types/auth.types';
-
+import { AuthResponse } from '@/features/auth/auth.response';
+import { LoginCredentials } from '@/features/auth/login.types';
+import { RegisterSolicitante } from '@/features/auth/register.types';
+import { RegisterOperador } from '@/features/auth/register.types';
+import { AuthUser } from '@/features/auth/auth.types';
 export const AuthService = {
   register: async (data: RegisterSolicitante | RegisterOperador) => {
     return api.post<void>('/api/usuarios/registro', data);

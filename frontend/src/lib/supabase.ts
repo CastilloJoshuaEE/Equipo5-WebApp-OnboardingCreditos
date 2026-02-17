@@ -1,3 +1,4 @@
+// frontend/src/lib/supabase.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 // . Tipos seguros para variables de entorno

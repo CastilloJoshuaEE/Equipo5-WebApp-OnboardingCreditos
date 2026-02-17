@@ -1,3 +1,4 @@
+// frontend/src/components/layout/DynamicNavigation.tsx
 'use client';
 import React from 'react';
 import { useSession } from 'next-auth/react';
@@ -16,12 +17,7 @@ import {
   Notifications,
   Description,
 } from '@mui/icons-material';
-
-interface DynamicNavigationProps {
-  onNavigate?: () => void;
-  navigationHandler?: (path: string) => void;
-}
-
+import { DynamicNavigationProps } from '@/components/ui/dynamicNavigationProps';
 export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate, navigationHandler }) => {
   const { data: session } = useSession();
   const router = useRouter();

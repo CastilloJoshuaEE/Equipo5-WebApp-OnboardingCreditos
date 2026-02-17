@@ -2,11 +2,7 @@
 import React from 'react';
 import { Box, Typography, Alert, Card, CardContent, Chip } from '@mui/material';
 import Grid from '@mui/material/Grid';
-
-interface BCRAStepProps {
-    infoBCRA: any;
-}
-
+import { BCRAStepProps } from '@/features/riesgo/bcra.types';
 export default function BCRAStep({ infoBCRA }: BCRAStepProps) {
     if (!infoBCRA) {
         return (

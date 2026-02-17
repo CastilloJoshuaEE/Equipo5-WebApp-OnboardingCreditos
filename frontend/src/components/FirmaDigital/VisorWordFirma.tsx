@@ -1,3 +1,4 @@
+// frontend/src/components/FirmaDigital/VisorWordFirma.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import {
     Box,
@@ -8,72 +9,23 @@ import {
     Toolbar,
     AppBar,
     IconButton,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     LinearProgress
 } from '@mui/material';
 import {
     Edit,
     Save,
-    Undo,
-    Redo,
-    Place,
     ZoomIn,
     ZoomOut,
     FitScreen,
-    Clear,
     DragIndicator,
     Close
 } from '@mui/icons-material';
 import EditorFirma from './EditorFirma';
 import { getSession } from 'next-auth/react';
-
-interface VisorWordFirmaProps {
-    documento: any;
-    onFirmaCompletada: (documentoFirmado: any) => void;
-    modoFirma?: boolean;
-    firmaId?: string;
-}
-
-interface PosicionFirma {
-    x: number;
-    y: number;
-    pagina: number;
-}
-
-interface Firma {
-    id: string;
-    tipoFirma: string;
-    firmaTexto?: string;
-    firmaImagen?: string;
-    estilo?: string;
-    posicion: PosicionFirma;
-    fecha: string;
-    tamaño: { width: number; height: number };
-    isDragging?: boolean;
-}
-
-interface InfoFirmaData {
-    firma: {
-        id: string;
-        solicitudes_credito: {
-            numero_solicitud: string;
-            solicitante_id: string;
-            operador_id: string;
-        };
-        estado: string;
-        fecha_expiracion: string;
-    };
-    fecha_expiracion: string;
-    documento: any;
-    nombre_documento: string;
-    tipo_documento: string;
-    solicitante: any;
-    hash_original: string;
-}
-
+import { VisorWordFirmaProps } from '../ui/visor_word';
+import { PosicionFirma } from '../ui/firma';
+import { Firma } from '../ui/firma';
+import { InfoFirmaData } from '@/features/firma_digital/firmaDigital.types';
 const VisorWordFirma: React.FC<VisorWordFirmaProps> = ({ 
     documento, 
     onFirmaCompletada,

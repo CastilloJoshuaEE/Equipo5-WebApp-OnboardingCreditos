@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import SesionExpiradaModal from '@/components/ui/SesionExpiradaModal';
+import SesionExpiradaModal from '@/context/SesionExpiradaModal';
 import { sessionEmitter } from '@/lib/axios';
 import { usePathname } from 'next/navigation';
 

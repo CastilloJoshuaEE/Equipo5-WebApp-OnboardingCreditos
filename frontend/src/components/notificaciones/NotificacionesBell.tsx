@@ -1,11 +1,10 @@
+// frontend/src/components/notificaciones/NotificacionesBell.tsx
 'use client';
-
 import React, { useEffect, useState } from 'react';
 import { Badge, IconButton } from '@mui/material';
 import { Notifications } from '@mui/icons-material';
 import { NotificacionesModal } from './NotificacionesModal';
-import notificacionesService from '@/services/notificaciones.service';
-import { getSession } from 'next-auth/react';
+import notificacionesService from '@/services/notificaciones/notificaciones.service';
 export function NotificacionesBell() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [contadorNoLeidas, setContadorNoLeidas] = useState(0);

@@ -1,7 +1,5 @@
 // frontend/src/app/(dashboard)/operador/transferencias/nueva/page.tsx - .
-
 'use client';
-
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -22,42 +20,19 @@ import {
 import { Modal } from '@/components/ui/modal';
 import { getSession } from 'next-auth/react';
 import EditarContactoModal from '@/components/EditarContactoModal';
-interface ContactoBancario {
-  id: string;
-  numero_cuenta: string;
-  nombre_banco: string;
-  tipo_cuenta: string;
-  moneda: string;
-  email_contacto?: string;
-  telefono_contacto?: string;
-  solicitante_id?: string;
-}
-
-interface SolicitudInfo {
-  id: string;
-  numero_solicitud: string;
-  monto: number;
-  moneda: string;
-  solicitante_id: string;
-  estado: string;
-}
-
-interface VerificacionFirma {
-  habilitado: boolean;
-  motivo: string;
-  estado_firma: string;
-  detalles?: any;
-}
+import { ContactoBancarioNuevo } from '@/features/contacto_bancario/contactoBancario.types';
+import { SolicitudInfo } from '@/features/solicitudes/solicitud.types';
+import { VerificacionFirma } from '@/features/firma_digital/firmaDigital.types';
 
 export default function NuevaTransferenciaPage() {
   const searchParams = useSearchParams();
   const solicitudId = searchParams?.get('solicitud_id') || '';
   
   const [step, setStep] = useState(1);
-  const [contactos, setContactos] = useState<ContactoBancario[]>([]);
-  const [contactosFiltrados, setContactosFiltrados] = useState<ContactoBancario[]>([]);
+  const [contactos, setContactos] = useState<ContactoBancarioNuevo[]>([]);
+  const [contactosFiltrados, setContactosFiltrados] = useState<ContactoBancarioNuevo[]>([]);
   const [solicitudInfo, setSolicitudInfo] = useState<SolicitudInfo | null>(null);
-  const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoBancario | null>(null);
+  const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoBancarioNuevo | null>(null);
   const [busquedaCuenta, setBusquedaCuenta] = useState('');
   const [mostrarModalConfirmacion, setMostrarModalConfirmacion] = useState(false);
   const [monto, setMonto] = useState('');
@@ -66,10 +41,10 @@ export default function NuevaTransferenciaPage() {
   const [loading, setLoading] = useState(false);
   const [verificandoFirma, setVerificandoFirma] = useState(false);
   const [verificacionFirma, setVerificacionFirma] = useState<VerificacionFirma | null>(null);
-const [contactoEditando, setContactoEditando] = useState<ContactoBancario | null>(null);
+const [contactoEditando, setContactoEditando] = useState<ContactoBancarioNuevo | null>(null);
 const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
 
-const handleEditarContacto = (contacto: ContactoBancario) => {
+const handleEditarContacto = (contacto: ContactoBancarioNuevo) => {
   setContactoEditando(contacto);
   setModalEditarAbierto(true);
 };
@@ -213,7 +188,7 @@ const handleEditarContacto = (contacto: ContactoBancario) => {
     setContactosFiltrados(filtrados);
   };
 
-  const seleccionarContacto = (contacto: ContactoBancario) => {
+  const seleccionarContacto = (contacto: ContactoBancarioNuevo) => {
     // Verificar que el contacto pertenezca al solicitante de la solicitud
     if (solicitudInfo && contacto.solicitante_id !== solicitudInfo.solicitante_id) {
       setError('El contacto bancario seleccionado no pertenece al solicitante de esta solicitud');

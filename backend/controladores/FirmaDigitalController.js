@@ -159,7 +159,7 @@ signatureRequestId);
         } 
     } 
 /**
- * Descargar contrato firmado específico - CORREGIDO
+ * Descargar contrato firmado específico - .
  */
 static async descargarContratoFirmadoEspecifico(req, res) {
     try {

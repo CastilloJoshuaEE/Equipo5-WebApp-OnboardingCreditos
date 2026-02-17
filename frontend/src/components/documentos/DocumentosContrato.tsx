@@ -12,7 +12,6 @@ import {
   Grid,
   Dialog,
   DialogContent,
-  IconButton,
   Tooltip,
 } from '@mui/material';
 import {
@@ -23,12 +22,9 @@ import {
   Schedule,
   Error as ErrorIcon,
 } from '@mui/icons-material';
-import { useDocumentos } from '@/hooks/useDocumentos';
-import { DocumentoContrato } from '@/services/documentos.service';
-
-interface DocumentosContratoProps {
-  solicitudId: string;
-}
+import { useDocumentos } from '@/features/documentos/hooks/useDocumentos';
+import { DocumentoContrato } from '@/services/documentos/documento.types';
+import { DocumentosContratoProps } from '@/features/contratos/contrato.types';
 
 export const DocumentosContrato: React.FC<DocumentosContratoProps> = ({ solicitudId }) => {
   const {

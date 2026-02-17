@@ -1,4 +1,4 @@
-// En frontend/src/components/documentos/GestionDocumentos.tsx
+// frontend/src/components/documentos/GestionDocumentos.tsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -29,32 +29,16 @@ import {
   Snackbar
 } from '@mui/material';
 import { Download, Visibility, CloudUpload, Delete, Edit } from '@mui/icons-material';
-
-interface Documento {
-  id: string;
-  tipo: string;
-  nombre_archivo: string;
-  ruta_storage: string;
-  tamanio_bytes: number;
-  estado: string;
-  created_at: string;
-  validado_en?: string;
-  comentarios?: string;
-  informacion_extraida?: any;
-  updated_at?: string;
-}
-
-interface GestionDocumentosProps {
-  solicitudId: string;
-}
+import { DocumentoData } from '@/features/documentos/documento.types';
+import { GestionDocumentosProps } from '@/features/documentos/documento.types';
 
 export default function GestionDocumentos({ solicitudId }: GestionDocumentosProps) {
-  const [documentos, setDocumentos] = useState<Documento[]>([]);
+  const [documentos, setDocumentos] = useState<DocumentoData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [documentoAEliminar, setDocumentoAEliminar] = useState<Documento | null>(null);
+  const [documentoAEliminar, setDocumentoAEliminar] = useState<DocumentoData | null>(null);
   const [subiendoArchivo, setSubiendoArchivo] = useState<string | null>(null);
 
   useEffect(() => {
@@ -171,7 +155,7 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
     }
   };
 
-  const handleEliminarDocumento = async (documento: Documento) => {
+  const handleEliminarDocumento = async (documento: DocumentoData) => {
     try {
       setError('');
       
@@ -203,7 +187,7 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
     }
   };
 
-  const descargarDocumento = async (documento: Documento) => {
+  const descargarDocumento = async (documento: DocumentoData) => {
     try {
       const session = await getSession();
       
@@ -243,7 +227,7 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
     }
   };
 
-  const verDocumento = (documento: Documento) => {
+  const verDocumento = (documento: DocumentoData) => {
     const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
     window.open(supabaseUrl, '_blank');
@@ -278,7 +262,7 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const DocumentoInput = ({ tipo, documentoExistente }: { tipo: string, documentoExistente?: Documento }) => {
+  const DocumentoInput = ({ tipo, documentoExistente }: { tipo: string, documentoExistente?: DocumentoData }) => {
     const inputRef = React.useRef<HTMLInputElement>(null);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {

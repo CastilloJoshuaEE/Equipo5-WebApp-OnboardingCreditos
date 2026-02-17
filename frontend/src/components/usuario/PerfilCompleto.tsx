@@ -8,14 +8,9 @@ import {
   Grid,
   Card,
   CardContent,
-  TextField,
   Button,
   Box,
   Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Chip,
   Divider,
   CircularProgress,
@@ -30,15 +25,11 @@ import {
   LocationOn,
   Edit,
   Badge,
-  DesktopWindows,
-  Dashboard,
-  CreditCard,
-  Notifications,
   Warning
 } from '@mui/icons-material';
 import { useSession, signOut } from 'next-auth/react';
-import { UsuarioService } from '@/services/usuario.service';
-import { PerfilCompleto as PerfilCompletoType, PerfilSolicitante } from '@/types/usuario.types';
+import { UsuarioService } from '@/services/usuarios/usuario.service';
+import { PerfilCompleto as PerfilCompletoType} from '@/features/usuario/perfil/perfil.types';
 import { esPerfilSolicitante } from '@/utils/perfil.utils';
 import DesactivarCuentaModal from '@/components/usuario/DesactivarCuentaModal';
 import EmailRecuperacionForm from '@/components/usuario/EmailRecuperacionForm';

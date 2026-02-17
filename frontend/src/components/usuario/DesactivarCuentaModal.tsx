@@ -1,3 +1,4 @@
+// frontend/src/components/usuario/DesactivarCuentaModal.tsx
 'use client';
 import React, { useState } from 'react';
 import {
@@ -13,12 +14,7 @@ import {
   InputAdornment
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-
-interface DesactivarCuentaModalProps {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: (password: string, motivo?: string) => Promise<void>;
-}
+import { DesactivarCuentaModalProps } from '../ui/desactivarCuentaModalProps';
 
 export default function DesactivarCuentaModal({
   open,

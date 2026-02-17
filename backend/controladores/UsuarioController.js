@@ -353,7 +353,7 @@ static validarCamposRegistro(data, rol) {
                 domicilio: solicitanteData.domicilio
             });
         } catch (error) {
-            console.warn('⚠️ Error creando/actualizando solicitante:', error.message);
+            console.warn('. Error creando/actualizando solicitante:', error.message);
             // Intentar actualizar si ya existe
             try {
                 await SolicitanteModel.update(userId, solicitanteData);
@@ -374,7 +374,7 @@ static validarCamposRegistro(data, rol) {
             await OperadorModel.create(operadorData);
             console.log('. Operador insertado/actualizado en tabla especifica');
         } catch (error) {
-            console.warn('⚠️ Error creando/actualizando operador:', error.message);
+            console.warn('. Error creando/actualizando operador:', error.message);
             // Intentar actualizar si ya existe
             try {
                 await OperadorModel.update(userId, operadorData);
@@ -1452,7 +1452,7 @@ static async eliminarCuentaCompletamente(req, res) {
       
       // Si la función no existe, ejecutar las eliminaciones manualmente
       if (transactionError.message.includes('function eliminar_usuario_completamente(uuid) does not exist')) {
-        console.log('⚠️ Función no existe, ejecutando eliminaciones manualmente...');
+        console.log('. Función no existe, ejecutando eliminaciones manualmente...');
         await UsuarioController.ejecutarEliminacionManual(usuarioId);
       } else {
         throw new Error('Error al eliminar los datos del usuario: ' + transactionError.message);
@@ -1461,18 +1461,18 @@ static async eliminarCuentaCompletamente(req, res) {
 
     // Luego eliminar usuario de Supabase Auth usando el servicio admin
     try {
-      console.log('🔐 Eliminando usuario de Supabase Auth...');
+      console.log('. Eliminando usuario de Supabase Auth...');
       const { supabaseAdmin } = require('../config/supabaseAdmin');
       const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(usuarioId);
       
       if (deleteAuthError) {
-        console.warn('⚠️ No se pudo eliminar usuario de auth:', deleteAuthError.message);
+        console.warn('. No se pudo eliminar usuario de auth:', deleteAuthError.message);
         // Continuamos aunque falle la eliminación en auth, porque los datos principales ya se eliminaron
       } else {
         console.log('. Usuario eliminado de auth correctamente');
       }
     } catch (authError) {
-      console.warn('⚠️ Error eliminando usuario de auth:', authError.message);
+      console.warn('. Error eliminando usuario de auth:', authError.message);
     }
 
     // Cerrar sesión
@@ -1501,7 +1501,7 @@ static async eliminarCuentaCompletamente(req, res) {
 // Método auxiliar para eliminación manual si la función no existe
 static async ejecutarEliminacionManual(usuarioId) {
   try {
-    console.log('🛠️ Ejecutando eliminación manual para usuario:', usuarioId);
+    console.log('. Ejecutando eliminación manual para usuario:', usuarioId);
     
     const { supabase } = require('../config/conexion.js');
     
@@ -1568,7 +1568,7 @@ static async ejecutarEliminacionManual(usuarioId) {
       console.log(`📝 Ejecutando: ${query.substring(0, 100)}...`);
       const { error } = await supabase.rpc('exec_sql', { sql_query: query });
       if (error) {
-        console.warn(`⚠️ Advertencia en query: ${error.message}`);
+        console.warn(`. Advertencia en query: ${error.message}`);
         // Continuar con las siguientes eliminaciones
       }
     }

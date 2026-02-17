@@ -1,4 +1,4 @@
-// components/FirmaDigital/FirmaDigitalStatus.tsx
+// frontend/src/components/FirmaDigital/FirmaDigitalStatus.tsx
 import React, { useState, useEffect } from 'react';
 import { 
     Box, 
@@ -21,28 +21,8 @@ import {
     Refresh
 } from '@mui/icons-material';
 import { getSession } from 'next-auth/react';
-
-interface FirmaDigitalStatusProps {
-    firmaId: string;
-    solicitudId: string;
-}
-
-interface FirmaData {
-    firma: {
-        id: string;
-        estado: string;
-        fecha_envio: string;
-        fecha_expiracion: string;
-        fecha_firma_solicitante?: string;
-        fecha_firma_operador?: string;
-        fecha_firma_completa?: string;
-        url_firma_solicitante?: string;
-        url_firma_operador?: string;
-        url_documento_firmado?: string;
-        integridad_valida?: boolean;
-    };
-}
-
+import { FirmaDigitalStatusProps } from '../ui/firma';
+import { FirmaData } from '@/features/firma_digital/firmaDigital.types';
 const FirmaDigitalStatus: React.FC<FirmaDigitalStatusProps> = ({ firmaId, solicitudId }) => {
     const [firmaData, setFirmaData] = useState<FirmaData | null>(null);
     const [loading, setLoading] = useState(true);

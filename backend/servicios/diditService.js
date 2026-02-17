@@ -53,7 +53,7 @@ async verifyIdentity(archivoBuffer) {
     
     // SIMULACIÓN EN MODO DESARROLLO
     if (process.env.NODE_ENV === 'development') {
-      console.log('. 🛠️  MODO DESARROLLO: Simulando verificación Didit');
+      console.log('. .  MODO DESARROLLO: Simulando verificación Didit');
       
       return {
         success: true,

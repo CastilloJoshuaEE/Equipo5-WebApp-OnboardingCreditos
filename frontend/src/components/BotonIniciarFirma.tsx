@@ -1,4 +1,4 @@
-// components/BotonIniciarFirma.tsx
+// frontend/src/components/BotonIniciarFirma.tsx
 import { useState, useEffect } from 'react';
 import { 
   Button, 
@@ -15,28 +15,9 @@ import {
 } from '@mui/material';
 import { EditDocument, WarningAmber, Info } from '@mui/icons-material';
 import { getSession } from 'next-auth/react';
-
-interface BotonIniciarFirmaProps {
-  solicitudId: string;
-  onFirmaIniciada: (data: any) => void;
-}
-
-interface SessionUser {
-  id: string;
-  email: string;
-  nombre: string;
-  rol: string;
-  accessToken?: string;
-}
-
-interface TransferenciaEstado {
-  habilitado: boolean;
-  existe_transferencia: boolean;
-  transferencia_existente?: any;
-  estado_firma?: string;
-  motivo?: string;
-}
-
+import { BotonIniciarFirmaProps } from './ui/firma';
+import { SessionUser } from '@/features/auth/auth.types';
+import { TransferenciaEstado } from '@/features/transferencias/transferencia.types';
 const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -145,7 +126,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
     return (
       <Alert severity="warning" sx={{ mt: 2, mb: 2 }}>
         <Typography variant="body2" fontWeight="bold">
-          ⚠️ Importante - Plazo de Firma Digital
+          . Importante - Plazo de Firma Digital
         </Typography>
         <Typography variant="body2" sx={{ mt: 1 }}>
           • Tienes <strong>7 días</strong> para completar la firma digital del contrato

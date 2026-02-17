@@ -61,10 +61,6 @@ POLÍTICAS DEL SISTEMA
      * Balance contable
      * Declaración de impuestos
 
-   Documentos Opcionales:
-     * Estados financieros adicionales
-     * Garantías adicionales
-
 4. Política de Comunicación
    - Notificaciones automáticas por correo electrónico para cambios de estado
    - Comentarios visibles para solicitantes (excepto internos)

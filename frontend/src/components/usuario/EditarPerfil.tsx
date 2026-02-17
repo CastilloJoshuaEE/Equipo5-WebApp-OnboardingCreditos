@@ -1,5 +1,5 @@
+// frontend/src/components/usuario/EditarPerfil.tsx
 'use client';
-
 import React, { useState, useEffect } from 'react';
 import {
   Container,
@@ -24,18 +24,11 @@ import {
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import CambiarContrasenaForm from '@/components/usuario/CambiarContrasenaForm';
-
-// Tipos
-interface SolicitanteShape {
-  id?: string;
-  tipo?: string;
-  nombre_empresa?: string;
-  cuit?: string;
-  representante_legal?: string;
-  domicilio?: string;
-  created_at?: string;
-  updated_at?: string;
-}
+import type {
+  PerfilCompleto,
+  PerfilSolicitante,
+  PerfilOperador
+} from '@/features/usuario/perfil/perfil.types';
 
 interface PerfilUsuario {
   id: string;
@@ -48,7 +41,7 @@ interface PerfilUsuario {
   created_at?: string;
   updated_at?: string;
   // Puede venir como array (relación supabase) o como objeto o como campos planos
-  solicitantes?: SolicitanteShape[] | SolicitanteShape;
+  solicitantes?: PerfilSolicitante[] | PerfilSolicitante;
   // o también (en algunos endpoints) los campos pueden venir «a nivel raíz»
   nombre_empresa?: string;
   cuit?: string;
@@ -85,7 +78,7 @@ const EditarPerfil = () => {
   const [modalContrasenaOpen, setmodalContrasenaOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
+const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
   const [formData, setFormData] = useState<FormData>({
     nombre_completo: '',
     telefono: '',
@@ -146,49 +139,23 @@ const EditarPerfil = () => {
   };
 
   // Inicializa formData manejando múltiples formas en que puede venir la info
-  const inicializarFormData = (perfilData: PerfilUsuario) => {
-    const data: FormData = {
-      nombre_completo: perfilData.nombre_completo || '',
-      telefono: perfilData.telefono || '',
-      direccion: perfilData.direccion || '',
-    };
-
-    // 1) Si viene solicitantes como array -> usar el primer elemento
-    if (perfilData.solicitantes) {
-      const solicitantes = perfilData.solicitantes;
-      let solicitante: SolicitanteShape | undefined;
-
-      if (Array.isArray(solicitantes)) {
-        if (solicitantes.length > 0) solicitante = solicitantes[0];
-      } else {
-        // ya es un objeto
-        solicitante = solicitantes as SolicitanteShape;
-      }
-
-      if (solicitante) {
-        data.nombre_empresa = solicitante.nombre_empresa || solicitante['nombre_empresa'] || '';
-        data.cuit = solicitante.cuit || '';
-        data.representante_legal = solicitante.representante_legal || '';
-        data.domicilio_empresa = solicitante.domicilio || '';
-      }
-    } 
-
-    // 2) Si la API devolvió campos a nivel raíz (nombre_empresa, cuit, etc.)
-    if (!data.nombre_empresa && perfilData.nombre_empresa) {
-      data.nombre_empresa = perfilData.nombre_empresa;
-    }
-    if (!data.cuit && perfilData.cuit) {
-      data.cuit = perfilData.cuit;
-    }
-    if (!data.representante_legal && perfilData.representante_legal) {
-      data.representante_legal = perfilData.representante_legal;
-    }
-    if (!data.domicilio_empresa && perfilData.domicilio) {
-      data.domicilio_empresa = perfilData.domicilio;
-    }
-
-    setFormData(data);
+const inicializarFormData = (perfilData: PerfilCompleto) => {
+  const data: FormData = {
+    nombre_completo: perfilData.nombre_completo,
+    telefono: perfilData.telefono,
+    direccion: perfilData.direccion ?? '',
   };
+
+  if (perfilData.rol === 'solicitante') {
+    data.nombre_empresa = perfilData.solicitantes?.nombre_empresa ?? '';
+    data.cuit = perfilData.solicitantes?.cuit ?? '';
+    data.representante_legal = perfilData.solicitantes?.representante_legal ?? '';
+    data.domicilio_empresa = perfilData.solicitantes?.domicilio ?? '';
+  }
+
+  setFormData(data);
+};
+
 
   const handleInputChange = (field: keyof FormData) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({

@@ -21,12 +21,8 @@ import {
 import { useSession } from 'next-auth/react';
 import { DocumentosContrato } from '@/components/documentos/DocumentosContrato';
 import { ComprobantesTransferencia } from '@/components/documentos/ComprobantesTransferencia';
+import { TabPanelProps } from '@/components/ui/tab';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;

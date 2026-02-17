@@ -16,23 +16,7 @@ import {
   CircularProgress
 } from '@mui/material';
 import { getSession } from 'next-auth/react';
-
-interface ContactoBancario {
-  id: string;
-  numero_cuenta: string;
-  nombre_banco: string;
-  tipo_cuenta: string;
-  moneda: string;
-  email_contacto?: string;
-  telefono_contacto?: string;
-}
-
-interface EditarContactoModalProps {
-  open: boolean;
-  onClose: () => void;
-  contacto: ContactoBancario | null;
-  onContactoActualizado: (contacto: ContactoBancario) => void;
-}
+import { EditarContactoModalProps } from './ui/contactoModalProps';
 
 const EditarContactoModal: React.FC<EditarContactoModalProps> = ({ 
   open, 

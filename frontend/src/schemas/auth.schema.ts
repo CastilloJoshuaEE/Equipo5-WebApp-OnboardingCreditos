@@ -1,3 +1,4 @@
+// frontend/src/schemas/auth.schema.ts
 import { z } from 'zod';
 
 const BaseCredentialsSchema = z.object({

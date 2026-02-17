@@ -1,3 +1,4 @@
+// frontend/src/components/home/Services/Services.tsx
 import Image from "next/image";
 import styles from "./Services.module.css";
 

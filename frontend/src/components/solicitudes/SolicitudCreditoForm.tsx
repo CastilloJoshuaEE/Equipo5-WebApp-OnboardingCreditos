@@ -30,23 +30,16 @@ import {
 } from '@mui/material';
 import { Delete, CloudUpload, Description } from '@mui/icons-material';
 import { solicitudCreditoSchema, type SolicitudCreditoInput } from '@/schemas/solicitud.schema';
+import { SolicitudCreditoFormProps } from '../ui/listaSolicitudesProps';
+import { DocumentoConTipo } from '@/features/documentos/documento.types';
 const steps = ['Datos del Crédito', 'Documentación', 'Revisión'];
-interface DocumentoConTipo {
-  file: File;
-  tipo: string;
-  id: string; // ID único para identificar el documento
-}
-
-
 type FormData = {
   monto: number;
   plazo_meses: number;
   moneda: 'ARS' | 'USD';
   proposito: string;
 };
-interface SolicitudCreditoFormProps {
-  onSuccess: () => void;
-}
+
 export default function SolicitudCreditoForm({ onSuccess }: SolicitudCreditoFormProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [error, setError] = useState('');

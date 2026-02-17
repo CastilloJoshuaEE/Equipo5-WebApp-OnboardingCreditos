@@ -4,7 +4,7 @@ import "./../styles/globals.css";
 
 import { SessionProvider } from "@/providers/SessionProvider";
 import { SessionExpiredProvider } from "@/providers/SessionExpiredProvider";
-import { SessionSyncProvider } from '@/components/SessionSyncProvider';
+import { SessionSyncProvider } from '@/context/SessionSyncProvider';
 
 import ChatbotWidget from "@/components/chatbot/ChatbotWidget";
 

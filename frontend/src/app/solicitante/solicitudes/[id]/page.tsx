@@ -23,31 +23,7 @@ import {
 import { getSession } from 'next-auth/react';
 import GestionDocumentos from '@/components/documentos/GestionDocumentos';
 import BotonIniciarFirma from '@/components/BotonIniciarFirma';
-interface SolicitudDetalle {
-  id: string;
-  numero_solicitud: string;
-  monto: number;
-  plazo_meses: number;
-  moneda: string;
-  estado: string;
-  nivel_riesgo: string;
-  proposito: string;
-  comentarios?: string;
-  motivo_rechazo?: string;
-  created_at: string;
-  fecha_envio?: string;
-  fecha_decision?: string;
-  documentos: Array<{
-    id: string;
-    tipo: string;
-    nombre_archivo: string;
-    estado: string;
-    created_at: string;
-    validado_en?: string;
-    comentarios?: string;
-  }>;
-}
-
+import { SolicitudDetalle } from '@/features/solicitudes/solicitud.types';
 const estadosSolicitud = [
   'borrador',
   'enviado', 

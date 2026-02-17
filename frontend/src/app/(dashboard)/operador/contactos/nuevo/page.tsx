@@ -19,18 +19,7 @@ import {
 } from '@mui/material';
 import { getSession } from 'next-auth/react';
 import EditarContactoModal from '@/components/EditarContactoModal';
-
-interface ContactoBancario {
-  id: string;
-  numero_cuenta: string;
-  nombre_banco: string;
-  tipo_cuenta: string;
-  moneda: string;
-  email_contacto?: string;
-  telefono_contacto?: string;
-  solicitante_id?: string;
-}
-
+import { ContactoBancarioData } from '@/features/contacto_bancario/contactoBancario.types';
 export default function NuevoContactoPage() {
   const [formData, setFormData] = useState({
     numero_cuenta: '',
@@ -44,8 +33,8 @@ export default function NuevoContactoPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [solicitudId, setSolicitudId] = useState<string>('');
-  const [contactos, setContactos] = useState<ContactoBancario[]>([]);
-  const [contactoEditando, setContactoEditando] = useState<ContactoBancario | null>(null);
+  const [contactos, setContactos] = useState<ContactoBancarioData[]>([]);
+  const [contactoEditando, setContactoEditando] = useState<ContactoBancarioData | null>(null);
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -165,7 +154,7 @@ export default function NuevoContactoPage() {
     }
   };
 
-  const handleEditarContacto = (contacto: ContactoBancario) => {
+  const handleEditarContacto = (contacto: ContactoBancarioData) => {
     setContactoEditando(contacto);
     setModalEditarAbierto(true);
   };
@@ -200,7 +189,7 @@ export default function NuevoContactoPage() {
     }
   };
 
-  const handleContactoActualizado = (contactoActualizado: ContactoBancario) => {
+  const handleContactoActualizado = (contactoActualizado: ContactoBancarioData) => {
     // Actualizar la lista de contactos
     setContactos(prev => prev.map(contacto => 
       contacto.id === contactoActualizado.id ? contactoActualizado : contacto

@@ -16,20 +16,14 @@ import {
     CircularProgress,
     Typography
 } from '@mui/material';
-import { RevisionData } from '@/types/operador';
+import { RevisionData } from '@/features/operador/revision.types';
 import ResumenStep from './steps/ResumenStep';
 import DocumentacionStep from './steps/DocumentacionStep';
 import BCRAStep from './steps/BCRAStep';
 import ScoringStep from './steps/ScoringStep';
 import DecisionStep from './steps/DecisionStep';
 import { getSession } from 'next-auth/react';
-
-interface RevisionModalProps {
-    open: boolean;
-    onClose: () => void;
-    data: RevisionData;
-    onDocumentoActualizado?: () => void; // Nueva prop para refrescar datos
-}
+import { RevisionModalProps } from '@/features/operador/revision.types';
 
 export default function RevisionModal({ open, onClose, data, onDocumentoActualizado }: RevisionModalProps) {
     const [pasoActivo, setPasoActivo] = useState(0);

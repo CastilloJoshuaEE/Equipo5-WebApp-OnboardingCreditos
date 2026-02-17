@@ -1,5 +1,5 @@
+// frontend/src/app/(dashboard)/solicitante/configuracion/page.tsx
 'use client';
-
 import React, { useState } from 'react';
 import {
   Box,
