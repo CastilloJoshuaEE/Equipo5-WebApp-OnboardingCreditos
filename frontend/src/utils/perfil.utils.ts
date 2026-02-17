@@ -1,5 +1,7 @@
-import { PerfilCompleto, PerfilSolicitante, PerfilOperador } from '@/types/usuario.types';
-
+// frontend/src/utils/perfil.utils.ts
+import { PerfilCompleto } from '@/features/usuario/perfil/perfil.types';
+import { PerfilSolicitante } from '@/features/usuario/perfil/perfil.types';
+import { PerfilOperador } from '@/features/usuario/perfil/perfil.types';
 /**
  * Type guard para verificar si un perfil es de tipo solicitante
  */

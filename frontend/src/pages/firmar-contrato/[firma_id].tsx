@@ -1,4 +1,4 @@
-// pages/firmar-contrato/[firma_id].tsx
+// frontend/src/pages/firmar-contrato/[firma_id].tsx
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { getSession } from 'next-auth/react';
@@ -129,7 +129,7 @@ const FirmaContratoPage = () => {
         
         // Si es error 404, intentar reparar automáticamente
         if (response.status === 404) {
-          console.log('🛠️ Intentando reparar relación automáticamente...');
+          console.log('. Intentando reparar relación automáticamente...');
           
           const repairResponse = await fetch(`${API_URL}/firmas/${firma_id}/reparar-relacion`, {
             method: 'POST',

@@ -1,3 +1,4 @@
+// frontend/src/app/(dashboard)/operador/page.tsx
 'use client';
 import { useRouter, useParams } from 'next/navigation';
 import { signOut } from 'next-auth/react';
@@ -31,17 +32,13 @@ import {
   useMediaQuery,
   useTheme
 } from '@mui/material';
-import { 
-  Documento, 
-  RevisionData, 
-  SolicitudOperador, 
-  TransferenciaBancaria, 
-  Contrato 
-} from '@/types/operador';
-import RevisionModal from '@/components/operador/RevisionModal';
 import './operador-styles.css';
-import { HabilitacionTransferencia } from '@/types/transferencias';
-
+import { SolicitudOperador} from '@/features/solicitudes/solicitud.types';
+import { HabilitacionTransferencia } from '@/features/transferencias/transferencia.types';
+import { TransferenciaBancaria } from '@/features/transferencias/transferencia.types';
+import { RevisionData } from '@/features/operador/revision.types';
+import { Contrato } from '@/features/contratos/contrato.types';
+import RevisionModal from '@/components/operador/RevisionModal';
 export default function OperadorDashboard() {
   const router = useRouter();
   const params = useParams();

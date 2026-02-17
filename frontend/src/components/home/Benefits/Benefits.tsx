@@ -1,3 +1,5 @@
+// frontend/src/components/home/Benefits/Benefits.tsx
+
 import Image from "next/image";
 import styles from "./Benefits.module.css";
 

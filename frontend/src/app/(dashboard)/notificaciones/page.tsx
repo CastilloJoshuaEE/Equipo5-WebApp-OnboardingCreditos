@@ -1,3 +1,4 @@
+// frontend/src/app/(dashboard)/notificaciones/page.tsx
 'use client';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
@@ -38,14 +39,9 @@ import {
   Menu as MenuIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
-import { Notificacion } from '@/services/notificaciones.service';
-import notificacionesService from '@/services/notificaciones.service';
+import notificacionesService from '@/services/notificaciones/notificaciones.service';
 import Image from 'next/image';
-
-interface NotificacionConDetalle extends Notificacion {
-  solicitudId?: string;
-}
-
+import { NotificacionConDetalle } from '@/features/notificaciones/notificaciones.types';
 export default function NotificacionesPage() {
   const router = useRouter();
   const theme = useTheme();

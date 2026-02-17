@@ -1,3 +1,4 @@
+// frontend/src/components/usuario/EmailRecuperacionForm.tsx
 'use client';
 import React, { useState, useEffect } from 'react';
 import { getSession } from 'next-auth/react';
@@ -11,13 +12,7 @@ import {
   Box,
   Chip
 } from '@mui/material';
-
-interface ConfiguracionCuenta {
-  email_principal: string;
-  email_recuperacion?: string;
-  cuenta_activa: boolean;
-  fecha_desactivacion?: string;
-}
+import { ConfiguracionCuenta } from '@/features/usuario/configuracion/configuracion.types';
 
 export default function EmailRecuperacionForm() {
   const [emailRecuperacion, setEmailRecuperacion] = useState('');

@@ -1,3 +1,4 @@
+// frontend/src/components/notificaciones/NotificacionesModal.tsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -13,16 +14,11 @@ import {
   Divider
 } from '@mui/material';
 import { Close, MarkEmailRead } from '@mui/icons-material';
-import { Notificacion } from '@/services/notificaciones.service';
-import notificacionesService from '@/services/notificaciones.service';
-import { getSession } from 'next-auth/react';
+import notificacionesService from '@/services/notificaciones/notificaciones.service';
+import { NotificacionesModalProps } from '../ui/notificacionesModal';
+import { Notificacion } from '@/services/notificaciones/notificacion.types';
 import Image from 'next/image';
 
-interface NotificacionesModalProps {
-  abierto: boolean;
-  onCerrar: () => void;
-  onVerTodas: () => void;
-}
 
 export function NotificacionesModal({
   abierto,

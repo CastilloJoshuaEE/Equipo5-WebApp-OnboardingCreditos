@@ -1,3 +1,4 @@
+// frontend/src/components/usuario/CambiarContrasenaForm.tsx
 'use client';
 import React, { useState } from 'react';
 import {
@@ -13,14 +14,8 @@ import {
   InputAdornment
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { UsuarioService } from '@/services/usuario.service';
-
-interface CambiarContrasenaFormProps {
-  open: boolean;
-  onClose: () => void;
-  onSuccess?: () => void;
-}
-
+import { UsuarioService } from '@/services/usuarios/usuario.service';
+import { CambiarContrasenaFormProps } from '../ui/cambiarContrasenaFormProps';
 const CambiarContrasenaForm: React.FC<CambiarContrasenaFormProps> = ({
   open,
   onClose,

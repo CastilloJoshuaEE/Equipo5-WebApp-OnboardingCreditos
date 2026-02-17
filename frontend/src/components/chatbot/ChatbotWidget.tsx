@@ -1,3 +1,4 @@
+// frontend/src/components/chatbot/ChatbotWidget.tsx
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { 
@@ -19,13 +20,7 @@ import {
 } from '@mui/icons-material';
 import { getSession, useSession } from 'next-auth/react';
 import './chabot-styles.css';
-
-interface Mensaje {
-  id: string;
-  texto: string;
-  esUsuario: boolean;
-  timestamp: Date;
-}
+import { Mensaje } from '@/features/chatbot/mensaje.types';
 
 export default function ChatbotWidget() {
   const [abierto, setAbierto] = useState(false);
@@ -285,14 +280,7 @@ export default function ChatbotWidget() {
                 </Box>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <IconButton 
-                  size="small" 
-                  onClick={actualizarSesion}
-                  title="Actualizar sesión"
-                  disabled={sessionLoading}
-                >
-                  <HelpOutline />
-                </IconButton>
+                
                 <IconButton 
                   size="small" 
                   onClick={() => setAbierto(false)}

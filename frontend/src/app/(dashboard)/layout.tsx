@@ -1,3 +1,4 @@
+// frontend/src/app/(dashboard)/layout.tsx
 'use client';
 import { signOut } from 'next-auth/react';
 import { useTheme } from '@mui/material/styles';
@@ -22,13 +23,8 @@ import { NotificacionesBell } from '@/components/notificaciones/NotificacionesBe
 import { DynamicNavigation } from '@/components/layout/DynamicNavigation';
 import Image from 'next/image';
 import './dashboard-styles.css';
-
-// Importa tu tema MUI
 import theme from '@/styles/theme';
-
-interface DashboardLayoutProps {
-  children: React.ReactNode;
-}
+import { DashboardLayoutProps } from '@/components/ui/dashboard';
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { data: session, status } = useSession();

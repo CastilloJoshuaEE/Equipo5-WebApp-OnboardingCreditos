@@ -13,11 +13,10 @@
   bottom: 20px;
   right: 20px;
   z-index: 1000;
-  /* Asegurar que no ocupe espacio cuando está cerrado */
   width: auto;
   height: auto;
 }
-/* Floating Button - CORREGIDO */
+/* Floating Button - . */
 .floating-chat-button {
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   color: var(--color-white);

@@ -1,3 +1,4 @@
+// frontend/src/components/home/Advantages/Advantages.tsx
 import Image from "next/image";
 import styles from "./Advantages.module.css";
 

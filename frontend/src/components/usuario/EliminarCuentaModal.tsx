@@ -16,13 +16,7 @@ import {
   IconButton
 } from '@mui/material';
 import { Warning, Visibility, VisibilityOff } from '@mui/icons-material';
-
-interface EliminarCuentaModalProps {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: (password: string) => Promise<void>;
-}
-
+import { EliminarCuentaModalProps } from '../ui/eliminarCuentaModalProps';
 export default function EliminarCuentaModal({
   open,
   onClose,

@@ -1,9 +1,10 @@
-"use client";
+// frontend/src/components/home/HeroSection/HeroSection.tsx
 
+"use client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { UserRole } from "@/types/auth.types";
+import { UserRole } from "@/features/auth/auth.types";
 import styles from "./HeroSection.module.css";
 
 export default function HeroSection() {

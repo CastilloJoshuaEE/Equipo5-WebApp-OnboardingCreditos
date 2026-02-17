@@ -5,11 +5,9 @@ import {
   Card,
   CardContent,
   Typography,
-  Button,
   Chip,
   Alert,
   CircularProgress,
-  Grid,
   Table,
   TableBody,
   TableCell,
@@ -30,12 +28,9 @@ import {
   Schedule,
   Error as ErrorIcon,
 } from '@mui/icons-material';
-import { useDocumentos } from '@/hooks/useDocumentos';
-import { ComprobanteTransferencia } from '@/services/documentos.service';
-
-interface ComprobantesTransferenciaProps {
-  solicitudId: string;
-}
+import { useDocumentos } from '@/features/documentos/hooks/useDocumentos';
+import { ComprobanteTransferencia } from '@/services/documentos/documento.types';
+import { ComprobantesTransferenciaProps } from '@/features/documentos/documento.types';
 
 export const ComprobantesTransferencia: React.FC<ComprobantesTransferenciaProps> = ({ solicitudId }) => {
   const {

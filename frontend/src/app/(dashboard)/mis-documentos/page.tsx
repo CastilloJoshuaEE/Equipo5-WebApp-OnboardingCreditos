@@ -1,3 +1,4 @@
+// frontend/src/app/(dashboard)/mis-documentos/page.tsx
 'use client';
 import React, { useState, useEffect } from 'react';
 import {
@@ -43,64 +44,8 @@ import {
   Close,
 } from '@mui/icons-material';
 import { getSession } from 'next-auth/react';
-
-// Interfaces para TypeScript
-interface Contrato {
-  id: string;
-  numero_contrato: string;
-  estado: string;
-  ruta_documento: string;
-  created_at: string;
-  updated_at: string;
-  firma_digital?: {
-    id: string;
-    estado: string;
-    fecha_firma_completa: string;
-    url_documento_firmado: string;
-    ruta_documento: string;
-  };
-  solicitud_numero?: string;
-  monto_solicitud?: number;
-  moneda_solicitud?: string;
-}
-
-interface TransferenciaBancaria {
-  id: string;
-  solicitud_id: string;
-  contrato_id: string;
-  contacto_bancario_id: string;
-  monto: string;
-  moneda: string;
-  numero_comprobante: string;
-  cuenta_origen: string;
-  banco_origen: string;
-  cuenta_destino: string;
-  banco_destino: string;
-  motivo: string;
-  costo_transferencia: string;
-  estado: string;
-  procesado_por: string;
-  fecha_procesamiento: string;
-  fecha_completada: string;
-  ruta_comprobante: string;
-  created_at: string;
-  updated_at: string;
-  solicitudes_credito?: {
-    numero_solicitud: string;
-    solicitante_id: string;
-  };
-  contactos_bancarios?: {
-    nombre_banco: string;
-    numero_cuenta: string;
-    tipo_cuenta: string;
-  };
-}
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
+import { TabPanelProps } from '@/components/ui/tab';
+import { DocumentoTransferenciaBancaria } from '@/features/documentos/documentoTransferenciaBancaria.types';
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -124,7 +69,7 @@ export default function MisDocumentosPage() {
   
   const [tabValue, setTabValue] = useState(0);
   const [solicitudesConDocumentos, setSolicitudesConDocumentos] = useState<any[]>([]);
-  const [transferencias, setTransferencias] = useState<TransferenciaBancaria[]>([]);
+  const [transferencias, setTransferencias] = useState<DocumentoTransferenciaBancaria[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
@@ -217,7 +162,7 @@ export default function MisDocumentosPage() {
     }
   };
 
-  const handleDescargarComprobante = async (transferencia: TransferenciaBancaria) => {
+  const handleDescargarComprobante = async (transferencia: DocumentoTransferenciaBancaria) => {
     try {
       const session = await getSession();
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -462,7 +407,7 @@ export default function MisDocumentosPage() {
   );
 
   // Componente para tarjetas responsive de transferencias
-  const TransferenciaCard = ({ transferencia }: { transferencia: TransferenciaBancaria }) => (
+  const TransferenciaCard = ({ transferencia }: { transferencia: DocumentoTransferenciaBancaria }) => (
     <Card variant="outlined" sx={{ mb: 2 }}>
       <CardContent>
         <Stack spacing={2}>

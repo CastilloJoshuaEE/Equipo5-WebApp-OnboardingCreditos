@@ -72,7 +72,7 @@
   box-sizing: border-box;
 }
 
-/* Summary Cards - CORREGIDO para eliminar espacios */
+/* Summary Cards - . para eliminar espacios */
 .metrics-grid {
   margin-bottom: 24px;
   width: 100%;
@@ -124,7 +124,7 @@
   line-height: 1.4;
 }
 
-/* Contenedor de métricas - CORREGIDO */
+/* Contenedor de métricas - . */
 .metrics-container {
   display: flex;
   flex-direction: row;

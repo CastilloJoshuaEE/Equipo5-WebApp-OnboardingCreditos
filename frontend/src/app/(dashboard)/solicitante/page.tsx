@@ -29,17 +29,12 @@ import {
   Description as DescriptionIcon,
   HelpOutline as HelpOutlineIcon
 } from '@mui/icons-material';
-import { UserRole } from '@/types/auth.types';
+import { UserRole } from '@/features/auth/auth.types';
 import SolicitudCreditoForm from '@/components/solicitudes/SolicitudCreditoForm';
 import ListaSolicitudes from '@/components/solicitudes/ListaSolicitudes';
 import PlantillasDocumento from '@/components/solicitante/PlantillasDocumento';
 import { useSessionExpired } from '@/providers/SessionExpiredProvider';
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
+import { TabPanelProps } from '@/components/ui/tab';
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -382,7 +377,7 @@ export default function DashboardSolicitante() {
             Complete su solicitud de crédito y suba toda la documentación requerida para agilizar el proceso.
           </Alert>
 
-          {/* Tarjetas de Métricas - CORREGIDO: Layout compacto sin espacios grandes */}
+          {/* Tarjetas de Métricas - .: Layout compacto sin espacios grandes */}
           {loading ? (
             <Box sx={{ mb: 4 }}>
               <LinearProgress />

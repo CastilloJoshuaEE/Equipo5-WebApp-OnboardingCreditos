@@ -1,5 +1,5 @@
+// frontend/src/app/confirmacion-exitosa/page.tsx
 'use client';
-
 import { Box, Typography, Button, Alert } from '@mui/material';
 import { useRouter } from 'next/navigation';
 

@@ -1,3 +1,4 @@
+// frontend/src/components/auth/LoginForm.tsx
 'use client';
 import { getSession } from 'next-auth/react';
 import React, { useState } from 'react';
@@ -23,11 +24,10 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { loginSchema } from '@/schemas/auth.schema';
-import type { LoginInput } from '@/types/auth.types';
-
+import type { LoginInput } from '@/features/auth/login.types';
 export default function LoginForm() {
   const [error, setError] = useState('');
-    const [redirectMessage, setRedirectMessage] = useState(''); // 🔹 Mensaje del overlay
+    const [redirectMessage, setRedirectMessage] = useState(''); 
 
   const [redirecting, setRedirecting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

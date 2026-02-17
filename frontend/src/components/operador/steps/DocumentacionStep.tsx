@@ -1,6 +1,6 @@
 // frontend/src/components/operador/steps/DocumentacionStep.tsx
 'use client';
-import { DocumentosService } from '@/services/documentos.service';
+import { DocumentosService } from '@/services/documentos/documentos.service';
 import React, { useState, useEffect } from 'react';
 import { getSession } from 'next-auth/react';
 import {
@@ -35,31 +35,8 @@ import {
     Assignment,
     OpenInNew
 } from '@mui/icons-material';
-
-interface Documento {
-    id: string;
-    tipo: string;
-    nombre_archivo: string;
-    ruta_storage: string;
-    tamanio_bytes: number;
-    estado: string;
-    created_at: string;
-    validado_en?: string;
-    comentarios?: string;
-    informacion_extraida?: any;
-}
-
-interface DocumentacionStepProps {
-    documentos: Documento[];
-    scoring: any;
-    onValidarDocumento: (documentoId: string, estado: string, comentarios?: string) => void;
-    onEvaluarDocumento?: (documentoId: string, criterios: any, comentarios: string, estado?: string) => void;     onDescargarDocumento: (documento: Documento) => void;
-    onVerDocumento: (documento: Documento) => void;
-    loading?: boolean;
-    solicitudId?: string;
-}
-
-
+import { DocumentacionStepProps } from '@/features/documentos/documento.types';
+import { Documento } from '@/features/documentos/documento.types';
 // Criterios de evaluación por tipo de documento
 const CRITERIOS_DOCUMENTOS = {
     dni: {

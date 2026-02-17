@@ -1,35 +1,21 @@
+// frontend/src/components/solicitante/PlantillasDocumento.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Typography,
   Button,
-  Card,
-  CardContent,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
   CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Snackbar,
   Alert,
 } from '@mui/material';
-import { CloudUpload, Edit, Download } from '@mui/icons-material';
-
-interface Plantilla {
-  id: number;
-  tipo: string;
-  nombre_archivo: string;
-  ruta_storage: string;
-  tamanio_bytes: number;
-  created_at: string;
-}
+import {Download } from '@mui/icons-material';
+import { Plantilla } from '@/features/documentos/documento.types';
 
 export default function GestionPlantillas() {
   const [plantillas, setPlantillas] = useState<Plantilla[]>([]);

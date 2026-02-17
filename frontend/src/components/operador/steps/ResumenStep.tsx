@@ -2,15 +2,10 @@
 import React from 'react';
 import { Box, Typography, Card, CardContent } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { SolicitudOperador } from '@/types/operador';
-
-interface ResumenStepProps {
-    solicitud: SolicitudOperador;
-}
-
+import { SolicitudOperador } from '@/features/solicitudes/solicitud.types';
+import { ResumenStepProps } from '@/components/ui/decisionStepProps';
 export default function ResumenStep({ solicitud }: ResumenStepProps) {
     // Función . para acceder a los datos anidados
-// Mejorar la función getContactoInfo
 const getContactoInfo = (solicitud: SolicitudOperador) => {
     console.log('. Datos completos del solicitante:', solicitud.solicitantes);
     

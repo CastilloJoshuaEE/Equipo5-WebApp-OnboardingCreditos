@@ -1,3 +1,4 @@
+// frontend/src/schemas/usuario.schema.ts
 import { z } from 'zod';
 
 // Esquema base para edición de perfil

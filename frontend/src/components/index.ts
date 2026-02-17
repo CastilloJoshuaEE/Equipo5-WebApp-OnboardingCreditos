@@ -1,3 +1,4 @@
+// frontend/src/components/index.ts
 export { default as Navbar } from "./home/Navbar/Navbar";
 export { default as HeroSection } from "./home/HeroSection/HeroSection";
 export { default as Steps } from "./home/Steps/Steps";

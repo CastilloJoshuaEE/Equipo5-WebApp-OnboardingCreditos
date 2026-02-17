@@ -1,3 +1,4 @@
+// frontend/src/services/solicitudes.service.ts
 import api from '../lib/axios';
 
 export const SolicitudesService = {

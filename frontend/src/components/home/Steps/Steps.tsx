@@ -1,3 +1,4 @@
+// frontend/src/components/home/Steps/Steps.tsx
 import styles from "./Steps.module.css";
 
 export default function Steps() {

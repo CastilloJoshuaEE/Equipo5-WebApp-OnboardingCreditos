@@ -1,3 +1,4 @@
+// frontend/src/app/page.tsx
 import {
   Navbar,
   HeroSection,

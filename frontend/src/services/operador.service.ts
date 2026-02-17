@@ -1,6 +1,8 @@
+// frontend/src/services/operador.service.ts
 import api from '../lib/axios';
-import { SolicitudOperador, RevisionData, FiltrosOperador } from '../types/operador';
-
+import { SolicitudOperador } from '@/features/solicitudes/solicitud.types';
+import { RevisionData } from '@/features/operador/revision.types';
+import { FiltrosOperador } from '@/features/operador/dashboard.types';
 export const OperadorService = {
     // Obtener dashboard con filtros
     obtenerDashboard: async (filtros: FiltrosOperador): Promise<{ solicitudes: SolicitudOperador[] }> => {

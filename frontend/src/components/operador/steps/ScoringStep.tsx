@@ -1,9 +1,7 @@
+// frontend/src/components/operador/steps/ScoringSteps.tsx
 import React from 'react';
 import { Box, Grid, Typography, Card, CardContent, Chip, LinearProgress } from '@mui/material';
-
-interface ScoringStepProps {
-    scoring: any;
-}
+import { ScoringStepProps } from '@/features/riesgo/scoring.types';
 
 export default function ScoringStep({ scoring }: ScoringStepProps) {
     return (

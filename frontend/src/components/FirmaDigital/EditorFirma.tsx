@@ -1,3 +1,4 @@
+// frontend/src/components/FirmaDigital/EditorFirma.tsx
 import React, { useState, useRef, useCallback } from 'react';
 import {
     Box,
@@ -29,19 +30,9 @@ import {
     Brush,
     Image
 } from '@mui/icons-material';
+import { TabPanelProps } from '@/components/ui/tab';
 
-interface EditorFirmaProps {
-    open: boolean;
-    onClose: () => void;
-    onFirmaGuardada: (firmaData: any) => void;
-}
-
-interface TabPanelProps {
-    children?: React.ReactNode;
-    index: number;
-    value: number;
-}
-
+import { EditorFirmaProps } from '../ui/firma';
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other }) => {
     return (
         <div

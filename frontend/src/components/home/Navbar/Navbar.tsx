@@ -5,8 +5,7 @@ import Image from "next/image";
 import styles from "./Navbar.module.css";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { UserRole } from "@/types/auth.types";
-
+import { UserRole } from "@/features/auth/auth.types";
 export default function Navbar() {
   const router = useRouter();
   const { data: session, status } = useSession();

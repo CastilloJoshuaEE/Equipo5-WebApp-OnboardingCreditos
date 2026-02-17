@@ -1,3 +1,4 @@
+// frontend/src/components/ui/card.tsx
 import * as React from "react"
 import { Card as MuiCard, CardContent as MuiCardContent, CardHeader as MuiCardHeader, Typography } from "@mui/material"
 

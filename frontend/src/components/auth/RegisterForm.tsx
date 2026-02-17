@@ -1,3 +1,4 @@
+// frontend/src/components/auth/RegisterForm.tsx
 'use client';
 import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
@@ -23,11 +24,9 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { registerSchema, RegisterInput } from '@/schemas/auth.schema';
-import { UserRole } from '@/types/auth.types';
-
+import { UserRole } from '@/features/auth/auth.types';
 export default function RegisterForm() {
-    const [acceptedTerms, setAcceptedTerms] = useState(false);
-
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
