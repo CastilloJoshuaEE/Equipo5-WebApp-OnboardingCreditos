@@ -19,7 +19,7 @@ export const useConfiguracionCuenta = (): UseConfiguracionCuentaReturn => {
         setError('Error al cargar la configuración');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar la configuración');
+      setError(err instanceof Error ? error.message : 'Error al cargar la configuración');
     } finally {
       setLoading(false);
     }
@@ -39,7 +39,7 @@ export const useConfiguracionCuenta = (): UseConfiguracionCuentaReturn => {
         return false;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al actualizar el email de recuperación');
+      setError(err instanceof Error ? error.message : 'Error al actualizar el email de recuperación');
       return false;
     } finally {
       setLoading(false);
@@ -53,7 +53,7 @@ export const useConfiguracionCuenta = (): UseConfiguracionCuentaReturn => {
       const response = await UsuarioService.desactivarCuenta({ password, motivo });
       return response.success;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al desactivar la cuenta');
+      setError(err instanceof Error ? error.message : 'Error al desactivar la cuenta');
       return false;
     } finally {
       setLoading(false);
@@ -76,7 +76,7 @@ export const useConfiguracionCuenta = (): UseConfiguracionCuentaReturn => {
         return false;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cambiar la contraseña');
+      setError(err instanceof Error ? error.message : 'Error al cambiar la contraseña');
       return false;
     } finally {
       setLoading(false);

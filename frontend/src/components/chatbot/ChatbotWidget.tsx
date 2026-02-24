@@ -40,7 +40,7 @@ export default function ChatbotWidget() {
       setSessionLoading(true);
       try {
         const userSession = await getSession();
-        console.log('🔄 Chatbot - Sesión cargada:', userSession ? `Usuario: ${userSession.user?.name}` : 'No hay sesión');
+        console.log('. Chatbot - Sesión cargada:', userSession ? `Usuario: ${userSession.user?.name}` : 'No hay sesión');
         setSession(userSession);
       } catch (error) {
         console.error('Error cargando sesión en chatbot:', error);
@@ -146,7 +146,7 @@ export default function ChatbotWidget() {
         ? `${API_BASE}/chatbot/mensaje-autenticado`
         : `${API_BASE}/chatbot/mensaje`;
 
-      console.log('💬 Chatbot - Enviando mensaje:', {
+      console.log(' Chatbot - Enviando mensaje:', {
         endpoint,
         autenticado: !!currentSession?.accessToken,
         usuario: currentSession?.user?.name
@@ -162,11 +162,11 @@ export default function ChatbotWidget() {
         }),
       });
 
-      console.log('📨 Chatbot - Respuesta del servidor:', response.status);
+      console.log('Chatbot - Respuesta del servidor:', response.status);
 
       if (!response.ok) {
         if (response.status === 401 && currentSession?.accessToken) {
-          console.log('🔄 Chatbot - Token inválido, intentando con endpoint público...');
+          console.log('. Chatbot - Token inválido, intentando con endpoint público...');
           const publicResponse = await fetch(`${API_BASE}/chatbot/mensaje`, {
             method: 'POST',
             headers: {
@@ -206,7 +206,7 @@ export default function ChatbotWidget() {
         throw new Error(data.message || 'Error en la respuesta del servidor');
       }
     } catch (error: any) {
-      console.error('❌ Chatbot - Error enviando mensaje:', error);
+      console.error('. Chatbot - Error enviando mensaje:', error);
       const mensajeError: Mensaje = {
         id: (Date.now() + 1).toString(),
         texto: 'Lo siento, ha ocurrido un error. Por favor intenta nuevamente.',
@@ -228,7 +228,7 @@ export default function ChatbotWidget() {
 
   // Función para forzar actualización de sesión
   const actualizarSesion = async () => {
-    console.log('🔄 Chatbot - Forzando actualización de sesión...');
+    console.log('. Chatbot - Forzando actualización de sesión...');
     const nuevaSesion = await getSession();
     setSession(nuevaSesion);
   };

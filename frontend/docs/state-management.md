@@ -46,8 +46,8 @@ export const useSolicitudes = () => {
     try {
       const data = await SolicitudesService.obtenerMisSolicitudes();
       setSolicitudes(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error: unknown) {
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -61,8 +61,8 @@ export const useSolicitudes = () => {
       // Actualizar la lista local después de una creación exitosa
       setSolicitudes(prev => [solicitudCreada, ...prev]);
       return solicitudCreada;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error: unknown) {
+      setError(error.message);
       throw err;
     } finally {
       setLoading(false);

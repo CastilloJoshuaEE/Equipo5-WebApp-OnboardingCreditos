@@ -1,4 +1,5 @@
-const { supabaseAdmin } = require('./supabaseAdmin');
+// backend/config/configStorage.js
+const { supabaseAdmin } = require('../infrastructure/database/supabaseAdmin');
 
 const configurarStorage = async () => {
   try {

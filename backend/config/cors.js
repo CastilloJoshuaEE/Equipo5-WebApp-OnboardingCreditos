@@ -1,5 +1,7 @@
+// backend/config/cors.js
 const allowedOrigins = [
   'http://localhost:3000',
+  'http://localhost:3001',
   'https://nexia-sigma.vercel.app',
   'https://equipo5-webapp-onboardingcreditos-orxk.onrender.com'
 ];

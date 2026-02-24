@@ -37,7 +37,7 @@ export const usePerfil = (): UsePerfilReturn => {
       }
     } catch (err) {
       console.error('Error en usePerfil:', err);
-      setError(err instanceof Error ? err.message : 'Error al cargar el perfil');
+      setError(err instanceof Error ? error.message : 'Error al cargar el perfil');
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,7 @@ export const usePerfil = (): UsePerfilReturn => {
       }
     } catch (err) {
       console.error('Error actualizando perfil:', err);
-      setError(err instanceof Error ? err.message : 'Error al actualizar el perfil');
+      setError(err instanceof Error ? error.message : 'Error al actualizar el perfil');
       return false;
     } finally {
       setLoading(false);

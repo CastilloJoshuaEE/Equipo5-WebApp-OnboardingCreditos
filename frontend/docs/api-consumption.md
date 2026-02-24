@@ -88,8 +88,8 @@ export const useDocumentos = () => {
     try {
       const data = await DocumentosService.obtenerDocumentosContrato(solicitudId);
       return data;
-    } catch (err: any) {
-      const errorMsg = err.response?.data?.message || err.message || 'Error al obtener documentos';
+    } catch (error: unknown) {
+      const errorMsg = err.response?.data?.message || error.message || 'Error al obtener documentos';
       setError(errorMsg);
       throw err; // Re-lanzar para que el componente pueda manejarlo si es necesario
     } finally {

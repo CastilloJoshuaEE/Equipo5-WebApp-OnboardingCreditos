@@ -33,7 +33,7 @@ export default function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const formRef = useRef<HTMLDivElement>(null);
-  const [isRedirecting, setIsRedirecting] = useState(false); // 👈 nuevo estado para redirecciones
+  const [isRedirecting, setIsRedirecting] = useState(false); 
 
   const handleVolverInicio = () => {
     setIsRedirecting(true);

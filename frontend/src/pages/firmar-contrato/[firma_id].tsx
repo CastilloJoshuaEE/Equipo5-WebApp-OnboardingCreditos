@@ -237,7 +237,7 @@ const handleFirmarDocumento = async (documentoFirmado: DocumentoFirmado) => {
 
         console.log('. Enviando firma acumulativa...', { tipoFirma, firma_id });
 
-        // . USAR EL NUEVO ENDPOINT
+        // . USAR EL ENDPOINT
         const response = await fetch(`${API_URL}/firmas/procesar-firma-word/${firma_id}`, {
             method: 'POST',
             headers: {

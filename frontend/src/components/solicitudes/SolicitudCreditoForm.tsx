@@ -47,7 +47,7 @@ export default function SolicitudCreditoForm({ onSuccess }: SolicitudCreditoForm
   const [documentos, setDocumentos] = useState<DocumentoConTipo[]>([]);
   const [solicitudId, setSolicitudId] = useState<string | null>(null);
   const { data: session } = useSession();
-  const [loadingOverlay, setLoadingOverlay] = useState(false); // 🟢 NUEVO
+  const [loadingOverlay, setLoadingOverlay] = useState(false); 
 
   const {
     register,

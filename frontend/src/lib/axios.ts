@@ -125,7 +125,7 @@ axiosInstance.interceptors.response.use(
       sessionEmitter.emit('unauthorized');
     }
 
-    // 🚨 NUEVO: Manejar el error "Unexpected token 'T'" o "Too Many Requests"
+    //   Manejar el error "Unexpected token 'T'" o "Too Many Requests"
     if (
       error.message?.includes("Unexpected token 'T'") ||
       error.message?.includes("Too Many Requests")

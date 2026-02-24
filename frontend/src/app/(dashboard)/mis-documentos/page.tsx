@@ -117,9 +117,14 @@ export default function MisDocumentosPage() {
         const errorData = await responseSolicitudes.json().catch(() => responseTransferencias.json());
         throw new Error(errorData.message || 'Error al cargar documentos');
       }
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar documentos');
-      console.error('Error cargando documentos:', err);
+    } catch (error: unknown) {
+
+      if (error instanceof Error) {
+        setError(error.message || 'Error al cargar documentos');
+        console.error('Error cargando documentos:', error);
+      } else {
+        setError('Error desconocido');
+      }
     } finally {
       setLoading(false);
     }
@@ -791,7 +796,7 @@ export default function MisDocumentosPage() {
         </>
       )}
 
-      {/* Dialog para vista previa - Mejorado para responsive */}
+      {/* Dialog para vista previa -  para responsive */}
       <Dialog
         open={vistaPreviaAbierta}
         onClose={handleCerrarVistaPrevia}

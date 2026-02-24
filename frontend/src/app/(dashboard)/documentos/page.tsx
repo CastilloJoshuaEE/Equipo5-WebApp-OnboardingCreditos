@@ -149,9 +149,14 @@ export default function DocumentosOperadorPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Error al cargar documentos');
       }
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar documentos');
-      console.error('Error cargando documentos:', err);
+    } catch (error: unknown) {
+      
+      if (error instanceof Error) {
+      console.error('Error cargando documentos:', error);
+      setError(error.message || 'Error al cargar documentos');
+  } else {
+    setError('Error desconocido');
+  }
     } finally {
       setLoading(false);
     }
@@ -810,7 +815,7 @@ export default function DocumentosOperadorPage() {
         }}
       >
         <DialogContent sx={{ p: 0, position: 'relative', height: '100%' }}>
-          {/* Botón de cerrar mejorado para responsive */}
+          {/* Botón de cerrar para responsive */}
           <Box
             sx={{
               position: 'absolute',

@@ -55,8 +55,8 @@ export default function DetalleSolicitudDocumentos() {
         setLoading(true);
         // Aquí podrías agregar lógica adicional de verificación de permisos
         setLoading(false);
-      } catch (err: any) {
-        setError(err.message || 'Error al cargar la solicitud');
+      } catch (error: unknown) {
+        setError(error.message || 'Error al cargar la solicitud');
         setLoading(false);
       }
     };

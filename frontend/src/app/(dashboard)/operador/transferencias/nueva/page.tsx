@@ -20,7 +20,7 @@ import {
 import { Modal } from '@/components/ui/modal';
 import { getSession } from 'next-auth/react';
 import EditarContactoModal from '@/components/EditarContactoModal';
-import { ContactoBancarioNuevo } from '@/features/contacto_bancario/contactoBancario.types';
+import { ContactoBancarioData } from '@/features/contacto_bancario/contactoBancario.types';
 import { SolicitudInfo } from '@/features/solicitudes/solicitud.types';
 import { VerificacionFirma } from '@/features/firma_digital/firmaDigital.types';
 
@@ -29,10 +29,10 @@ export default function NuevaTransferenciaPage() {
   const solicitudId = searchParams?.get('solicitud_id') || '';
   
   const [step, setStep] = useState(1);
-  const [contactos, setContactos] = useState<ContactoBancarioNuevo[]>([]);
-  const [contactosFiltrados, setContactosFiltrados] = useState<ContactoBancarioNuevo[]>([]);
+  const [contactos, setContactos] = useState<ContactoBancarioData[]>([]);
+  const [contactosFiltrados, setContactosFiltrados] = useState<ContactoBancarioData[]>([]);
   const [solicitudInfo, setSolicitudInfo] = useState<SolicitudInfo | null>(null);
-  const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoBancarioNuevo | null>(null);
+  const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoBancarioData | null>(null);
   const [busquedaCuenta, setBusquedaCuenta] = useState('');
   const [mostrarModalConfirmacion, setMostrarModalConfirmacion] = useState(false);
   const [monto, setMonto] = useState('');
@@ -41,10 +41,10 @@ export default function NuevaTransferenciaPage() {
   const [loading, setLoading] = useState(false);
   const [verificandoFirma, setVerificandoFirma] = useState(false);
   const [verificacionFirma, setVerificacionFirma] = useState<VerificacionFirma | null>(null);
-const [contactoEditando, setContactoEditando] = useState<ContactoBancarioNuevo | null>(null);
+const [contactoEditando, setContactoEditando] = useState<ContactoBancarioData | null>(null);
 const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
 
-const handleEditarContacto = (contacto: ContactoBancarioNuevo) => {
+const handleEditarContacto = (contacto: ContactoBancarioData) => {
   setContactoEditando(contacto);
   setModalEditarAbierto(true);
 };
@@ -188,7 +188,7 @@ const handleEditarContacto = (contacto: ContactoBancarioNuevo) => {
     setContactosFiltrados(filtrados);
   };
 
-  const seleccionarContacto = (contacto: ContactoBancarioNuevo) => {
+  const seleccionarContacto = (contacto: ContactoBancarioData) => {
     // Verificar que el contacto pertenezca al solicitante de la solicitud
     if (solicitudInfo && contacto.solicitante_id !== solicitudInfo.solicitante_id) {
       setError('El contacto bancario seleccionado no pertenece al solicitante de esta solicitud');

@@ -12,7 +12,7 @@ export const useDocumentos = () => {
     try {
       const data = await DocumentosService.obtenerDocumentosContrato(solicitudId);
       return data;
-    } catch (err: any) {
+    } catch (error: unknown) {
       setError(err.response?.data?.message || 'Error al obtener documentos del contrato');
       throw err;
     } finally {
@@ -26,7 +26,7 @@ export const useDocumentos = () => {
     try {
       const data = await DocumentosService.obtenerComprobantesTransferencia(solicitudId);
       return data;
-    } catch (err: any) {
+    } catch (error: unknown) {
       setError(err.response?.data?.message || 'Error al obtener comprobantes');
       throw err;
     } finally {
@@ -53,7 +53,7 @@ export const useDocumentos = () => {
       window.URL.revokeObjectURL(url);
       
       return true;
-    } catch (err: any) {
+    } catch (error: unknown) {
       setError(err.response?.data?.message || 'Error al descargar contrato');
       throw err;
     } finally {
@@ -82,7 +82,7 @@ export const useDocumentos = () => {
       window.URL.revokeObjectURL(url);
       
       return true;
-    } catch (err: any) {
+    } catch (error: unknown) {
       setError(err.response?.data?.message || 'Error al descargar comprobante');
       throw err;
     } finally {
@@ -96,7 +96,7 @@ export const useDocumentos = () => {
     try {
       const data = await DocumentosService.obtenerVistaPrevia(tipo, id);
       return data;
-    } catch (err: any) {
+    } catch (error: unknown) {
       setError(err.response?.data?.message || 'Error al obtener vista previa');
       throw err;
     } finally {
@@ -117,7 +117,7 @@ export const useDocumentos = () => {
     try {
         const data = await DocumentosService.obtenerDocumentosStorage(solicitudId);
         return data;
-    } catch (err: any) {
+    } catch (error: unknown) {
         setError(err.response?.data?.message || 'Error al obtener documentos del storage');
         throw err;
     } finally {
@@ -130,8 +130,8 @@ export const useDocumentos = () => {
             setError(null);
             const data = await DocumentosService.obtenerMisSolicitudesConDocumentos();
             return data;
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar solicitudes con documentos');
+        } catch (error: unknown) {
+            setError(error.message || 'Error al cargar solicitudes con documentos');
             throw err;
         } finally {
             setLoading(false);

@@ -15,3 +15,15 @@ export interface TransferenciaOperador {
   solicitante_nombre: string;
   contacto_bancario?: any;
 }
+type TransferenciaAPI = {
+  id: string
+  numero_comprobante: string
+  numero_solicitud?: string
+  solicitante_nombre?: string
+  estado?: string
+  ruta_comprobante?: string | null
+  banco_destino?: string
+  monto?: number
+  moneda?: string
+  fecha_procesamiento?: string
+}

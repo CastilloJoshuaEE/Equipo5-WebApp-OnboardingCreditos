@@ -12,7 +12,7 @@ export interface VerificacionFirma {
   habilitado: boolean;
   motivo: string;
   estado_firma: string;
-  detalles?: any;
+  detalles?: Record<string, unknown>;
 }
 
 export interface InfoFirmaData {
@@ -27,10 +27,10 @@ export interface InfoFirmaData {
         fecha_expiracion: string;
     };
     fecha_expiracion: string;
-    documento: any;
+    documento: Blob | string;
     nombre_documento: string;
     tipo_documento: string;
-    solicitante: any;
+    solicitante: { id: string; nombre?: string } | null; 
     hash_original: string;
 }
 

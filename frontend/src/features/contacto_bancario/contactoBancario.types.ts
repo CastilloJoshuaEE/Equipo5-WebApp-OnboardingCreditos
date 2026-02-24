@@ -22,13 +22,3 @@ export interface ContactoBancarioData {
   telefono_contacto?: string;
   solicitante_id?: string;
 }
-export interface ContactoBancarioNuevo {
-  id: string;
-  numero_cuenta: string;
-  nombre_banco: string;
-  tipo_cuenta: string;
-  moneda: string;
-  email_contacto?: string;
-  telefono_contacto?: string;
-  solicitante_id?: string;
-}

@@ -1,5 +1,21 @@
 # Equipo 5 - WebApp: Plataforma de Onboarding de Créditos para PYMES
 
+
+## Integrantes del Equipo
+---
+###  Desarrollador
+**Joshúa Castillo**  
+.https://www.linkedin.com/in/joshúa-castillo/
+
+### QA Tester
+**Eudes Mieres**  
+.https://www.linkedin.com/in/eudesmieres/
+
+### UX/UI Designer
+**Diego Marin**  
+.https://www.linkedin.com/in/diegomarinmora/
+
+---
 ## Vertical
 Web App
 
@@ -46,11 +62,41 @@ La plataforma incluirá paneles para operadores con filtros y tareas.
 ### Enlaces del Proyecto
 
 Frontend (Next.js desplegado en Vercel):
-🔗 https://nexia-sigma.vercel.app/ 
+. https://nexia-sigma.vercel.app/ 
 
 Backend (API REST desplegada en Render):
-🔗 https://equipo5-webapp-onboardingcreditos-backend.onrender.com/api
+. https://equipo5-webapp-onboardingcreditos-backend.onrender.com/api-docs
 
+
+## Prototipo en Figma (Web)
+
+.https://www.figma.com/proto/QS9wwLxdJyBR8AbzUX9Mza/Fintech---No--Country?page-id=0%3A1&node-id=1858-15553&viewport=224%2C190%2C0.29&t=WN5ioZD8tjIiBtTW-1&scaling=scale-down&contentscaling=fixed&starting-point-node-id=1858%3A15553&show-proto-sidebar=1
+
+---
+
+##  Prototipo en Figma (Cellphone)
+
+.https://www.figma.com/proto/QS9wwLxdJyBR8AbzUX9Mza/Fintech---No--Country?pageid=561%3A11823&node-id=1080-12041&viewport=-3098%2C190%2C0.5&t=9nU1S21uF0TnB04e-1&scaling=scale-down&contentscaling=fixed&starting-point-node-id=1080%3A12041&show-proto-sidebar=1
+
+---
+
+##  Video Demostrativo
+
+
+
+---
+
+## Documentación de KPI
+
+.https://drive.google.com/file/d/1KmkYbijZG3_Heubo62XGkqNrWOWkZS1f/view
+
+---
+
+## Documentos del Proyecto
+**[Documentos de la base de datos](./database/docs/schema_overview.md)**
+**[Documentos del frontend](./frontend/docs/README.md)**
+**[Documentos del QA tester](./Documentacion/DocsQATester/)**
+**[Documentos adicionales](./Documentacion/plantilla_documentos)**
 ### Si deseas usar este programa en local
 Si deseas ejecutar el proyecto en tu entorno local, puedes descargar o clonar este repositorio.
 Luego, instala las dependencias:
@@ -86,6 +132,6 @@ FIRMA_DIGITAL_TIMEZONE=America/Mexico_City
 
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="tu_nextauth_secret_aqui"
-NEXT_PUBLIC_API_URL="http://localhost:3001/api"
+NEXT_PUBLIC_API_URL="http://localhost:3001/api-docs"
 NEXT_PUBLIC_SUPABASE_URL="tu_url_supabase_aqui"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="tu_anon_key_aqui"

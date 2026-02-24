@@ -350,7 +350,6 @@ const handleGuardarDocumento = async () => {
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         
-        // . LLAMAR AL NUEVO ENDPOINT MEJORADO
         const response = await fetch(`${API_URL}/firmas/procesar-firma-word/${firmaId}`, {
             method: 'POST',
             headers: {
@@ -411,7 +410,7 @@ const handleGuardarDocumento = async () => {
         contadorFirmas.current = 0; // Resetear contador
     };
 
-    // COMPONENTE DE FIRMA ARRASTRABLE MEJORADO
+    // COMPONENTE DE FIRMA ARRASTRABLE 
     const FirmaArrastrable = ({ firma }: { firma: Firma }) => {
         const isSelected = firmaSeleccionada === firma.id;
 

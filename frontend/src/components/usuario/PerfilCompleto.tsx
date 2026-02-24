@@ -386,14 +386,7 @@ export default function PerfilCompleto() {
                                 {new Date(perfil.updated_at).toLocaleDateString('es-ES')}
                               </Typography>
                             </Grid>
-                            <Grid size={{ xs: 12 }}>
-                              <Typography variant="subtitle2" color="textSecondary">
-                                ID de usuario
-                              </Typography>
-                              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                                {perfil.id}
-                              </Typography>
-                            </Grid>
+        
                           </Grid>
                         </CardContent>
                       </Card>
