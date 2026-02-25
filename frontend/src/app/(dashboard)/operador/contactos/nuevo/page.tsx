@@ -1,8 +1,7 @@
 // frontend/src/app/(dashboard)/operador/contactos/nuevo/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect, useCallback } from 'react';import { Button } from '@/components/ui/button';
 import { 
   TextField, 
   Select, 
@@ -39,6 +38,41 @@ export default function NuevoContactoPage() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+const cargarContactos = useCallback(async () => {
+  try {
+    const session = await getSession();
+
+    const response = await fetch(`${API_URL}/contactos-bancarios`, {
+      headers: {
+        Authorization: `Bearer ${session?.accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      setContactos(data.data);
+    }
+  } catch (error) {
+    console.error('Error cargando contactos:', error);
+  }
+}, [API_URL]);
+
+  const validarFormulario = () => {
+    if (!formData.numero_cuenta.trim()) {
+      setError('El número de cuenta es requerido');
+      return false;
+    }
+    
+    if (formData.email_contacto && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email_contacto)) {
+      setError('Formato de email inválido');
+      return false;
+    }
+    
+    return true;
+  };
+
   useEffect(() => {
     // Intentar obtener el solicitud_id de diferentes fuentes
     const urlParams = new URLSearchParams(window.location.search);
@@ -55,42 +89,7 @@ export default function NuevoContactoPage() {
 
     // Cargar contactos existentes
     cargarContactos();
-  }, []);
-
-  const cargarContactos = async () => {
-    try {
-      const session = await getSession();
-      const response = await fetch(`${API_URL}/contactos-bancarios`, {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setContactos(data.data);
-      }
-    } catch (error) {
-      console.error('Error cargando contactos:', error);
-    }
-  };
-
-  const validarFormulario = () => {
-    if (!formData.numero_cuenta.trim()) {
-      setError('El número de cuenta es requerido');
-      return false;
-    }
-    
-    if (formData.email_contacto && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email_contacto)) {
-      setError('Formato de email inválido');
-      return false;
-    }
-    
-    return true;
-  };
-
+  }, [cargarContactos]);
   const guardarContacto = async () => {
     if (!validarFormulario()) return;
 
@@ -146,9 +145,13 @@ export default function NuevoContactoPage() {
       } else {
         throw new Error(data.message || 'Error al guardar contacto');
       }
-    } catch (error: any) {
-      console.error('. Error guardando contacto:', error);
-      setError('Error al guardar el contacto. Por favor, intente nuevamente.');
+    }  catch (error: unknown) {
+  console.error('. Error guardando contacto:', error);
+  if (error instanceof Error) {
+    setError('Error al guardar el contacto. Por favor, intente nuevamente.');
+  } else {
+    setError('Error desconocido al guardar el contacto.');
+  }
     } finally {
       setLoading(false);
     }
@@ -184,10 +187,13 @@ export default function NuevoContactoPage() {
       } else {
         throw new Error(data.message || 'Error al eliminar contacto');
       }
-    } catch (error: any) {
-      setError('Error al eliminar contacto: ' + error.message);
-    }
-  };
+    } catch (error: unknown) {
+  if (error instanceof Error) {
+    setError('Error al eliminar contacto: ' + error.message);
+  } else {
+    setError('Error desconocido al eliminar contacto.');
+  }
+} };
 
   const handleContactoActualizado = (contactoActualizado: ContactoBancarioData) => {
     // Actualizar la lista de contactos

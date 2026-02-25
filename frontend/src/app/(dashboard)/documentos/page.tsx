@@ -8,8 +8,6 @@ import {
   Alert,
   Card,
   CardContent,
-  Grid,
-  Button,
   Chip,
   CircularProgress,
   Tabs,
@@ -31,7 +29,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  DialogTitle,
   useTheme,
   useMediaQuery,
   Stack,
@@ -45,30 +42,15 @@ import {
   Error as ErrorIcon,
   ReceiptLong,
   Search,
-  FilterList,
   Close
 } from '@mui/icons-material';
 import { useDocumentos } from '@/features/documentos/hooks/useDocumentos';
 import { getSession } from 'next-auth/react';
-import { FirmaDigital } from '@/features/firma_digital/firmaDigital.types';
 import { ContratoOperador } from '@/features/operador/contratoOperador.types';
 import { TransferenciaOperador } from '@/features/operador/transferenciaOperador.types';
-import { TabPanelProps } from '@/components/ui/tab';
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`documentos-tabpanel-${index}`}
-      aria-labelledby={`documentos-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ py: { xs: 2, md: 3 } }}>{children}</Box>}
-    </div>
-  );
-}
-
+import TabPanel from "@/components/ui/tab";
+import { ContratoAPI } from '@/features/operador/contratoOperador.types';
+import { TransferenciaAPI } from '@/features/operador/transferenciaOperador.types';
 export default function DocumentosOperadorPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -84,12 +66,8 @@ export default function DocumentosOperadorPage() {
   const [filtroEstado, setFiltroEstado] = useState('todos');
 
   const {
-    obtenerDocumentosContrato,
-    obtenerComprobantes,
-    descargarContrato,
     descargarComprobante,
-    obtenerVistaPrevia,
-    obtenerDocumentosStorage
+    obtenerVistaPrevia
   } = useDocumentos();
 
   useEffect(() => {
@@ -117,31 +95,38 @@ export default function DocumentosOperadorPage() {
         const data = await response.json();
         
         const documentosFormateados: (ContratoOperador | TransferenciaOperador)[] = [
-          ...(data.data.contratos || []).map((contrato: any): ContratoOperador => ({
-            ...contrato,
-            tipo: 'contrato',
-            solicitante_nombre: contrato.solicitante_nombre || 'N/A',
-            numero_solicitud: contrato.numero_solicitud || 'N/A',
-            estado: contrato.estado || 'desconocido',
-            ruta_documento: contrato.ruta_documento || null,
-            monto: contrato.monto || 0,
-            moneda: contrato.moneda || 'USD',
-            tiene_documento_firmado: contrato.tiene_documento_firmado || false,
-            url_documento_firmado: contrato.url_documento_firmado || null,
-            firma_id: contrato.firma_id || null
-          })),
+...(data.data.contratos || []).map((contrato: ContratoAPI): ContratoOperador => ({
+  id: contrato.id,
+  tipo: 'contrato',
+  numero_contrato: contrato.numero_contrato ?? '—',
+  estado: contrato.estado ?? 'desconocido',
+  ruta_documento: contrato.ruta_documento ?? null,
+  monto: contrato.monto ?? 0,
+  moneda: contrato.moneda ?? 'USD',
+  created_at: contrato.created_at ?? null,
+  updated_at: contrato.updated_at ?? new Date().toISOString(),
+  numero_solicitud: contrato.numero_solicitud ?? 'N/A',
+  solicitante_nombre: contrato.solicitante_nombre ?? 'N/A',
+  tiene_documento_firmado: contrato.tiene_documento_firmado ?? false,
+  url_documento_firmado: contrato.url_documento_firmado ?? null,
+  firma_id: contrato.firma_id ?? null
+})),
           
-          ...(data.data.transferencias || []).map((transferencia: any): TransferenciaOperador => ({
-            ...transferencia,
-            tipo: 'comprobante',
-            solicitante_nombre: transferencia.solicitante_nombre || 'N/A',
-            numero_solicitud: transferencia.numero_solicitud || 'N/A',
-            estado: transferencia.estado || 'desconocido',
-            ruta_comprobante: transferencia.ruta_comprobante || null,
-            banco_destino: transferencia.banco_destino || 'N/A',
-            monto: transferencia.monto || 0,
-            moneda: transferencia.moneda || 'USD'
-          }))
+...(data.data.transferencias || []).map((transferencia: TransferenciaAPI): TransferenciaOperador => ({
+  id: transferencia.id,
+  tipo: 'comprobante',
+  numero_comprobante: transferencia.numero_comprobante ?? '—',
+  estado: transferencia.estado ?? 'desconocido',
+  ruta_comprobante: transferencia.ruta_comprobante ?? null,
+  monto: transferencia.monto ?? 0,
+  moneda: transferencia.moneda ?? 'USD',
+  fecha_procesamiento: transferencia.fecha_procesamiento ?? new Date().toISOString(),
+  fecha_completada: transferencia.fecha_completada ?? '',
+  banco_destino: transferencia.banco_destino ?? 'N/A',
+  cuenta_destino: transferencia.cuenta_destino ?? '',
+  numero_solicitud: transferencia.numero_solicitud ?? 'N/A',
+  solicitante_nombre: transferencia.solicitante_nombre ?? 'N/A'
+}))
         ];
         
         setDocumentos(documentosFormateados);
@@ -162,7 +147,7 @@ export default function DocumentosOperadorPage() {
     }
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 

@@ -1,33 +1,27 @@
 // frontend/src/app/(dashboard)/solicitante/page.tsx
 'use client';
 
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Button,
   Card,
   CardContent,
   Chip,
   Alert,
   Tab,
   Tabs,
-  IconButton,
   useMediaQuery,
   useTheme,
   LinearProgress
 } from '@mui/material';
 import { 
-  CreditCard as CreditCardIcon,
-  Person as PersonIcon,
-  Notifications as NotificationsIcon,
   Schedule as ScheduleIcon,
   CheckCircle as CheckCircleIcon,
-  Description as DescriptionIcon,
-  HelpOutline as HelpOutlineIcon
+  Description as DescriptionIcon
 } from '@mui/icons-material';
 import { UserRole } from '@/features/auth/auth.types';
 import SolicitudCreditoForm from '@/components/solicitudes/SolicitudCreditoForm';
@@ -102,18 +96,21 @@ interface SolicitudStats {
   enRevision: number;
   solicitudesActivas: number;
 }
+interface Solicitud {
+  id: string;
+  estado: string;
+  monto?: number;
+}
 
 export default function DashboardSolicitante() {
-  const { data: session, status, update } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const [tabValue, setTabValue] = useState(0);
   const [solicitudActiva, setSolicitudActiva] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState<SolicitudStats>({
     totalSolicitado: 0,
     totalAprobadas: 0,
@@ -135,8 +132,7 @@ export default function DashboardSolicitante() {
   }, [status, session, router]);
 
   // Cargar estadísticas de solicitudes
-  const cargarEstadisticas = async () => {
-    try {
+const cargarEstadisticas = useCallback(async () => {    try {
       setLoading(true);
       const session = await getSession();
       if (!session?.accessToken) return;
@@ -154,21 +150,21 @@ export default function DashboardSolicitante() {
 
         // Calcular estadísticas
         const totalSolicitado = solicitudes
-          .filter((s: any) => s.estado !== 'rechazado')
-          .reduce((sum: number, s: any) => sum + (s.monto || 0), 0);
+          .filter((s: Solicitud) => s.estado !== 'rechazado')
+          .reduce((sum: number, s: Solicitud) => sum + (s.monto || 0), 0);
 
         const totalAprobadas = solicitudes
-          .filter((s: any) => s.estado === 'aprobado').length;
+          .filter((s: Solicitud) => s.estado === 'aprobado').length;
 
         const enRevision = solicitudes
-          .filter((s: any) => 
+          .filter((s: Solicitud) => 
             s.estado === 'en_revision' || 
             s.estado === 'pendiente_info' ||
             s.estado === 'enviado'
           ).length;
 
         const solicitudesActivas = solicitudes
-          .filter((s: any) => 
+          .filter((s: Solicitud) => 
             s.estado === 'borrador' || 
             s.estado === 'enviado' || 
             s.estado === 'en_revision' || 
@@ -183,7 +179,7 @@ export default function DashboardSolicitante() {
         });
 
         // Establecer solicitud activa
-        const solicitudActiva = solicitudes.find((s: any) => 
+        const solicitudActiva = solicitudes.find((s: Solicitud) => 
           s.estado === 'borrador' || s.estado === 'enviado'
         );
         if (solicitudActiva) {
@@ -197,7 +193,7 @@ export default function DashboardSolicitante() {
     } finally {
       setLoading(false);
     }
-  };
+}, [showSessionExpired]);
 
   // Verificar token expirado periódicamente
   useEffect(() => {
@@ -230,7 +226,7 @@ export default function DashboardSolicitante() {
     if (session) {
       cargarEstadisticas();
     }
-  }, [session, showSessionExpired]);
+  }, [session, cargarEstadisticas]);
 
   // Verificar operador asignado
   useEffect(() => {
@@ -253,7 +249,10 @@ export default function DashboardSolicitante() {
           const notificacionesOperador = result.data || [];
 
           // Mostrar alert para cada notificación de operador asignado
-          notificacionesOperador.forEach((notif: any) => {
+notificacionesOperador.forEach((notif: { 
+  id: string;
+  datos_adicionales?: { operador_nombre?: string };
+}) => {
             if (notif.datos_adicionales?.operador_nombre) {
               alert(`Se ha asignado el operador ${notif.datos_adicionales.operador_nombre} a tu solicitud. \n\nPuedes comunicarte con él para cualquier consulta sobre tu solicitud de crédito.`);
               
@@ -279,24 +278,10 @@ export default function DashboardSolicitante() {
     return () => clearInterval(interval);
   }, [session]);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  const handleLogout = async () => {
-    await signOut({ 
-      callbackUrl: '/login',
-      redirect: true 
-    });
-  };
-
-  const handleVerDetalles = (solicitudId: string) => {
-    router.push(`/solicitante/solicitudes/${solicitudId}`);
-  };
-
-  const handleNuevaSolicitud = () => {
-    setTabValue(0);
-  };
 
   // Función para manejar el éxito del formulario
   const handleSuccessSolicitud = () => {

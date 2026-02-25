@@ -1,6 +1,5 @@
 // frontend/src/app/(dashboard)/notificaciones/page.tsx
 'use client';
-import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import {
   Box,
@@ -15,39 +14,26 @@ import {
   IconButton,
   Divider,
   CircularProgress,
-  Container,
   Drawer,
   useMediaQuery,
-  useTheme,
-  Fab
+  useTheme
 } from '@mui/material';
 import { getSession } from 'next-auth/react';
 
 import {
-  Dashboard as DashboardIcon,
-  CreditCard as CreditCardIcon,
-  Person as PersonIcon,
-  Notifications as NotificationsIcon,
   ArrowBack as ArrowBackIcon,
-  CloudDownload as CloudDownloadIcon,
-  Visibility as VisibilityIcon,
-  MoreVert as MoreVertIcon,
   CheckCircle,
   MarkEmailRead,
   FilterList,
   Clear,
-  Menu as MenuIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
 import notificacionesService from '@/services/notificaciones/notificaciones.service';
 import Image from 'next/image';
 import { NotificacionConDetalle } from '@/features/notificaciones/notificaciones.types';
 export default function NotificacionesPage() {
-  const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
   const [rolUsuario, setRolUsuario] = useState<string>('');
   const [notificaciones, setNotificaciones] = useState<NotificacionConDetalle[]>([]);
   const [notificacionSeleccionada, setNotificacionSeleccionada] = useState<NotificacionConDetalle | null>(null);
@@ -183,43 +169,21 @@ export default function NotificacionesPage() {
     }
   };
 
-  const handleVolverDashboard = () => {
-    router.push(rolUsuario === 'operador' ? '/operador' : '/solicitante');
-  };
-
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
-  const formatearFecha = (fecha: string) => {
-    return new Date(fecha).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+const formatearFechaCompleta = (fecha?: string) => {
+  if (!fecha) return 'Fecha no disponible';
 
-  const formatearFechaCompleta = (fecha: string) => {
-    return new Date(fecha).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const obtenerColorTipo = (tipo: string) => {
-    const colores: { [key: string]: "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning" } = {
-      cambio_estado: 'primary',
-      nueva_solicitud: 'success',
-      documento_validado: 'info',
-      informacion_solicitada: 'warning',
-      sistema: 'default',
-    };
-    return colores[tipo] || 'default';
-  };
-
+  return new Date(fecha).toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
   const obtenerIconoTipo = (tipo: string) => {
     const iconos: { [key: string]: JSX.Element } = {
       cambio_estado: <Box component="span">.</Box>,
@@ -262,14 +226,14 @@ export default function NotificacionesPage() {
     let cumpleFiltro = true;
 
     if (filtrosAplicados.recientes) {
-      const fechaNotif = new Date(notif.created_at);
+      const fechaNotif = new Date(notif.created_at ?? '');
       const fechaLimite = new Date();
       fechaLimite.setDate(fechaLimite.getDate() - 7);
       cumpleFiltro = cumpleFiltro && fechaNotif >= fechaLimite;
     }
 
     if (filtrosAplicados.esteMes) {
-      const fechaNotif = new Date(notif.created_at);
+      const fechaNotif = new Date(notif.created_at ?? '');
       const ahora = new Date();
       cumpleFiltro = cumpleFiltro && 
         fechaNotif.getMonth() === ahora.getMonth() && 

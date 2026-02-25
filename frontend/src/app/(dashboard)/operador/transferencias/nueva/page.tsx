@@ -1,6 +1,6 @@
 // frontend/src/app/(dashboard)/operador/transferencias/nueva/page.tsx - .
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { 
@@ -10,10 +10,6 @@ import {
   CardHeader, 
   Typography, 
   Box, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem,
   Alert,
   CircularProgress
 } from '@mui/material';
@@ -27,7 +23,7 @@ import { VerificacionFirma } from '@/features/firma_digital/firmaDigital.types';
 export default function NuevaTransferenciaPage() {
   const searchParams = useSearchParams();
   const solicitudId = searchParams?.get('solicitud_id') || '';
-  
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
   const [step, setStep] = useState(1);
   const [contactos, setContactos] = useState<ContactoBancarioData[]>([]);
   const [contactosFiltrados, setContactosFiltrados] = useState<ContactoBancarioData[]>([]);
@@ -48,6 +44,87 @@ const handleEditarContacto = (contacto: ContactoBancarioData) => {
   setContactoEditando(contacto);
   setModalEditarAbierto(true);
 };
+
+const cargarSolicitudInfo = useCallback(async () => {
+  if (!solicitudId) return;
+
+  try {
+    const session = await getSession();
+
+    const response = await fetch(`${API_URL}/solicitudes/${solicitudId}`, {
+      headers: {
+        Authorization: `Bearer ${session?.accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      setSolicitudInfo(data.data);
+      setMonto(data.data.monto.toString());
+    } else {
+      setError('No se pudo cargar la información de la solicitud');
+    }
+  } catch {
+    setError('Error al cargar la información de la solicitud');
+  }
+}, [solicitudId, API_URL]);
+
+  const cargarContactos = useCallback(async () => {
+  try {
+    const session = await getSession();
+
+    const response = await fetch(`${API_URL}/contactos-bancarios`, {
+      headers: {
+        Authorization: `Bearer ${session?.accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      setContactos(data.data);
+      setContactosFiltrados(data.data);
+    } else {
+      setError('No se pudieron cargar los contactos bancarios');
+    }
+  } catch {
+    setError('Error al cargar los contactos bancarios');
+  }
+}, [ API_URL]);
+
+ const verificarEstadoFirma = useCallback(async () => {
+  if (!solicitudId) return;
+
+  setVerificandoFirma(true);
+
+  try {
+    const session = await getSession();
+
+    const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitudId}`, {
+      headers: {
+        Authorization: `Bearer ${session?.accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      setVerificacionFirma(data.data);
+
+      if (!data.data.habilitado) {
+        setError(`No se puede realizar la transferencia: ${data.data.motivo}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error verificando estado de firma:', error);
+  } finally {
+    setVerificandoFirma(false);
+  }
+}, [solicitudId,  API_URL]);
   // Cargar información de la solicitud y contactos
   useEffect(() => {
     if (solicitudId) {
@@ -55,89 +132,7 @@ const handleEditarContacto = (contacto: ContactoBancarioData) => {
       cargarContactos();
       verificarEstadoFirma();
     }
-  }, [solicitudId]);
-
-  const cargarSolicitudInfo = async () => {
-    try {
-      const session = await getSession();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      
-      const response = await fetch(`${API_URL}/solicitudes/${solicitudId}`, {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setSolicitudInfo(data.data);
-        setMonto(data.data.monto.toString());
-      } else {
-        setError('No se pudo cargar la información de la solicitud');
-      }
-    } catch (error) {
-      setError('Error al cargar la información de la solicitud');
-    }
-  };
-
-  const cargarContactos = async () => {
-    try {
-      const session = await getSession();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      
-      const response = await fetch(`${API_URL}/contactos-bancarios`, {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setContactos(data.data);
-        setContactosFiltrados(data.data);
-      } else {
-        setError('No se pudieron cargar los contactos bancarios');
-      }
-    } catch (error) {
-      setError('Error al cargar los contactos bancarios');
-    }
-  };
-
-  const verificarEstadoFirma = async () => {
-    if (!solicitudId) return;
-    
-    setVerificandoFirma(true);
-    try {
-      const session = await getSession();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      
-      const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitudId}`, {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setVerificacionFirma(data.data);
-        
-        if (!data.data.habilitado) {
-          setError(`No se puede realizar la transferencia: ${data.data.motivo}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error verificando estado de firma:', error);
-    } finally {
-      setVerificandoFirma(false);
-    }
-  };
-
+}, [solicitudId, cargarSolicitudInfo, cargarContactos, verificarEstadoFirma]);
   const forzarVerificacionFirma = async () => {
     if (!solicitudId) return;
     
@@ -168,7 +163,7 @@ const handleEditarContacto = (contacto: ContactoBancarioData) => {
       } else {
         setError('Error al forzar verificación: ' + data.message);
       }
-    } catch (error) {
+    } catch {
       setError('Error al forzar verificación de firma');
     } finally {
       setVerificandoFirma(false);
@@ -257,10 +252,13 @@ const handleEditarContacto = (contacto: ContactoBancarioData) => {
         } else {
             throw new Error(data.message || 'Error desconocido al crear transferencia');
         }
-    } catch (error: any) {
-        console.error('Error creando transferencia:', error);
+    } catch (error: unknown) {
+    console.error('Error creando transferencia:', error);
+    if (error instanceof Error) {
         setError(`No se pudo crear la transferencia: ${error.message}`);
-    } finally {
+    } else {
+        setError('No se pudo crear la transferencia: Error desconocido');
+    }} finally {
         setLoading(false);
         setMostrarModalConfirmacion(false);
     }

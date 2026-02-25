@@ -18,8 +18,8 @@ export interface TransferenciaBancaria {
   fecha_procesamiento?: string;
   fecha_completada?: string;
   ruta_comprobante?: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface HabilitacionTransferencia {

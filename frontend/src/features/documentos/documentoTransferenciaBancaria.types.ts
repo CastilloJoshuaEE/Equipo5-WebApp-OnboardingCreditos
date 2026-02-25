@@ -18,8 +18,8 @@ export interface DocumentoTransferenciaBancaria {
   fecha_procesamiento: string;
   fecha_completada: string;
   ruta_comprobante: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
   solicitudes_credito?: {
     numero_solicitud: string;
     solicitante_id: string;

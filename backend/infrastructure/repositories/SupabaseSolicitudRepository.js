@@ -86,7 +86,55 @@ class SupabaseSolicitudRepository extends SolicitudRepository {
     if (error) throw new Error(`Error obteniendo solicitudes: ${error.message}`);
     return data.map(s => new Solicitud(s));
   }
+  async findByOperador(operadorId, filtros = {}) {
+    let query = this.supabase
+      .from('solicitudes_credito')
+      .select(`
+        *,
+        solicitantes!solicitudes_credito_solicitante_id_fkey (
+          id,
+          nombre_empresa,
+          cuit,
+          representante_legal,
+          domicilio,
+          usuarios!solicitantes_id_fkey (
+            nombre_completo,
+            email,
+            telefono,
+            dni
+          )
+        )
+      `)
+      .eq('operador_id', operadorId);
 
+    // Aplicar filtros si existen
+    if (filtros.estado) {
+      query = query.eq('estado', filtros.estado);
+    }
+
+    if (filtros.nivel_riesgo) {
+      query = query.eq('nivel_riesgo', filtros.nivel_riesgo);
+    }
+
+    if (filtros.fecha_desde) {
+      query = query.gte('created_at', filtros.fecha_desde);
+    }
+
+    if (filtros.fecha_hasta) {
+      query = query.lte('created_at', filtros.fecha_hasta);
+    }
+
+    if (filtros.numero_solicitud) {
+      query = query.ilike('numero_solicitud', `%${filtros.numero_solicitud}%`);
+    }
+
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data.map(s => new Solicitud(s));
+  }
   async findByNumero(numeroSolicitud) {
     const { data, error } = await this.supabase
       .from('solicitudes_credito')

@@ -48,6 +48,6 @@ export const config = {
     '/dashboard/:path*', 
     '/login', 
     '/register',
-    '/api/auth/session'
+   
   ]
 }

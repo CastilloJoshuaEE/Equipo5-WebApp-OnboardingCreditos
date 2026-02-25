@@ -5,3 +5,10 @@ export interface ConfiguracionCuenta {
   cuenta_activa: boolean;
   fecha_desactivacion?: string;
 }
+export type DesactivarCuentaResponse = {
+  success: boolean;
+  message: string;
+  data?: {
+    fecha_desactivacion?: string;
+  };
+};

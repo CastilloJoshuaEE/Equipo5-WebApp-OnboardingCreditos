@@ -131,6 +131,8 @@ const onSubmit = async (data: RegisterInput) => {
         setIsSubmitting(false);
     }
 };
+const password = watch('password');
+
 const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
     lowercase: false,
@@ -141,15 +143,16 @@ const [passwordRequirements, setPasswordRequirements] = useState({
 
 // Efecto para validar contraseña en tiempo real
 useEffect(() => {
-    const password = watch('password') || '';
-    setPasswordRequirements({
-        length: password.length >= 8,
-        lowercase: /[a-z]/.test(password),
-        uppercase: /[A-Z]/.test(password),
-        number: /\d/.test(password),
-        special: /[@$!%*?&]/.test(password)
-    });
-}, [watch('password')]);
+  const value = password || '';
+
+  setPasswordRequirements({
+    length: value.length >= 8,
+    lowercase: /[a-z]/.test(value),
+    uppercase: /[A-Z]/.test(value),
+    number: /\d/.test(value),
+    special: /[@$!%*?&]/.test(value)
+  });
+}, [password]);
   const handleRedirect = (path: string) => {
     setIsRedirecting(true);
     setTimeout(() => router.push(path), 1000);

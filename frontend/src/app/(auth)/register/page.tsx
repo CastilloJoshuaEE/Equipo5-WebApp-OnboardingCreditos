@@ -5,7 +5,7 @@ import React, { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import RegisterForm from '@/components/auth/RegisterForm';
-import { Box, CircularProgress, Container, Grid } from '@mui/material';
+import { Box, CircularProgress, Container } from '@mui/material';
 import { UserRole } from '@/features/auth/auth.types';
 export default function RegisterPage() {
   const { data: session, status } = useSession();

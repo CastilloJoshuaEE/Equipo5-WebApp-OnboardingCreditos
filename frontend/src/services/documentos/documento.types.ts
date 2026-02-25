@@ -6,7 +6,7 @@ export interface Documento {
   nombre_archivo: string;
   ruta_storage: string;
   estado: string;
-  created_at: string;
+  created_at?: string;
   validado_en?: string;
   comentarios?: string;
 }

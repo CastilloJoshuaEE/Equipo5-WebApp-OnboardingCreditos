@@ -3,10 +3,12 @@ import React from "react";
 
 declare global {
   namespace JSX {
-    interface Element extends React.ReactElement<any, any> {}
-    interface ElementClass extends React.Component<any> {}
+    type Element = React.ReactElement;
+    type ElementClass = React.Component;
     interface IntrinsicElements {
-      [elemName: string]: any;
+      [elemName: string]: unknown;
     }
   }
 }
+
+export {};

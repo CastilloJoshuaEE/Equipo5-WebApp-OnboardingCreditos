@@ -12,13 +12,14 @@ import {
   Card,
   CardContent
 } from '@mui/material';
+import { useMemo } from 'react';
 import { 
   Send, 
   SmartToy, 
-  Close,
-  HelpOutline
+  Close
 } from '@mui/icons-material';
 import { getSession, useSession } from 'next-auth/react';
+import type { Session } from 'next-auth';
 import './chabot-styles.css';
 import { Mensaje } from '@/features/chatbot/mensaje.types';
 
@@ -27,7 +28,7 @@ export default function ChatbotWidget() {
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [mensajeInput, setMensajeInput] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null)
   const [sessionLoading, setSessionLoading] = useState(true);
   const mensajesEndRef = useRef<HTMLDivElement>(null);
 
@@ -90,20 +91,20 @@ export default function ChatbotWidget() {
     };
   }, []);
 
-  const mensajeInicial: Mensaje = {
+  const mensajeInicial: Mensaje = useMemo(()=>( {
     id: '1',
     texto: session 
       ? `¡Hola ${session.user?.name}! Soy tu asistente virtual de Nexia. ¿En qué puedo ayudarte con tu solicitud de crédito?` 
       : '¡Hola! Soy tu asistente virtual de Nexia. ¿En qué puedo ayudarte con tu solicitud de crédito?',
     esUsuario: false,
     timestamp: new Date()
-  };
+  }),[session]);
 
   useEffect(() => {
     if (abierto && mensajes.length === 0 && !sessionLoading) {
       setMensajes([mensajeInicial]);
     }
-  }, [abierto, sessionLoading]);
+  }, [abierto, sessionLoading, mensajes.length, mensajeInicial]);
 
   useEffect(() => {
     scrollToBottom();
@@ -205,7 +206,7 @@ export default function ChatbotWidget() {
       } else {
         throw new Error(data.message || 'Error en la respuesta del servidor');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('. Chatbot - Error enviando mensaje:', error);
       const mensajeError: Mensaje = {
         id: (Date.now() + 1).toString(),

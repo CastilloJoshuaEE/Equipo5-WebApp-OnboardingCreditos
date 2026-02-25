@@ -520,10 +520,8 @@ const gestionUsuarios = new GestionUsuariosUseCase(usuarioRepository);
     const generarComprobantePDF = new GenerarComprobantePDFUseCase(transferenciaRepository, supabaseClient);
 
     // INSTANCIAR CONTROLLERS
-    const authController = new AuthController(loginUsuario, refrescarToken, cerrarSesion, obtenerSesion);
-    
-    // CORRECCIÓN CRÍTICA: ConfirmacionController tiene métodos estáticos, NO se instancia con new
-    // Simplemente pasamos la clase directamente, ya que todos sus métodos son estáticos
+    const authController = new AuthController(registrarUsuario, loginUsuario, refrescarToken, cerrarSesion, obtenerSesion);
+
     const confirmacionController = ConfirmacionController;
     
 const usuarioController = new UsuarioController(
@@ -801,11 +799,11 @@ const usuarioController = new UsuarioController(
     // CONFIGURAR RUTAS - CON TRY/CATCH
     let routes;
     try {
-      console.log('📦 Llamando a require("./interfaces/routes")...');
+      console.log(' Llamando a require("./interfaces/routes")...');
       const routesFactory = require('./interfaces/routes');
       console.log(' routesFactory cargado');
       
-      console.log('📦 Ejecutando routesFactory con dependencias...');
+      console.log(' Ejecutando routesFactory con dependencias...');
       routes = routesFactory({
         authController,
         usuarioController,
@@ -856,7 +854,7 @@ const usuarioController = new UsuarioController(
       routes.stack.forEach((layer, index) => {
         if (layer.name === 'router' && layer.handle && layer.handle.stack) {
           const routerName = `router_${index}`;
-          console.log(`\n📋 Verificando sub-router [${index}]:`);
+          console.log(`\n Verificando sub-router [${index}]:`);
           console.log(`   Path: ${layer.regexp}`);
           console.log(`   Stack size: ${layer.handle.stack.length}`);
           

@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 
-module.exports = (operadorController, authMiddleware) => {
+module.exports = (operadorController, documentoController, authMiddleware) => {
   router.get(
     '/dashboard',
     authMiddleware.proteger,
@@ -36,6 +36,23 @@ module.exports = (operadorController, authMiddleware) => {
         timestamp: new Date().toISOString()
       });
     }
+  );
+  /**
+   * @swagger
+   * /api/operador/todos-los-documentos:
+   *   get:
+   *     summary: Obtener todos los documentos del sistema (operador)
+   *     tags: [Operador]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Documentos obtenidos exitosamente
+   */
+  router.get('/todos-los-documentos',
+    authMiddleware.proteger,
+    authMiddleware.autorizar('operador'),
+    (req, res) => documentoController.obtenerTodosLosDocumentos(req, res)
   );
 
   return router;

@@ -18,11 +18,17 @@ import { getSession } from 'next-auth/react';
 import { BotonIniciarFirmaProps } from './ui/firma';
 import { SessionUser } from '@/features/auth/auth.types';
 import { TransferenciaEstado } from '@/features/transferencias/transferencia.types';
+interface FirmaExistente {
+  id: string;
+  estado: string;
+  created_at: string;
+  fecha_expiracion: string;
+}
 const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [firmaExistente, setFirmaExistente] = useState<any>(null);
+  const [firmaExistente, setFirmaExistente] = useState<FirmaExistente | null>(null);
   const [userRol, setUserRol] = useState<string>('');
   const [transferenciaEstado, setTransferenciaEstado] = useState<TransferenciaEstado | null>(null);
   const [firmaExpirada, setFirmaExpirada] = useState(false);
@@ -312,9 +318,9 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         setError(result.message || 'Error al iniciar proceso de firma');
         ocultarOverlay();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('. Error en firma digital:', error);
-      setError(error.message || 'Error de conexión al iniciar firma');
+      setError( 'Error de conexión al iniciar firma');
       ocultarOverlay();
     } finally {
       setLoading(false);
@@ -397,10 +403,6 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
     return userRol === 'operador';
   };
 
-  // Función para verificar si el usuario es solicitante
-  const esSolicitante = () => {
-    return userRol === 'solicitante';
-  };
 
   return (
     <>

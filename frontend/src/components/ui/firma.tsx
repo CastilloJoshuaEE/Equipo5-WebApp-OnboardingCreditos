@@ -6,7 +6,7 @@ export interface PosicionFirma {
 }
 export interface Firma {
     id: string;
-    tipoFirma: string;
+    tipoFirma: 'texto' | 'dibujo' | 'imagen';
     firmaTexto?: string;
     firmaImagen?: string;
     estilo?: string;
@@ -19,7 +19,7 @@ export interface Firma {
 export interface EditorFirmaProps {
     open: boolean;
     onClose: () => void;
-    onFirmaGuardada: (firmaData: any) => void;
+    onFirmaGuardada: (firmaData: Firma) => void;
 }
 
 export interface FirmaDigitalStatusProps {
@@ -29,5 +29,5 @@ export interface FirmaDigitalStatusProps {
 
 export interface BotonIniciarFirmaProps {
   solicitudId: string;
-  onFirmaIniciada: (data: any) => void;
+  onFirmaIniciada: (data: Record<string, unknown>) => void;
 }

@@ -1,7 +1,10 @@
 // frontend/src/features/solicitudes/solicitud.types.ts
 import { TransferenciaBancaria } from '@/features/transferencias/transferencia.types';
 import { Contrato } from '@/features/contratos/contrato.types';
-
+export interface ScoringSolicitud {
+  puntaje_total: number;
+  nivel?: string;
+}
 export interface SolicitudOperador {
   id: string;
   numero_solicitud: string;
@@ -11,9 +14,9 @@ export interface SolicitudOperador {
   moneda?: string;
   estado: string;
   nivel_riesgo: string;
-  created_at: string;
+  created_at?: string;
   fecha_envio?: string;
-
+  scoring?: ScoringSolicitud;
   solicitantes: {
     nombre_empresa: string;
     cuit: string;
@@ -61,7 +64,7 @@ export interface SolicitudDetalle {
   proposito: string;
   comentarios?: string;
   motivo_rechazo?: string;
-  created_at: string;
+  created_at?: string;
   fecha_envio?: string;
   fecha_decision?: string;
   documentos: Array<{
@@ -69,7 +72,7 @@ export interface SolicitudDetalle {
     tipo: string;
     nombre_archivo: string;
     estado: string;
-    created_at: string;
+    created_at?: string;
     validado_en?: string;
     comentarios?: string;
   }>;
@@ -82,6 +85,6 @@ export interface Solicitud {
   moneda: string;
   estado: string;
   nivel_riesgo?: string;
-  created_at: string;
+  created_at?: string;
   fecha_envio?: string;
 } 

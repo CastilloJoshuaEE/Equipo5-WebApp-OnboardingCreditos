@@ -27,9 +27,9 @@ module.exports = (dependencies) => {
   } = dependencies;
 
   const authRoutes = require('./auth.routes')(authController, confirmacionController, reactivacionController);
-  const usuariosPublicRoutes = require('./usuarios.public.routes')(usuarioController, authMiddleware, emailValidator);
+  const usuariosPublicRoutes = require('./usuarios.public.routes')(usuarioController, authController, authMiddleware, emailValidator);
   const usuariosAutenticadosRoutes = require('./usuarios.private.routes')(usuarioController, authMiddleware);
-  const operadoresRoutes = require('./operador.routes')(operadorController, authMiddleware);
+  const operadoresRoutes = require('./operador.routes')(operadorController, documentoController, authMiddleware);
   const solicitudesRoutes = require('./solicitudes.routes')(
     authMiddleware,
     uploadMiddleware,
@@ -54,7 +54,7 @@ module.exports = (dependencies) => {
   router.use("/auth", authRoutes);
   router.use("/usuarios", usuariosPublicRoutes);
   router.use("/usuarioautenticado", usuariosAutenticadosRoutes);
-  router.use("/operadores", operadoresRoutes);
+  router.use("/operador", operadoresRoutes);
   router.use("/solicitudes", solicitudesRoutes);
   router.use("/documentos", documentosRoutes);
   router.use("/chatbot", chatbotRoutes);

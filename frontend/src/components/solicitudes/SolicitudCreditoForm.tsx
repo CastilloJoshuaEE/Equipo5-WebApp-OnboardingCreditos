@@ -33,12 +33,6 @@ import { solicitudCreditoSchema, type SolicitudCreditoInput } from '@/schemas/so
 import { SolicitudCreditoFormProps } from '../ui/listaSolicitudesProps';
 import { DocumentoConTipo } from '@/features/documentos/documento.types';
 const steps = ['Datos del Crédito', 'Documentación', 'Revisión'];
-type FormData = {
-  monto: number;
-  plazo_meses: number;
-  moneda: 'ARS' | 'USD';
-  proposito: string;
-};
 
 export default function SolicitudCreditoForm({ onSuccess }: SolicitudCreditoFormProps) {
   const [activeStep, setActiveStep] = useState(0);
@@ -48,26 +42,26 @@ export default function SolicitudCreditoForm({ onSuccess }: SolicitudCreditoForm
   const [solicitudId, setSolicitudId] = useState<string | null>(null);
   const { data: session } = useSession();
   const [loadingOverlay, setLoadingOverlay] = useState(false); 
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    watch,
-    setValue
-  } = useForm<FormData>({
-    resolver: zodResolver(solicitudCreditoSchema) as any,
-    defaultValues: {
-      moneda: 'ARS',
-      monto: undefined as any,
-      plazo_meses: undefined as any,
-      proposito: ''
-    }
-  });
+const {
+  register,
+  handleSubmit,
+  formState: { errors, isSubmitting },
+  watch,
+  setValue
+} = useForm<SolicitudCreditoInput>({
+  resolver: zodResolver(solicitudCreditoSchema),
+  defaultValues: {
+    moneda: 'ARS',
+    proposito: ''
+  }
+});
 
   const monto = watch('monto');
   const plazoMeses = watch('plazo_meses');
-
+const montoValue = watch('monto');
+const plazoValue = watch('plazo_meses');
+const monedaValue = watch('moneda');
+const propositoValue = watch('proposito');
   // Guardar datos en localStorage
   const guardarBorrador = useCallback(() => {
 
@@ -101,8 +95,7 @@ documentos: documentos.map(doc => ({
     }, 1000);
 
     return () => clearTimeout(debounceTimer);
-  }, [watch('monto'), watch('plazo_meses'), watch('moneda'), watch('proposito'), guardarBorrador, activeStep]);
-
+}, [montoValue, plazoValue, monedaValue, propositoValue, guardarBorrador, activeStep]);
   // Cargar borrador al montar el componente
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -119,8 +112,8 @@ documentos: documentos.map(doc => ({
         const diferenciaHoras = (ahora.getTime() - fechaBorrador.getTime()) / (1000 * 60 * 60);
         
         if (diferenciaHoras < 24) {
-          setValue('monto', data.monto || '');
-          setValue('plazo_meses', data.plazo_meses || '');
+setValue('monto', data.monto ?? 0);
+setValue('plazo_meses', data.plazo_meses ?? 0);
           setValue('moneda', data.moneda || 'ARS');
           setValue('proposito', data.proposito || '');
           
@@ -204,15 +197,12 @@ documentos: documentos.map(doc => ({
     console.log('Formulario limpiado para usuario:', session?.user?.id);
   };
 
-  const handleNext = () => {
-    setActiveStep((prev) => prev + 1);
-  };
+
 
   const handleBack = () => {
     setActiveStep((prev) => prev - 1);
   };
- // ALTERNATIVA: Usar primary y secondary por separado
-// CORREGIR: Función renderListaDocumentos
+
 const renderListaDocumentos = () => (
   <Box sx={{ mt: 2 }}>
     <Typography variant="subtitle1" gutterBottom>

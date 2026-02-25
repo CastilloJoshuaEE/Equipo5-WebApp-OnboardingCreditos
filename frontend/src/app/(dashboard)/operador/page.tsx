@@ -1,8 +1,6 @@
 // frontend/src/app/(dashboard)/operador/page.tsx
 'use client';
-import { useRouter, useParams } from 'next/navigation';
-import { signOut } from 'next-auth/react';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getSession } from 'next-auth/react';
 import { useToast } from '@/components/ui/use-toast';
 import BotonIniciarFirma from '@/components/BotonIniciarFirma';
@@ -39,15 +37,14 @@ import { TransferenciaBancaria } from '@/features/transferencias/transferencia.t
 import { RevisionData } from '@/features/operador/revision.types';
 import { Contrato } from '@/features/contratos/contrato.types';
 import RevisionModal from '@/components/operador/RevisionModal';
+import { FirmaExistente } from '@/features/firma_digital/firmaDigital.types';
+
 export default function OperadorDashboard() {
-  const router = useRouter();
-  const params = useParams();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [filtrosOpen, setFiltrosOpen] = useState(false);
-const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date());
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date());
   const [actualizando, setActualizando] = useState(false);
-  const [procesandoForzar, setProcesandoForzar] = useState<{[key:string]: boolean}>({});
   const [solicitudes, setSolicitudes] = useState<SolicitudOperador[]>([]);
   const [habilitaciones, setHabilitaciones] = useState<{[key: string]: HabilitacionTransferencia}>({});
   const { toast } = useToast();
@@ -61,30 +58,26 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
     dni: ''
   });
   
-  // Estados para las métricas
-  const [metricas, setMetricas] = useState({
-    totalSolicitudes: 0,
-    aprobadas: 0,
-    enRevision: 0,
-    montoDesembolsado: 0,
-    listasParaTransferencia: 0
-  });
+  // Estados para las métricas - usamos useMemo para calcularlas solo cuando cambian las solicitudes
+  const metricas = useMemo(() => {
+    if (!solicitudes.length) {
+      return {
+        totalSolicitudes: 0,
+        aprobadas: 0,
+        enRevision: 0,
+        montoDesembolsado: 0,
+        listasParaTransferencia: 0
+      };
+    }
 
-  const solicitudId = params?.id as string;
-  const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<RevisionData | null>(null);
-  const [modalRevision, setModalRevision] = useState(false);
-  const [revisionData, setRevisionData] = useState<RevisionData | null>(null);
-  const [cargandoTransferencia, setCargandoTransferencia] = useState(false);
-
-  const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
-    const totalSolicitudes = solicitudesData.length;
-    const aprobadas = solicitudesData.filter(s => s.estado === 'aprobado').length;
-    const enRevision = solicitudesData.filter(s => 
+    const totalSolicitudes = solicitudes.length;
+    const aprobadas = solicitudes.filter(s => s.estado === 'aprobado').length;
+    const enRevision = solicitudes.filter(s => 
       s.estado === 'en_revision' || s.estado === 'pendiente_info'
     ).length;
     
-    const montoDesembolsado = solicitudesData.reduce((total, solicitud) => {
-      if (solicitud.transferencias_bancarias && solicitud.transferencias_bancarias.length > 0) {
+    const montoDesembolsado = solicitudes.reduce((total, solicitud) => {
+      if (solicitud.transferencias_bancarias?.length) {
         const transferenciaCompletada = solicitud.transferencias_bancarias
           .find((t: TransferenciaBancaria) => t.estado === 'completada');
         if (transferenciaCompletada) {
@@ -94,49 +87,37 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
       return total;
     }, 0);
 
-    const listasParaTransferencia = solicitudesData.filter(solicitud => {
-      const tieneContratoFirmado = solicitud.contratos && 
-        solicitud.contratos.some((c: Contrato) => c.estado === 'firmado_completo');
-      const tieneTransferenciaCompletada = solicitud.transferencias_bancarias &&
-        solicitud.transferencias_bancarias.some((t: TransferenciaBancaria) => t.estado === 'completada');
+    const listasParaTransferencia = solicitudes.filter(solicitud => {
+      const tieneContratoFirmado = solicitud.contratos?.some((c: Contrato) => c.estado === 'firmado_completo');
+      const tieneTransferenciaCompletada = solicitud.transferencias_bancarias?.some((t: TransferenciaBancaria) => t.estado === 'completada');
       
       return solicitud.estado === 'aprobado' && 
              tieneContratoFirmado && 
              !tieneTransferenciaCompletada;
     }).length;
 
-    setMetricas({
+    return {
       totalSolicitudes,
       aprobadas,
       enRevision,
       montoDesembolsado,
       listasParaTransferencia
-    });
-  };
-
-  useEffect(() => {
-    if (solicitudes.length > 0) {
-      calcularMetricas(solicitudes);
-    } else {
-      setMetricas({
-        totalSolicitudes: 0,
-        aprobadas: 0,
-        enRevision: 0,
-        montoDesembolsado: 0,
-        listasParaTransferencia: 0
-      });
-    }
+    };
   }, [solicitudes]);
 
+  const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<RevisionData | null>(null);
+  const [modalRevision, setModalRevision] = useState(false);
+  const [cargandoTransferencia, setCargandoTransferencia] = useState(false);
+
   // Función para refrescar datos después de validar
-  const handleDocumentoActualizado = async () => {
+  const handleDocumentoActualizado = useCallback(async () => {
     console.log('Refrescando datos después de validación...');
     await cargarDashboard();
     
     if (solicitudSeleccionada) {
       await handleIniciarRevision(solicitudSeleccionada.solicitud.id);
     }
-  };
+  }, [solicitudSeleccionada]);
 
   const getNombreContacto = (solicitud: SolicitudOperador) => {
     if (!solicitud?.solicitantes?.usuarios) {
@@ -148,17 +129,6 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
       : solicitud.solicitantes.usuarios;
     
     return usuario?.nombre_completo || 'Sin contacto';
-  };
-
-  useEffect(() => {
-    cargarDashboard();
-  }, []);
-
-  const handleLogout = async () => {
-    await signOut({ 
-      callbackUrl: '/login',
-      redirect: true 
-    });
   };
 
   const verificarTodasLasFirmas = async () => {
@@ -173,8 +143,8 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
     }
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    const firmasVerificadas: {[key: string]: any} = {};
-
+    const firmasVerificadas: Record<string, FirmaExistente> = {};
+    
     try {
       for (const solicitud of solicitudes) {
         if (solicitud.estado === 'aprobado') {
@@ -197,11 +167,11 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
       }
 
       const firmasCompletas = Object.values(firmasVerificadas).filter(
-        (f: any) => f.firma_existente?.estado === 'firmado_completo'
+        (f: FirmaExistente) => f.firma_existente?.estado === 'firmado_completo'
       ).length;
       
       const firmasPendientes = Object.values(firmasVerificadas).filter(
-        (f: any) => f.firma_existente && f.firma_existente.estado !== 'firmado_completo'
+        (f: FirmaExistente) => f.firma_existente && f.firma_existente.estado !== 'firmado_completo'
       ).length;
 
       toast({
@@ -220,7 +190,7 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
     }
   };
 
-  const verificarHabilitaciones = async () => {
+  const verificarHabilitaciones = useCallback(async (solicitudesActuales: SolicitudOperador[]) => {
     const nuevasHabilitaciones: {[key: string]: HabilitacionTransferencia} = {};
     const session = await getSession();
 
@@ -229,7 +199,8 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
       return;
     }
 
-    for (const solicitud of solicitudes) {
+    // Usar las solicitudes pasadas como parámetro para evitar dependencia circular
+    for (const solicitud of solicitudesActuales) {
       if (solicitud.estado === 'aprobado') {
         try {
           const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -244,8 +215,6 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
           if (response.ok) {
             const data = await response.json();
             nuevasHabilitaciones[solicitud.id] = data.data;
-          } else if (response.status === 403) {
-            continue;
           }
         } catch (error) {
           console.error('Error verificando habilitación:', error);
@@ -254,145 +223,11 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
     }
     
     setHabilitaciones(nuevasHabilitaciones);
-  };
+  }, []); // Sin dependencias externas
 
-  const handleForzarVerificacion = async () => {
-    const session = await getSession();
-    if (!session?.accessToken) {
-      toast({
-        title: "Error de autenticación",
-        description: "No se pudo verificar la sesión",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    const nuevosProcesos: { [key: string]: boolean } = {};
-    const nuevasHabilitaciones: { [key: string]: HabilitacionTransferencia } = {};
-    const nuevasFirmas: { [key: string]: any } = {};
-
-    try {
-      for (const solicitud of solicitudes) {
-        if (solicitud.estado === 'aprobado') {
-          nuevosProcesos[solicitud.id] = true;
-          setProcesandoForzar({ ...nuevosProcesos });
-
-          try {
-            let procesoFirmaExiste = false;
-            
-            const firmaResponse = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
-              headers: {
-                'Authorization': `Bearer ${session.accessToken}`,
-                'Content-Type': 'application/json',
-              },
-            });
-
-            if (firmaResponse.ok) {
-              const firmaData = await firmaResponse.json();
-              procesoFirmaExiste = firmaData.data.existe;
-              nuevasFirmas[solicitud.id] = firmaData.data;
-              
-              if (!procesoFirmaExiste) {
-                const iniciarFirmaResponse = await fetch(`${API_URL}/firmas/iniciar-proceso/${solicitud.id}`, {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${session.accessToken}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ forzar_reinicio: true })
-                });
-                
-                if (iniciarFirmaResponse.ok) {
-                  const nuevaVerificacion = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
-                    headers: {
-                      'Authorization': `Bearer ${session.accessToken}`,
-                      'Content-Type': 'application/json',
-                    },
-                  });
-                  if (nuevaVerificacion.ok) {
-                    const nuevaData = await nuevaVerificacion.json();
-                    nuevasFirmas[solicitud.id] = nuevaData.data;
-                  }
-                }
-              }
-            }
-
-            const res = await fetch(`${API_URL}/transferencias/forzar-actualizacion/${solicitud.id}`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.accessToken}`,
-                'Content-Type': 'application/json',
-              },
-            });
-
-            if (!res.ok) {
-              const errorData = await res.json().catch(() => ({}));
-              const errorMessage = errorData.message || `Error ${res.status}`;
-              toast({
-                title: "Error",
-                description: `Error en solicitud ${solicitud.numero_solicitud}: ${errorMessage}`,
-                variant: "destructive",
-              });
-              continue;
-            }
-
-            const data = await res.json();
-            nuevasHabilitaciones[solicitud.id] = data.data;
-
-            toast({
-              title: "Verificación forzada",
-              description: `Solicitud ${solicitud.numero_solicitud} actualizada correctamente.`,
-              variant: "default",
-            });
-
-          } catch (error) {
-            console.error(`Error forzando verificación de ${solicitud.id}:`, error);
-          } finally {
-            nuevosProcesos[solicitud.id] = false;
-            setProcesandoForzar({ ...nuevosProcesos });
-          }
-        }
-      }
-
-      setHabilitaciones(prev => ({
-        ...prev,
-        ...nuevasHabilitaciones,
-      }));
-
-    } catch (error) {
-      console.error('Error general en handleForzarVerificacion:', error);
-      toast({
-        title: "Error de conexión",
-        description: "No se pudo conectar con el servidor",
-        variant: "destructive",
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (solicitudes.length > 0) {
-      verificarHabilitaciones();
-    }
-  }, [solicitudes]);
-  useEffect(() => {
-    const transferenciaCompletada = sessionStorage.getItem('transferencia_completada');
-    const solicitudId = sessionStorage.getItem('solicitud_transferencia');
-    
-    if (transferenciaCompletada === 'true' && solicitudId) {
-      console.log('Detectada transferencia completada, actualizando datos...');
-      cargarDashboard(true);
-      verificarHabilitaciones();
-      
-      // Limpiar el flag
-      sessionStorage.removeItem('transferencia_completada');
-      sessionStorage.removeItem('solicitud_transferencia');
-    }
-  }, []);
   const handleTransferir = (solicitudId: string) => {
     setCargandoTransferencia(true);
     
-    // Guardar en sessionStorage para que la página de transferencia lo detecte
     sessionStorage.setItem('transferencia_pendiente', 'true');
     sessionStorage.setItem('solicitud_transferencia', solicitudId);
     
@@ -401,7 +236,7 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
     }, 800);
   };
 
-   const cargarDashboard = async (forzar = false) => {
+  const cargarDashboard = useCallback(async (forzar = false) => {    
     if (forzar) {
       setActualizando(true);
     }
@@ -418,19 +253,23 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
         if (value) params.append(key, value);
       });
 
-
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       const response = await fetch(`${API_URL}/operador/dashboard?${params}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.accessToken}`,
-          'Content-Type': 'application/json'        }
+          'Content-Type': 'application/json'
+        }
       });
 
       if (response.ok) {
         const data = await response.json();
-        setSolicitudes(data.data.solicitudes || []);
+        const nuevasSolicitudes = data.data.solicitudes || [];
+        setSolicitudes(nuevasSolicitudes);
         setUltimaActualizacion(new Date());
+        
+        // Verificar habilitaciones para las nuevas solicitudes
+        await verificarHabilitaciones(nuevasSolicitudes);
         
         if (forzar) {
           toast({
@@ -456,7 +295,28 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
       setLoading(false);
       setActualizando(false);
     }
-  };
+  }, [filtros, toast, verificarHabilitaciones]); // Añadimos verificarHabilitaciones como dependencia
+
+  // Efecto principal para cargar datos al montar el componente
+  useEffect(() => {
+    cargarDashboard();
+  }, [cargarDashboard]); // Solo se ejecuta cuando cargarDashboard cambia
+
+  // Efecto para verificar transferencias completadas
+  useEffect(() => {
+    const transferenciaCompletada = sessionStorage.getItem('transferencia_completada');
+    const solicitudId = sessionStorage.getItem('solicitud_transferencia');
+    
+    if (transferenciaCompletada === 'true' && solicitudId) {
+      console.log('Detectada transferencia completada, actualizando datos...');
+      cargarDashboard(true);
+      
+      // Limpiar el flag
+      sessionStorage.removeItem('transferencia_completada');
+      sessionStorage.removeItem('solicitud_transferencia');
+    }
+  }, [cargarDashboard]); // Dependencia única
+
   const handleIniciarRevision = async (solicitudId: string) => {
     try {
       const session = await getSession();
@@ -485,7 +345,7 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
   };
 
   const getEstadoColor = (estado: string) => {
-    const colores: any = {
+    const colores: Record<string, "default" | "success" | "warning" | "error" | "info"> = {
       'en_revision': 'warning',
       'pendiente_info': 'info',
       'aprobado': 'success',
@@ -495,7 +355,7 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
   };
 
   const getRiesgoColor = (riesgo: string) => {
-    const colores: any = {
+    const colores: Record<string, "default" | "success" | "warning" | "error" | "info"> = {      
       'bajo': 'success',
       'medio': 'warning',
       'alto': 'error'
@@ -596,8 +456,8 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
         <Button 
           variant="contained" 
           className="btn-primary"
-  onClick={() => cargarDashboard()}
-            size={isMobile ? "small" : "medium"}
+          onClick={() => cargarDashboard()}
+          size={isMobile ? "small" : "medium"}
           fullWidth={isMobile}
           startIcon={<RefreshIcon />}
         >
@@ -625,7 +485,6 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
       </Box>
     </Box>
   );
-
   return (
     <Box className="operador-dashboard">
       {/* Encabezado */}
@@ -781,7 +640,9 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
                     <tr key={solicitud.id}>
                       <td className="solicitud-id">{solicitud.numero_solicitud}</td>
                       <td className="solicitud-fecha">
-                        {new Date(solicitud.created_at).toLocaleDateString()}
+                        {solicitud.created_at 
+  ? new Date(solicitud.created_at).toLocaleDateString()
+  : '-'}
                       </td>
                       <td className="solicitud-empresa">
                         {solicitud.solicitantes?.nombre_empresa}
@@ -902,8 +763,10 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
         <Grid size={{ xs: 6}}>
                           <Typography variant="subtitle2" sx={{ fontSize: '0.75rem' }}>Fecha</Typography>
                           <Typography sx={{ fontSize: '0.9rem' }}>
-                            {new Date(solicitud.created_at).toLocaleDateString()}
-                          </Typography>
+{solicitud.created_at 
+  ? new Date(solicitud.created_at).toLocaleDateString()
+  : '-'}
+                            </Typography>
                         </Grid>
                       </Grid>
 

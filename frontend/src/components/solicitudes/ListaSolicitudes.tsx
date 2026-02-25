@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { Solicitud } from '@/features/solicitudes/solicitud.types';
 import { ListaSolicitudesProps } from '../ui/listaSolicitudesProps';
+import { ChipProps } from '@mui/material';
 
 export default function ListaSolicitudes({ onUpdate }: ListaSolicitudesProps) {
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
@@ -51,7 +52,7 @@ export default function ListaSolicitudes({ onUpdate }: ListaSolicitudesProps) {
 
       const responseData = await response.json();
       setSolicitudes(responseData.data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error al cargar las solicitudes:', error);
       setError('Ocurrió un problema al cargar tus solicitudes.');
     } finally {
@@ -85,15 +86,12 @@ export default function ListaSolicitudes({ onUpdate }: ListaSolicitudesProps) {
       // Redirigir a la página de detalles
       window.location.href = `/solicitante/solicitudes/${solicitud.id}`;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error al cargar detalles:', error);
       
       // Ocultar overlay en caso de error
       setShowOverlay(false);
       setSolicitudCargando(null);
-      
-      // Mostrar error al usuario
-      setError(`Error al cargar detalles: ${error.message}`);
       
       // Auto-ocultar el error después de 5 segundos
       setTimeout(() => setError(''), 5000);
@@ -108,8 +106,7 @@ export default function ListaSolicitudes({ onUpdate }: ListaSolicitudesProps) {
   };
 
   const getEstadoColor = (estado: string) => {
-    const colores: { [key: string]: any } = {
-      'borrador': 'default',
+const colores: Record<string, ChipProps['color']> = {      'borrador': 'default',
       'enviado': 'primary',
       'en_revision': 'warning',
       'aprobado': 'success',
@@ -120,8 +117,7 @@ export default function ListaSolicitudes({ onUpdate }: ListaSolicitudesProps) {
   };
 
   const getNivelRiesgoColor = (nivel?: string) => {
-    const colores: { [key: string]: any } = {
-      'bajo': 'success',
+const colores: Record<string, ChipProps['color']> = {      'bajo': 'success',
       'medio': 'warning',
       'alto': 'error'
     };
@@ -217,7 +213,7 @@ export default function ListaSolicitudes({ onUpdate }: ListaSolicitudesProps) {
                       {solicitud.numero_solicitud}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Creada: {new Date(solicitud.created_at).toLocaleDateString()}
+                      Creada: {new Date(solicitud.created_at?? '').toLocaleDateString()}
                     </Typography>
                   </Box>
                   

@@ -70,8 +70,7 @@ class SupabaseIntentoLoginRepository extends IntentoLoginRepository {
       usuario_id: usuarioId,
       intento_exitoso: exitoso,
       ip_address: ip,
-      user_agent: userAgent,
-      bloqueado
+      user_agent: userAgent
     };
 
     return await this.create(intentoData);

@@ -1,7 +1,9 @@
 // frontend/src/components/operador/steps/DocumentacionStep.tsx
 'use client';
 import { DocumentosService } from '@/services/documentos/documentos.service';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { ChipProps } from '@mui/material';
+import { ReactNode } from 'react';
 import { getSession } from 'next-auth/react';
 import {
     Box,
@@ -22,9 +24,7 @@ import {
     Checkbox,
     TextField,
     FormGroup,
-    Divider,
-    Tooltip,
-    IconButton
+    Divider
 } from '@mui/material';
 import { 
     CloudDownload, 
@@ -104,10 +104,7 @@ const CRITERIOS_DOCUMENTOS = {
 export default function DocumentacionStep({
     documentos,
     scoring,
-    onValidarDocumento,
     onEvaluarDocumento,
-    onDescargarDocumento,
-    onVerDocumento,
     loading = false,
     solicitudId
 }: DocumentacionStepProps) {
@@ -118,8 +115,7 @@ export default function DocumentacionStep({
     const [evaluacionCargando, setEvaluacionCargando] = useState(false);
 
     const getEstadoColor = (estado: string) => {
-        const colores: { [key: string]: any } = {
-            'validado': 'success',
+const colores: Record<string, ChipProps['color']> = {            'validado': 'success',
             'pendiente': 'warning',
             'rechazado': 'error',
             'faltante': 'default'
@@ -128,7 +124,7 @@ export default function DocumentacionStep({
     };
 
     const getEstadoIcon = (estado: string) => {
-        const icons: { [key: string]: any } = {
+const icons: Record<string, ReactNode> = {
             'validado': <CheckCircle />,
             'pendiente': <Pending />,
             'rechazado': <Cancel />,
@@ -450,7 +446,7 @@ const handleEnviarEvaluacion = async () => {
                                         <strong>Tamaño:</strong> {formatFileSize(documento.tamanio_bytes)}
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        <strong>Subido:</strong> {new Date(documento.created_at).toLocaleDateString()}
+                                        <strong>Subido:</strong> {new Date(documento.created_at?? '' ).toLocaleDateString()}
                                     </Typography>
                                     
                                     {documento.comentarios && (

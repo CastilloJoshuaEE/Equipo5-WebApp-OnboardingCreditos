@@ -1,13 +1,10 @@
 // frontend/src/services/usuarios/usuario.service.ts
-import { api } from '@/lib/axios'; 
-import { 
-
-  PerfilPublicoResponse
-
-
-} from '@/features/usuario/perfil/perfil.responses';
+import { api } from '@/lib/axios';
+import { PerfilPublicoResponse } from '@/features/usuario/perfil/perfil.responses';
 import { PerfilUsuario } from '@/features/usuario/perfil/perfil.types';
 import { ApiResponse } from '@/shared/types/api.types';
+import { AxiosError } from 'axios';
+import { DesactivarCuentaResponse } from '@/features/usuario/configuracion/configuracion.types';
 
 export const UsuarioService = {
 
@@ -16,7 +13,9 @@ export const UsuarioService = {
    */
   obtenerPerfilUsuario: async (usuarioId: string): Promise<PerfilPublicoResponse> => {
     try {
-      const response = await api.get(`/usuarios/${usuarioId}/perfil-publico`);
+      const response = await api.get<PerfilPublicoResponse>(
+        `/usuarios/${usuarioId}/perfil-publico`
+      );
       return response.data;
     } catch (error) {
       console.error('Error obteniendo perfil público:', error);
@@ -25,11 +24,13 @@ export const UsuarioService = {
   },
 
   /**
-   * Obtener perfil básico (método existente - compatibilidad)
+   * Obtener perfil básico
    */
   obtenerPerfil: async (): Promise<{ success: boolean; data: PerfilUsuario }> => {
     try {
-      const response = await api.get('/usuario/perfil');
+      const response = await api.get<{ success: boolean; data: PerfilUsuario }>(
+        '/usuarioautenticado/perfil'
+      );
       return response.data;
     } catch (error) {
       console.error('Error obteniendo perfil básico:', error);
@@ -38,63 +39,65 @@ export const UsuarioService = {
   },
 
   /**
-   * Actualizar perfil básico (método existente - compatibilidad)
+   * Actualizar perfil
    */
-  actualizarPerfil: async (datosPerfil: Partial<PerfilUsuario>): Promise<{ success: boolean; data: PerfilUsuario }> => {
+  actualizarPerfil: async (
+    datosPerfil: Partial<PerfilUsuario>
+  ): Promise<{ success: boolean; data: PerfilUsuario }> => {
     try {
-      const response = await api.put('/usuario/editar-perfil', datosPerfil);
+      const response = await api.put<{ success: boolean; data: PerfilUsuario }>(
+        '/usuarioautenticado/editar-perfil',
+        datosPerfil
+      );
       return response.data;
-    } catch (error: any) {
-      console.error('Error actualizando perfil básico:', error);
-      throw new Error(error.response?.data?.message || 'Error al actualizar el perfil');
+    } catch (error) {
+      const err = error as AxiosError<{ message: string }>;
+      throw new Error(err.response?.data?.message || 'Error al actualizar el perfil');
     }
   },
 
   /**
-   * Cambiar contraseña del usuario autenticado
+   * Cambiar contraseña
    */
   cambiarContrasena: async (datos: {
     contrasena_actual: string;
     nueva_contrasena: string;
     confirmar_contrasena: string;
   }): Promise<{ success: boolean; message: string }> => {
+
     try {
-      const response = await api.put('/usuario/cambiar-contrasena', datos);
+      const response = await api.put<{ success: boolean; message: string }>(
+        '/usuarioautenticado/cambiar-contrasena',
+        datos
+      );
+
       return response.data;
-    } catch (error: any) {
-      console.error('Error cambiando contraseña:', error);
-      throw new Error(error.response?.data?.message || 'Error al cambiar la contraseña');
+
+    } catch (error) {
+      const err = error as AxiosError<{ message: string }>;
+      throw new Error(err.response?.data?.message || 'Error al cambiar la contraseña');
     }
   },
 
   /**
-   * Desactivar cuenta del usuario autenticado
+   * Desactivar cuenta
    */
   desactivarCuenta: async (datos: {
     password: string;
     motivo?: string;
-  }): Promise<{ success: boolean; message: string; data?: any }> => {
-    try {
-      const response = await api.put('/usuario/desactivar-cuenta', datos);
-      return response.data;
-    } catch (error: any) {
-      console.error('Error desactivando cuenta:', error);
-      throw new Error(error.response?.data?.message || 'Error al desactivar la cuenta');
-    }
-  },
+  }): Promise<DesactivarCuentaResponse> => {
 
-  /**
-   * Actualizar email de recuperación
-   */
-  actualizarEmailRecuperacion: async (email_recuperacion: string): Promise<{ success: boolean; message: string; data?: any }> => {
     try {
-      const response = await api.put('/usuario/email-recuperacion', {
-        email_recuperacion
-      });
+      const response = await api.put<DesactivarCuentaResponse>(
+        '/usuarioautenticado/desactivar-cuenta',
+        datos
+      );
+
       return response.data;
-    } catch (error: any) {
-      console.error('Error actualizando email de recuperación:', error);
-      throw new Error(error.response?.data?.message || 'Error al actualizar el email de recuperación');
+
+    } catch (error) {
+      const err = error as AxiosError<{ message: string }>;
+      throw new Error(err.response?.data?.message || 'Error al desactivar la cuenta');
     }
   },
 
@@ -111,22 +114,45 @@ export const UsuarioService = {
     };
   }> => {
     try {
-      const response = await api.get('/usuario/configuracion-cuenta');
+
+      const response = await api.get<{
+        success: boolean;
+        data: {
+          email_principal: string;
+          email_recuperacion?: string;
+          cuenta_activa: boolean;
+          fecha_desactivacion?: string;
+        };
+      }>('/usuarioautenticado/configuracion-cuenta');
+
       return response.data;
+
     } catch (error) {
       console.error('Error obteniendo configuración de cuenta:', error);
       throw new Error('No se pudo obtener la configuración de la cuenta');
     }
   },
-    eliminarCuentaCompletamente: async (password: string): Promise<ApiResponse<{ message: string }>> => {
+
+  /**
+   * Eliminar cuenta completamente
+   */
+  eliminarCuentaCompletamente: async (
+    password: string
+  ): Promise<ApiResponse<{ message: string }>> => {
+
     try {
-      const response = await api.delete('/usuario/eliminar-cuenta', {
-        data: { password }
-      });
+      const response = await api.delete<ApiResponse<{ message: string }>>(
+        '/usuarioautenticado/eliminar-cuenta',
+        { data: { password } }
+      );
+
       return response.data;
-    } catch (error: any) {
-      console.error('Error eliminando cuenta:', error);
-      throw new Error(error.response?.data?.message || 'Error al eliminar la cuenta completamente');
+
+    } catch (error) {
+      const err = error as AxiosError<{ message: string }>;
+      throw new Error(
+        err.response?.data?.message || 'Error al eliminar la cuenta completamente'
+      );
     }
   },
 

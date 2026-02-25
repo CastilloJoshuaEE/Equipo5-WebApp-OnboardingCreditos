@@ -3,10 +3,11 @@ const express = require('express');
 const router = express.Router();
 /**
  * @param {import('../controllers/UsuarioController')} usuarioController
+ * @param {import('../controllers/AuthController')} authController
  * @param {typeof import('../middleware/auth.middleware')} authMiddleware
  * @param {import('../../infrastructure/services/email/emailValidarServicio')} emailValidator
  */
-module.exports = (usuarioController, authMiddleware, emailValidator) => {
+module.exports = (usuarioController, authController, authMiddleware, emailValidator) => {
   // ==================== RUTAS DE USUARIO AUTENTICADO ====================
 
 /**
@@ -70,7 +71,7 @@ module.exports = (usuarioController, authMiddleware, emailValidator) => {
 router.post(
   '/registro',
   emailValidator.validateEmailBeforeAuth,
-  (req, res) => usuarioController.registrar(req, res)
+  (req, res) => authController.registrar(req, res)
 );
 
 /**
@@ -161,7 +162,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-  router.post('/login', (req, res) => usuarioController.login(req, res));
+  router.post('/login', (req, res) => authController.login(req, res));
 /**
  * @swagger
  * /api/usuarios/logout:
@@ -177,7 +178,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/SuccessResponse'
  */
-  router.post('/logout', authMiddleware.proteger, (req, res) => usuarioController.logout(req, res));
+  router.post('/logout', authMiddleware.proteger, (req, res) => authController.logout(req, res));
 /**
  * @swagger
  * /api/usuarios/recuperar-contrasena:
@@ -224,7 +225,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/recuperar-contrasena', (req, res) => usuarioController.recuperarContrasena(req, res));
+router.post('/recuperar-contrasena', (req, res) => authController.recuperarContrasena(req, res));
 /**
  * @swagger
  * /api/usuarios/session:
@@ -255,7 +256,7 @@ router.post('/recuperar-contrasena', (req, res) => usuarioController.recuperarCo
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/session', (req, res) => usuarioController.getSession(req, res));
+router.get('/session', (req, res) => authController.getSession(req, res));
 
 /**
  * @swagger

@@ -87,7 +87,6 @@ class BrevoAPIService {
  * Enviar email con archivos adjuntos - . CON FORMATO DESTINATARIOS
  */
 
-// CORREGIR el método enviarEmailConAdjuntos
 async enviarEmailConAdjuntos(destinatario, asunto, contenidoHTML, adjuntos = []) {
     try {
         console.log(`. [BREVO API] Enviando email con adjuntos a:`, destinatario);

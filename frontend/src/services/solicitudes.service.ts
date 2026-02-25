@@ -1,8 +1,12 @@
 // frontend/src/services/solicitudes.service.ts
 import api from '../lib/axios';
-
+export interface CrearSolicitudDTO {
+  monto: number;
+  plazo: number;
+  motivo?: string;
+}
 export const SolicitudesService = {
-  crearSolicitud: async (data: any) => {
+  crearSolicitud: async (data: CrearSolicitudDTO) => {
     const response = await api.post('/solicitudes', data);
     return response.data;
   },

@@ -1,7 +1,9 @@
 // frontend/src/services/comentarios.service.ts
 import api from '../../lib/axios';
 import { Comentario } from '@/services/comentarios/comentario.types';
-
+type ComentariosParams = {
+  tipo?: string;
+};
 export const ComentariosService = {
     // Crear comentario
     crearComentario: async (solicitudId: string, comentario: string, tipo: string = 'operador_a_solicitante') => {
@@ -15,7 +17,7 @@ export const ComentariosService = {
 
     // Obtener comentarios de una solicitud
     obtenerComentariosSolicitud: async (solicitudId: string, tipo?: string): Promise<Comentario[]> => {
-        const params: any = {};
+        const params: ComentariosParams = {};
         if (tipo) params.tipo = tipo;
         
         const response = await api.get(`/solicitudes/${solicitudId}/comentarios`, { params });

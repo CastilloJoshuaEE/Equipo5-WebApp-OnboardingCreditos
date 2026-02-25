@@ -41,8 +41,8 @@ export default function DesactivarCuentaModal({
       setPassword('');
       setMotivo('');
       onClose();
-    } catch (error: any) {
-      setError(error.message || 'Error al desactivar la cuenta');
+    } catch {
+      setError( 'Error al desactivar la cuenta');
     } finally {
       setLoading(false);
     }

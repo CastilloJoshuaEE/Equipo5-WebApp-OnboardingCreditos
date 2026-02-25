@@ -72,8 +72,8 @@ const CambiarContrasenaForm: React.FC<CambiarContrasenaFormProps> = ({
       } else {
         setError(result.message || 'Error al cambiar la contraseña');
       }
-    } catch (error: any) {
-      setError(error.message || 'Error al cambiar la contraseña');
+    } catch  {
+      setError('Error al cambiar la contraseña');
     } finally {
       setLoading(false);
     }

@@ -49,3 +49,36 @@ export interface FirmaData {
         integridad_valida?: boolean;
     };
 }
+export type FirmaDigitalData = {
+  id: string;
+  estado: string;
+};
+export interface FirmaExistente {
+  existe?: boolean;
+  firma_existente?: {
+    estado: string;
+  };
+}
+export type TipoFirmaData = {
+  tipoFirma: 'texto' | 'dibujo' | 'imagen';
+  fechaCreacion: string;
+  firmaTexto?: string;
+  iniciales?: string;
+  estilo?: string;
+  firmaImagen?: string;
+  grosorPincel?: number;
+  colorFirma?: string;
+  ubicacion?: string;
+};
+export interface FirmaItem {
+  nombreFirmante: string;
+  fechaFirma: string;
+  tipoFirma: string;
+  firmaTexto?: string;
+}
+
+export interface DocumentoFirmado {
+  firmas: FirmaItem[];
+  fechaFirma: string;
+  [key: string]: unknown;
+}

@@ -8,8 +8,6 @@ import {
   Alert,
   Card,
   CardContent,
-  Grid,
-  Button,
   Chip,
   CircularProgress,
   Tabs,
@@ -46,7 +44,8 @@ import {
 import { getSession } from 'next-auth/react';
 import { TabPanelProps } from '@/components/ui/tab';
 import { DocumentoTransferenciaBancaria } from '@/features/documentos/documentoTransferenciaBancaria.types';
-
+import { ContratoDocumento } from '@/features/contratos/contrato.types';
+import { SolicitudConDocumentos } from '@/features/contratos/contrato.types';
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
@@ -68,8 +67,9 @@ export default function MisDocumentosPage() {
   const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const [tabValue, setTabValue] = useState(0);
-  const [solicitudesConDocumentos, setSolicitudesConDocumentos] = useState<any[]>([]);
-  const [transferencias, setTransferencias] = useState<DocumentoTransferenciaBancaria[]>([]);
+const [solicitudesConDocumentos, setSolicitudesConDocumentos] =
+  useState<SolicitudConDocumentos[]>([]);
+    const [transferencias, setTransferencias] = useState<DocumentoTransferenciaBancaria[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
@@ -130,11 +130,11 @@ export default function MisDocumentosPage() {
     }
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  const handleVerContrato = async (contrato: any) => {
+  const handleVerContrato = async (contrato: ContratoDocumento) => {
     try {
       setDocumentoCargando(true);
       const session = await getSession();
@@ -307,7 +307,7 @@ export default function MisDocumentosPage() {
 
     return contratosSolicitud
       .filter(Boolean)
-      .filter((contrato: any) => {
+      .filter((contrato: ContratoDocumento) => {
         const tieneFirmaCompleta = 
           contrato.firma_digital && 
           contrato.firma_digital.estado === 'firmado_completo';
@@ -318,7 +318,7 @@ export default function MisDocumentosPage() {
 
         return tieneFirmaCompleta || contratoFirmado;
       })
-      .map((contrato: any) => ({
+      .map((contrato: ContratoDocumento) => ({
         ...contrato,
         solicitud_numero: solicitud.numero_solicitud,
         monto_solicitud: solicitud.monto,
@@ -345,7 +345,7 @@ export default function MisDocumentosPage() {
   });
 
   // Componente para tarjetas responsive de contratos
-  const ContratoCard = ({ contrato }: { contrato: any }) => (
+  const ContratoCard = ({ contrato }: { contrato: ContratoDocumento }) => (
     <Card variant="outlined" sx={{ mb: 2 }}>
       <CardContent>
         <Stack spacing={2}>
@@ -372,7 +372,10 @@ export default function MisDocumentosPage() {
               Monto
             </Typography>
             <Typography variant="body1">
-              {formatMonto(contrato.monto_solicitud || contrato.monto_aprobado, contrato.moneda_solicitud)}
+              {formatMonto(
+  contrato.monto_solicitud ?? contrato.monto_aprobado ?? 0,
+  contrato.moneda_solicitud
+)}
             </Typography>
           </Box>
           
@@ -649,7 +652,10 @@ export default function MisDocumentosPage() {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {formatMonto(contrato.monto_solicitud || contrato.monto_aprobado, contrato.moneda_solicitud)}
+                            {formatMonto(
+  contrato.monto_solicitud ?? contrato.monto_aprobado ?? 0,
+  contrato.moneda_solicitud
+)}
                           </Typography>
                         </TableCell>
                         <TableCell>

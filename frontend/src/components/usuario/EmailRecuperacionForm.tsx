@@ -38,7 +38,7 @@ export default function EmailRecuperacionForm() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/usuario/configuracion-cuenta`, 
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/usuarioautenticado/configuracion-cuenta`, 
         {
           method: 'GET',
           headers: {
@@ -129,9 +129,9 @@ export default function EmailRecuperacionForm() {
       } else {
         setError(data.message || 'Error al actualizar el email de recuperación');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error completo:', error);
-      setError(error.message || 'Error de conexión al actualizar el email');
+      setError( 'Error de conexión al actualizar el email');
     } finally {
       setLoading(false);
     }

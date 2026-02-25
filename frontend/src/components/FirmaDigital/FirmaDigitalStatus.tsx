@@ -1,5 +1,5 @@
 // frontend/src/components/FirmaDigital/FirmaDigitalStatus.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
     Box, 
     Card, 
@@ -23,46 +23,40 @@ import {
 import { getSession } from 'next-auth/react';
 import { FirmaDigitalStatusProps } from '../ui/firma';
 import { FirmaData } from '@/features/firma_digital/firmaDigital.types';
-const FirmaDigitalStatus: React.FC<FirmaDigitalStatusProps> = ({ firmaId, solicitudId }) => {
+const FirmaDigitalStatus: React.FC<FirmaDigitalStatusProps> = ({ firmaId }) => {
     const [firmaData, setFirmaData] = useState<FirmaData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        cargarEstadoFirma();
-        const interval = setInterval(cargarEstadoFirma, 30000); // Actualizar cada 30 segundos
-        return () => clearInterval(interval);
-    }, [firmaId]);
 
-    const cargarEstadoFirma = async () => {
-        try {
-            const session = await getSession();
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-            
-            const response = await fetch(`${API_URL}/firmas/${firmaId}/estado`, {
-                headers: { 
-                    Authorization: `Bearer ${session?.accessToken}`, 
-                    'Content-Type': 'application/json' 
-                }
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                setFirmaData(result.data);
-                setError(null);
-            } else {
-                setError(result.message);
-            }
-        } catch (err) {
-            setError('Error cargando estado de firma');
-        } finally {
-            setLoading(false);
-        }
-    };
 
-const verificarIntegridadCompleta = async () => {
+    const cargarEstadoFirma = useCallback(async () => {
     try {
+        const session = await getSession();
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+        const response = await fetch(`${API_URL}/firmas/${firmaId}/estado`, {
+            headers: {
+                Authorization: `Bearer ${session?.accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            setFirmaData(result.data);
+            setError(null);
+        } else {
+            setError(result.message);
+        }
+    } catch {
+        setError('Error cargando estado de firma');
+    } finally {
+        setLoading(false);
+    }
+}, [firmaId]);
+const verificarIntegridadCompleta = useCallback(async () => {    try {
         const session = await getSession();
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         
@@ -92,14 +86,13 @@ const verificarIntegridadCompleta = async () => {
         console.error('Error verificando integridad:', err);
         return false;
     }
-};
-
+}, [firmaId]);
 // Llamar esta función cuando se cargue el estado
 useEffect(() => {
     if (firmaData?.firma && !firmaData.firma.integridad_valida) {
         verificarIntegridadCompleta();
     }
-}, [firmaData]);
+}, [firmaData, verificarIntegridadCompleta]);
     const getEstadoConfig = (estado: string) => {
         const configs: { [key: string]: { color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'; text: string; icon: React.ReactNode } } = {
             'pendiente': { 
@@ -145,7 +138,11 @@ useEffect(() => {
         };
         return configs[estado] || configs.pendiente;
     };
-
+useEffect(() => {
+    cargarEstadoFirma();
+    const interval = setInterval(cargarEstadoFirma, 30000);
+    return () => clearInterval(interval);
+}, [cargarEstadoFirma]);
     const renderTimeline = () => {
         if (!firmaData) return null;
 
@@ -227,7 +224,7 @@ useEffect(() => {
             } else {
                 setError(result.message);
             }
-        } catch (err) {
+        } catch {
             setError('Error reenviando solicitud');
         }
     };

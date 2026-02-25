@@ -77,7 +77,7 @@ export default function BCRAStep({ infoBCRA }: BCRAStepProps) {
             </Typography>
 
             {datosProcesados.entidades && datosProcesados.entidades.length > 0 ? (
-                datosProcesados.entidades.map((ent: any, index: number) => (
+                datosProcesados.entidades.map((ent, index) => (
                     <Card key={index} sx={{ mb: 1 }}>
                         <CardContent>
                             <Typography variant="subtitle2">{ent.nombre}</Typography>

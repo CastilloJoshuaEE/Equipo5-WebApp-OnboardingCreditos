@@ -1,8 +1,9 @@
 // frontend/src/components/documentos/GestionDocumentos.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { getSession } from 'next-auth/react';
+import { ChipProps } from '@mui/material';
 import {
   Box,
   Typography,
@@ -28,7 +29,7 @@ import {
   DialogActions,
   Snackbar
 } from '@mui/material';
-import { Download, Visibility, CloudUpload, Delete, Edit } from '@mui/icons-material';
+import { Download, Visibility, CloudUpload, Edit } from '@mui/icons-material';
 import { DocumentoData } from '@/features/documentos/documento.types';
 import { GestionDocumentosProps } from '@/features/documentos/documento.types';
 
@@ -41,43 +42,48 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
   const [documentoAEliminar, setDocumentoAEliminar] = useState<DocumentoData | null>(null);
   const [subiendoArchivo, setSubiendoArchivo] = useState<string | null>(null);
 
+
+const cargarDocumentos = useCallback(async () => {
+  try {
+    setLoading(true);
+    const session = await getSession();
+
+    if (!session?.accessToken) {
+      throw new Error('No estás autenticado');
+    }
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+    const response = await fetch(`${API_URL}/solicitudes/${solicitudId}/documentos`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.accessToken}`,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: No se pudieron cargar los documentos`);
+    }
+
+    const result = await response.json();
+    setDocumentos(result.data || []);
+  } catch (error: unknown) {
+    console.error('Error cargando documentos:', error);
+
+    if (error instanceof Error) {
+      setError(error.message);
+    } else {
+      setError('Error al cargar los documentos');
+    }
+  } finally {
+    setLoading(false);
+  }
+}, [solicitudId]);
   useEffect(() => {
     cargarDocumentos();
-  }, [solicitudId]);
-
-  const cargarDocumentos = async () => {
-    try {
-      setLoading(true);
-      const session = await getSession();
-      
-      if (!session?.accessToken) {
-        throw new Error('No estás autenticado');
-      }
-
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${API_URL}/solicitudes/${solicitudId}/documentos`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.accessToken}`,
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: No se pudieron cargar los documentos`);
-      }
-
-      const result = await response.json();
-      setDocumentos(result.data || []);
-    } catch (error: any) {
-      console.error('Error cargando documentos:', error);
-      setError(error.message || 'Error al cargar los documentos');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  }, [cargarDocumentos]);
   const handleSubirDocumento = async (tipo: string, archivo: File) => {
     try {
       setSubiendoArchivo(tipo);
@@ -109,10 +115,13 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
 
       setSuccess('Documento subido exitosamente');
       await cargarDocumentos();
-    } catch (error: any) {
-      console.error('Error subiendo documento:', error);
-      setError(error.message || 'Error al subir documento');
-    } finally {
+    } catch (error: unknown) {
+  if (error instanceof Error) {
+    setError(error.message);
+  } else {
+    setError('Ocurrió un error');
+  }
+} finally {
       setSubiendoArchivo(null);
     }
   };
@@ -147,10 +156,13 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
 
       setSuccess('Documento actualizado exitosamente');
       await cargarDocumentos();
-    } catch (error: any) {
-      console.error('Error actualizando documento:', error);
-      setError(error.message || 'Error al actualizar documento');
-    } finally {
+    } catch (error: unknown) {
+  if (error instanceof Error) {
+    setError(error.message);
+  } else {
+    setError('Ocurrió un error');
+  }
+} finally {
       setSubiendoArchivo(null);
     }
   };
@@ -181,10 +193,13 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
       setDialogOpen(false);
       setDocumentoAEliminar(null);
       await cargarDocumentos();
-    } catch (error: any) {
-      console.error('Error eliminando documento:', error);
-      setError(error.message || 'Error al eliminar documento');
-    }
+    } catch (error: unknown) {
+  if (error instanceof Error) {
+    setError(error.message);
+  } else {
+    setError('Ocurrió un error');
+  }
+}
   };
 
   const descargarDocumento = async (documento: DocumentoData) => {
@@ -234,7 +249,7 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
   };
 
   const getEstadoColor = (estado: string) => {
-    const colores: { [key: string]: any } = {
+const colores: Record<string, ChipProps['color']> = {
       'pendiente': 'warning',
       'validado': 'success',
       'rechazado': 'error'
@@ -451,10 +466,10 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
 
           <TableCell>
             <Typography variant="body2">
-              {new Date(documento.created_at).toLocaleDateString('es-ES')}
+              {new Date(documento.created_at ?? '').toLocaleDateString('es-ES')}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {new Date(documento.created_at).toLocaleTimeString('es-ES')}
+              {new Date(documento.created_at ?? '').toLocaleTimeString('es-ES')}
             </Typography>
           </TableCell>
 
@@ -539,8 +554,7 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
         </DialogTitle>
         <DialogContent>
           <Typography>
-            ¿Estás seguro de que deseas eliminar el documento "{documentoAEliminar?.nombre_archivo}"?
-          </Typography>
+¿Estás seguro de que deseas eliminar el documento &quot;{documentoAEliminar?.nombre_archivo}&quot;?          </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             Esta acción no se puede deshacer.
           </Typography>

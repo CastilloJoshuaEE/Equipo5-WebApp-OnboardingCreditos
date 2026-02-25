@@ -375,7 +375,7 @@ export default function PerfilCompleto() {
                                 Fecha de registro
                               </Typography>
                               <Typography variant="body2">
-                                {new Date(perfil.created_at).toLocaleDateString('es-ES')}
+                                {new Date(perfil.created_at??'').toLocaleDateString('es-ES')}
                               </Typography>
                             </Grid>
                             <Grid size={{ xs: 12, md: 6 }}>
@@ -383,7 +383,7 @@ export default function PerfilCompleto() {
                                 Última actualización
                               </Typography>
                               <Typography variant="body2">
-                                {new Date(perfil.updated_at).toLocaleDateString('es-ES')}
+                                {new Date(perfil.updated_at??'').toLocaleDateString('es-ES')}
                               </Typography>
                             </Grid>
         

@@ -62,5 +62,5 @@ class NotificacionesService {
     }
   }
 }
-
-export default new NotificacionesService();
+const notificacionesService = new NotificacionesService();
+export default notificacionesService;

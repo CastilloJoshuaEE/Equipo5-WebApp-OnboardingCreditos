@@ -1,17 +1,22 @@
 // backend/interfaces/controllers/AuthController.js
 class AuthController {
   constructor(
+    registrarUsuarioUseCase,
     loginUsuarioUseCase,
     refrescarTokenUseCase,
     cerrarSesionUseCase,
     obtenerSesionUseCase
   ) {
+     this.registrarUsuario = registrarUsuarioUseCase; 
     this.loginUsuario = loginUsuarioUseCase;
     this.refrescarToken = refrescarTokenUseCase;
     this.cerrarSesion = cerrarSesionUseCase;
     this.obtenerSesion = obtenerSesionUseCase;
   }
-
+  async registrar(req, res) {
+    const result = await this.registrarUsuario.execute(req.body);
+    return res.status(result.status || (result.success ? 201 : 500)).json(result);
+  }
   async login(req, res) {
     const { email, password } = req.body;
     const ipAddress = req.ip || req.connection.remoteAddress;

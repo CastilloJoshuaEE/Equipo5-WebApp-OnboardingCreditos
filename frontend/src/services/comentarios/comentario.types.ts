@@ -6,7 +6,7 @@ export interface Comentario {
     tipo: string;
     comentario: string;
     leido: boolean;
-    created_at: string;
+    created_at?: string;
     usuarios: {
         nombre_completo: string;
         email: string;

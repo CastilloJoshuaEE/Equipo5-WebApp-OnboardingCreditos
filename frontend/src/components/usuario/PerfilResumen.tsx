@@ -11,10 +11,8 @@ import {
 import { 
   Person, 
   Business, 
-  Email, 
   Phone 
 } from '@mui/icons-material';
-import { PerfilCompleto } from '@/features/usuario/perfil/perfil.types';
 import { esPerfilSolicitante } from '@/utils/perfil.utils';
 import { PerfilResumenProps } from '../ui/perfilResumenProps';
 

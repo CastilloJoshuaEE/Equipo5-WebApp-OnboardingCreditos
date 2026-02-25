@@ -9,7 +9,10 @@ export interface RevisionData {
   documentos: Documento[];
   infoBCRA: InfoBCRA;
   scoring: Scoring;
-  solicitante: any;
+  solicitante?: {
+  nombre_empresa?: string;
+  cuit?: string;
+};
 }
 
 export interface RevisionModalProps {

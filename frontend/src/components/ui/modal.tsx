@@ -1,6 +1,6 @@
 // frontend/src/components/ui/modal.tsx
 import * as React from "react"
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material"
+import { Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material"
 
 interface ModalProps {
   open: boolean;

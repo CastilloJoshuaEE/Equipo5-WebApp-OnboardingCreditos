@@ -90,9 +90,9 @@ const EditarContactoModal: React.FC<EditarContactoModalProps> = ({
       } else {
         throw new Error(data.message || 'Error al actualizar contacto');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error actualizando contacto:', error);
-      setError(error.message || 'Error al actualizar contacto');
+      setError('Error al actualizar contacto');
     } finally {
       setLoading(false);
     }

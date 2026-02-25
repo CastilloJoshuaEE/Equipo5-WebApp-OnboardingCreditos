@@ -1,6 +1,7 @@
 // frontend/src/pages/firmar-contrato/[firma_id].tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
+import { Session } from 'next-auth';
 import { getSession } from 'next-auth/react';
 import { 
   Box, 
@@ -27,38 +28,14 @@ import {
   Schedule
 } from '@mui/icons-material';
 import VisorWordFirma from '@/components/FirmaDigital/VisorWordFirma';
-
-interface DocumentoFirmado {
-  firmas: any[];
-  fechaFirma: string;
-  [key: string]: any;
-}
-
-interface InfoFirmaData {
-  firma: {
-    id: string;
-    solicitudes_credito: {
-      numero_solicitud: string;
-      solicitante_id: string;
-      operador_id: string;
-    };
-    estado: string;
-    fecha_expiracion: string;
-  };
-  fecha_expiracion: string;
-  documento: any;
-  nombre_documento: string;
-  tipo_documento: string;
-  solicitante: any;
-  hash_original: string;
-}
-
+import { InfoFirmaData } from '@/features/firma_digital/firmaDigital.types';
+import { DocumentoFirmado } from '@/features/firma_digital/firmaDigital.types';
 const FirmaContratoPage = () => {
   const router = useRouter();
   const { firma_id } = router.query;  
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [infoFirma, setInfoFirma] = useState<InfoFirmaData | null>(null);
-  const [documento, setDocumento] = useState<any>(null);
+  const [documento, setDocumento] = useState<DocumentoFirmado | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pasoActual, setPasoActual] = useState(0);
@@ -89,6 +66,58 @@ const FirmaContratoPage = () => {
     checkSession();
   }, []);
 
+const cargarInfoFirma = useCallback(async () => {
+  try {
+    setLoading(true);
+    setError('');
+
+    console.log('. Cargando información de firma para:', firma_id);
+    console.log('. Token disponible:', !!session?.accessToken);
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+    const response = await fetch(`${API_URL}/firmas/info-firma-word/${firma_id}`, {
+      headers: {
+        Authorization: `Bearer ${session?.accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log(' Response status:', response.status);
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        setError('Sesión expirada. Por favor, inicie sesión nuevamente.');
+        return;
+      }
+
+      const errorResult = await response.json();
+      console.error('. Error del servidor:', errorResult);
+
+      setError(errorResult.message || `Error ${response.status} al cargar información`);
+      return;
+    }
+
+    const result = await response.json();
+    console.log('. Información cargada exitosamente:', result.success);
+
+    if (result.success) {
+      setInfoFirma(result.data);
+      setDocumento(result.data.documento);
+      setPasoActual(1);
+    } else {
+      setError(result.message || 'Error en la respuesta del servidor');
+    }
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      setError(error.message);
+    } else {
+      setError('Error desconocido');
+    }
+  } finally {
+    setLoading(false);
+  }
+}, [firma_id, session]);
   useEffect(() => {
     if (firma_id && !sessionLoading) {
       if (session) {
@@ -97,91 +126,7 @@ const FirmaContratoPage = () => {
         setLoading(false);
       }
     }
-  }, [firma_id, session, sessionLoading]);
-
-  const cargarInfoFirma = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      console.log('. Cargando información de firma para:', firma_id);
-      console.log('. Token disponible:', !!session?.accessToken);
-      
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-
-      const response = await fetch(`${API_URL}/firmas/info-firma-word/${firma_id}`, {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      console.log('📡 Response status:', response.status);
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          setError('Sesión expirada. Por favor, inicie sesión nuevamente.');
-          return;
-        }
-        
-        const errorResult = await response.json();
-        console.error('. Error del servidor:', errorResult);
-        
-        // Si es error 404, intentar reparar automáticamente
-        if (response.status === 404) {
-          console.log('. Intentando reparar relación automáticamente...');
-          
-          const repairResponse = await fetch(`${API_URL}/firmas/${firma_id}/reparar-relacion`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session?.accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-
-          if (repairResponse.ok) {
-            const repairResult = await repairResponse.json();
-            console.log('. Relación reparada:', repairResult);
-            
-            // Reintentar cargar información
-            const retryResponse = await fetch(`${API_URL}/firmas/info-firma-word/${firma_id}`, {
-              headers: {
-                'Authorization': `Bearer ${session?.accessToken}`,
-                'Content-Type': 'application/json'
-              }
-            });
-
-            if (retryResponse.ok) {
-              const retryResult = await retryResponse.json();
-              setInfoFirma(retryResult.data);
-              setDocumento(retryResult.data.documento);
-              setPasoActual(1);
-              return;
-            }
-          }
-        }
-        
-        setError(errorResult.message || `Error ${response.status} al cargar información`);
-        return;
-      }
-
-      const result = await response.json();
-      console.log('. Información cargada exitosamente:', result.success);
-      
-      if (result.success) {
-        setInfoFirma(result.data);
-        setDocumento(result.data.documento);
-        setPasoActual(1);
-      } else {
-        setError(result.message || 'Error en la respuesta del servidor');
-      }
-    } catch (error: any) {
-      console.error('. Error cargando información de firma:', error);
-      setError(error.message || 'Error de conexión al cargar información');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [firma_id, session, sessionLoading, cargarInfoFirma]);
 
   const handleLogin = () => {
     router.push('/login');
@@ -201,6 +146,9 @@ const FirmaContratoPage = () => {
       setLoading(false);
     }
   };
+  const handleFirmaWrapper = (doc: Record<string, unknown>) => {
+  handleFirmarDocumento(doc as DocumentoFirmado);
+};
 const handleFirmarDocumento = async (documentoFirmado: DocumentoFirmado) => {
     try {
         if (!session) {
@@ -506,8 +454,8 @@ const handleDescargarContratoFirmado = async (firmaId: string) => {
       {pasoActual === 1 && infoFirma && (
         <Box sx={{ height: 'calc(100vh - 200px)' }}>
           <VisorWordFirma
-            documento={documento}
-            onFirmaCompletada={handleFirmarDocumento}
+            documento={documento ?? {}}
+            onFirmaCompletada={handleFirmaWrapper}
             modoFirma={puedeFirmar}
             firmaId={firma_id as string} 
           />

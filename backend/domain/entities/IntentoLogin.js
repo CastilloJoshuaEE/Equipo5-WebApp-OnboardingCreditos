@@ -22,9 +22,6 @@ class IntentoLogin {
     return this.intento_exitoso === true;
   }
 
-  fueBloqueado() {
-    return this.bloqueado === true;
-  }
 
   static deberiaBloquear(intentosFallidosRecientes) {
     return intentosFallidosRecientes >= this.MAX_INTENTOS_FALLIDOS;
@@ -45,7 +42,6 @@ class IntentoLogin {
       intento_exitoso: this.intento_exitoso,
       ip_address: this.ip_address,
       user_agent: this.user_agent,
-      bloqueado: this.bloqueado,
       created_at: this.created_at
     };
   }

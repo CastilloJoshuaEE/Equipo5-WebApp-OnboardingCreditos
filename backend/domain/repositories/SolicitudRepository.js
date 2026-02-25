@@ -14,6 +14,9 @@ class SolicitudRepository {
   async findBySolicitanteId(solicitanteId) {
     throw new Error('Método no implementado');
   }
+  async findByOperador(operadorId, filtros = {}) {
+    throw new Error('Método no implementado');
+  }
 
   async findByNumero(numeroSolicitud) {
     throw new Error('Método no implementado');

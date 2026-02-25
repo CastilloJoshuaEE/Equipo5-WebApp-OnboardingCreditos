@@ -1,5 +1,4 @@
 // middleware/auth.middleware.js
-// middleware/auth.middleware.js
 const { supabaseClient } = require('../../infrastructure/database/supabaseClient.js');
 const { supabaseAdmin } = require('../../infrastructure/database/supabaseAdmin.js');
 

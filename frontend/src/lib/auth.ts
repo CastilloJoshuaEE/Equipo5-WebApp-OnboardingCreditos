@@ -113,7 +113,6 @@ export const authOptions: NextAuthOptions = {
   ],
   pages: {
     signIn: '/login',
-    // .: 'signUp' no existe, usar 'newUser' en su lugar
     newUser: '/register',
     error: '/error',
   },

@@ -2,9 +2,9 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { getSession, useSession } from 'next-auth/react';
-
+import { Session } from 'next-auth';
 interface SessionSyncContextType {
-  session: any;
+  session: Session | null;
   isLoading: boolean;
   refreshSession: () => Promise<void>;
 }
@@ -12,7 +12,7 @@ interface SessionSyncContextType {
 const SessionSyncContext = createContext<SessionSyncContextType | undefined>(undefined);
 
 export function SessionSyncProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { data: nextAuthSession, status } = useSession();
 

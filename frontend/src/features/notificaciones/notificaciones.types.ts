@@ -7,7 +7,7 @@ export interface Notificacion {
   titulo: string;
   mensaje: string;
   leida: boolean;
-  created_at: string;
+  created_at?: string;
   datos_adicionales?: {
     solicitud_numero?: string;
     monto?: number;

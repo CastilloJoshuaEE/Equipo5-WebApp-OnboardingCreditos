@@ -1,9 +1,7 @@
 // frontend/src/app/solicitante/solicitudes/[id]/page.tsx
 'use client';
-
-import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Box, 
   Typography, 
@@ -17,7 +15,6 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Divider,
   Paper
 } from '@mui/material';
 import { getSession } from 'next-auth/react';
@@ -36,7 +33,6 @@ const estadosSolicitud = [
 export default function DetalleSolicitud() {
   const router = useRouter();
   const params = useParams();
-  const { data: session } = useSession();
   const [solicitud, setSolicitud] = useState<SolicitudDetalle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,12 +40,7 @@ export default function DetalleSolicitud() {
 
   const solicitudId = params?.id as string;
 
-  useEffect(() => {
-    if (solicitudId) {
-      cargarDetalleSolicitud();
-    }
-  }, [solicitudId]);
-
+ 
   useEffect(() => {
     if (solicitud?.estado) {
       const stepIndex = estadosSolicitud.indexOf(solicitud.estado);
@@ -57,8 +48,7 @@ export default function DetalleSolicitud() {
     }
   }, [solicitud]);
 
-  const cargarDetalleSolicitud = async () => {
-    try {  
+const cargarDetalleSolicitud = useCallback(async () => {    try {  
       setLoading(true);
       const session = await getSession();
 
@@ -84,17 +74,26 @@ export default function DetalleSolicitud() {
       
       const result = await response.json();
       setSolicitud(result.data);
-    } catch (error: any) {
-      console.error('Error cargando detalle:', error);
-      setError(error.message || 'No se pudo cargar el detalle de la solicitud');
+    } catch (error: unknown) {
+  console.error('Error cargando detalle:', error);
+
+  if (error instanceof Error) {
+    setError(error.message);
+  } else {
+    setError('No se pudo cargar el detalle de la solicitud');
+  }
     } finally {
       setLoading(false);
     }
-  };
+}, [solicitudId]);
+ useEffect(() => {
+    if (solicitudId) {
+      cargarDetalleSolicitud();
+    }
+  }, [solicitudId, cargarDetalleSolicitud]);
 
   const getEstadoColor = (estado: string) => {
-    const colores: { [key: string]: any } = {
-      'borrador': 'default',
+const colores: Record<string, "default" | "primary" | "warning" | "info" | "success" | "error"> = {      'borrador': 'default',
       'enviado': 'primary',
       'en_revision': 'warning',
       'pendiente_info': 'info',
@@ -105,8 +104,7 @@ export default function DetalleSolicitud() {
   };
 
   const getNivelRiesgoColor = (nivel: string) => {
-    const colores: { [key: string]: any } = {
-      'bajo': 'success',
+const colores: Record<string, "default" | "primary" | "warning" | "info" | "success" | "error"> = {      'bajo': 'success',
       'medio': 'warning',
       'alto': 'error'
     };
@@ -120,16 +118,17 @@ export default function DetalleSolicitud() {
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDate = (dateString?: string) => {
+  if (!dateString) return '-';
 
+  return new Date(dateString).toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
