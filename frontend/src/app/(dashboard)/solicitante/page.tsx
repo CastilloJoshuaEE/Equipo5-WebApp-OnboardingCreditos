@@ -205,7 +205,6 @@ const cargarEstadisticas = useCallback(async () => {    try {
           const now = Date.now();
           
           if (now >= exp) {
-            console.log('Token expirado detectado');
             showSessionExpired();
           }
         } catch (error) {

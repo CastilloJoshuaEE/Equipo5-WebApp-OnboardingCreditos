@@ -18,7 +18,7 @@ export default function ConfiguracionPage() {
   const [message, setMessage] = useState('');
 
   const handleDesactivarCuenta = async (password: string, motivo?: string) => {
-    const response = await fetch('/usuario/desactivar-cuenta', {
+    const response = await fetch('/usuarios/desactivar-cuenta', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

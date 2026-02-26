@@ -10,9 +10,7 @@ class NotificacionesService {
       
       const response = await api.get(`/notificaciones?${params}`);
       
-      // Debug: log de respuesta
-      console.log('Notificaciones response:', response.data);
-      
+    
       return response.data;
     } catch (error) {
       console.error('Error en obtenerNotificaciones:', error);
@@ -23,7 +21,6 @@ class NotificacionesService {
   async obtenerNoLeidas(): Promise<NotificacionesResponse> {
     try {
       const response = await api.get('/notificaciones?leida=false&limit=5');
-      console.log('Notificaciones no leídas:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error en obtenerNoLeidas:', error);
@@ -54,7 +51,6 @@ class NotificacionesService {
   async obtenerContadorNoLeidas(): Promise<{ success: boolean; data: { count: number } }> {
     try {
       const response = await api.get('/notificaciones/contador-no-leidas');
-      console.log('Contador no leídas:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error en obtenerContadorNoLeidas:', error);

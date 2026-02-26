@@ -53,7 +53,7 @@ export default function RegisterForm() {
     trigger,
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { rol: undefined },
+    defaultValues: { rol: UserRole.SOLICITANTE  },
     mode: 'onBlur',
   });
 

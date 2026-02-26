@@ -100,7 +100,7 @@ export default function EmailRecuperacionForm() {
       console.log('Enviando solicitud para actualizar email de recuperación...');
       
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/usuario/email-recuperacion`, 
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/usuarioautenticado/email-recuperacion`, 
         {
           method: 'PUT',
           headers: {

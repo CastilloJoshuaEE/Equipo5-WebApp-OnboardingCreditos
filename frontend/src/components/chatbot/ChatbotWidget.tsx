@@ -41,7 +41,6 @@ export default function ChatbotWidget() {
       setSessionLoading(true);
       try {
         const userSession = await getSession();
-        console.log('. Chatbot - Sesión cargada:', userSession ? `Usuario: ${userSession.user?.name}` : 'No hay sesión');
         setSession(userSession);
       } catch (error) {
         console.error('Error cargando sesión en chatbot:', error);
@@ -56,10 +55,8 @@ export default function ChatbotWidget() {
   // Escuchar cambios en la sesión de useSession
   useEffect(() => {
     if (status === 'authenticated') {
-      console.log('. Chatbot - Sesión autenticada detectada:', sessionData?.user?.name);
       setSession(sessionData);
     } else if (status === 'unauthenticated') {
-      console.log('🚪 Chatbot - Sesión no autenticada');
       setSession(null);
     }
   }, [sessionData, status]);
@@ -67,14 +64,12 @@ export default function ChatbotWidget() {
   // Escuchar eventos de storage para detectar cambios de sesión
   useEffect(() => {
     const handleStorageChange = async () => {
-      console.log('📦 Chatbot - Cambio en storage detectado, recargando sesión...');
       const userSession = await getSession();
       setSession(userSession);
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('👀 Chatbot - Página visible, verificando sesión...');
         getSession().then(userSession => {
           setSession(userSession);
         });
@@ -147,11 +142,6 @@ export default function ChatbotWidget() {
         ? `${API_BASE}/chatbot/mensaje-autenticado`
         : `${API_BASE}/chatbot/mensaje`;
 
-      console.log(' Chatbot - Enviando mensaje:', {
-        endpoint,
-        autenticado: !!currentSession?.accessToken,
-        usuario: currentSession?.user?.name
-      });
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -163,11 +153,9 @@ export default function ChatbotWidget() {
         }),
       });
 
-      console.log('Chatbot - Respuesta del servidor:', response.status);
 
       if (!response.ok) {
         if (response.status === 401 && currentSession?.accessToken) {
-          console.log('. Chatbot - Token inválido, intentando con endpoint público...');
           const publicResponse = await fetch(`${API_BASE}/chatbot/mensaje`, {
             method: 'POST',
             headers: {
@@ -229,7 +217,6 @@ export default function ChatbotWidget() {
 
   // Función para forzar actualización de sesión
   const actualizarSesion = async () => {
-    console.log('. Chatbot - Forzando actualización de sesión...');
     const nuevaSesion = await getSession();
     setSession(nuevaSesion);
   };

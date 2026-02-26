@@ -40,7 +40,17 @@ module.exports = (authController, confirmacionController, reactivacionController
    *             schema:
    *               $ref: '#/components/schemas/Error'
    */
-router.get("/confirmar", (req, res) => confirmacionController.confirmarEmail(req, res));
+ router.get("/confirmar", (req, res) => {
+    // Verificar que el controlador existe
+    if (!confirmacionController || typeof confirmacionController.confirmarEmail !== 'function') {
+      console.error('. Error: confirmacionController no tiene método confirmarEmail');
+      return res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+    return confirmacionController.confirmarEmail(req, res);
+  });
 
   /**
    * @swagger

@@ -211,6 +211,7 @@ export default function PerfilCompleto() {
   }
 
   return (
+    
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={3}>
         <TabHeader />
@@ -525,6 +526,30 @@ export default function PerfilCompleto() {
         onClose={handleCloseSnackbar}
         message={message}
       />
+      {redirecting && (
+  <Box
+    sx={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: 'rgba(255, 255, 255, 0.4)', // transparente
+      backdropFilter: 'blur(4px)', // efecto glass
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 2000,
+    }}
+  >
+    <Box sx={{ textAlign: 'center' }}>
+      <CircularProgress size={60} />
+      <Typography sx={{ mt: 2, fontWeight: 500 }}>
+        Redirigiendo a editar perfil...
+      </Typography>
+    </Box>
+  </Box>
+)}
     </Container>
   );
 }

@@ -27,7 +27,7 @@ const enviarEmailConfirmacion = async (email, nombre, userId) => {
     const tokenConfirmacion = generarTokenConfirmacion(userId, email);
     
     const frontendUrl = getFrontendUrl();
-    const enlaceConfirmacion = `${frontendUrl}/email_confirmado?token=${tokenConfirmacion}&email=${encodeURIComponent(email)}`;
+    const enlaceConfirmacion = `${frontendUrl}/api/auth/confirmar?token=${tokenConfirmacion}&email=${encodeURIComponent(email)}`;
     
     console.log(`. [CONFIRMACIÓN] Enlace de confirmación generado: ${enlaceConfirmacion}`);
     

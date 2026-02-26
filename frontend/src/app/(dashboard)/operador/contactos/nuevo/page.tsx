@@ -99,7 +99,7 @@ const cargarContactos = useCallback(async () => {
       
       const session = await getSession();
       
-      console.log('💾 Guardando contacto bancario:', {
+      console.log(' Guardando contacto bancario:', {
         numero_cuenta: formData.numero_cuenta
       });
       

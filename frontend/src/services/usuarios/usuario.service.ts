@@ -55,7 +55,21 @@ export const UsuarioService = {
       throw new Error(err.response?.data?.message || 'Error al actualizar el perfil');
     }
   },
-
+  /**
+   * Actualizar email de recuperación
+   */
+  actualizarEmailRecuperacion: async (email_recuperacion: string): Promise<{ success: boolean; message: string;}> => {
+    try {
+      const response = await api.put<{ success: boolean; message: string; }>(
+        '/usuarioautenticado/email-recuperacion',
+        { email_recuperacion }
+      );
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ message: string }>;
+      throw new Error(err.response?.data?.message || 'Error al actualizar el email de recuperación');
+    }
+  },
   /**
    * Cambiar contraseña
    */

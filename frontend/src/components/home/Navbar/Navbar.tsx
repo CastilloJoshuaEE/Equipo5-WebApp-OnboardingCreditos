@@ -1,6 +1,6 @@
 // frontend/src/components/home/Navbar/Navbar.tsx
 "use client";
-
+import { useState } from "react";
 import Image from "next/image";
 import styles from "./Navbar.module.css";
 import { useRouter } from "next/navigation";
@@ -8,16 +8,21 @@ import { useSession, signOut } from "next-auth/react";
 import { UserRole } from "@/features/auth/auth.types";
 export default function Navbar() {
   const router = useRouter();
+  const [redirecting, setRedirecting] = useState(false);
   const { data: session, status } = useSession();
 
-  const handleLogin = () => {
+const handleLogin = () => {
+  setRedirecting(true);
+  setTimeout(() => {
     router.push("/login");
-  };
-
-  const handleSolicitarCredito = () => {
-    router.push('/register');
-  };
-
+  }, 800);
+};
+const handleSolicitarCredito = () => {
+  setRedirecting(true);
+  setTimeout(() => {
+    router.push("/register");
+  }, 800);
+};
   const handleDashboard = () => {
     if (session?.user?.rol === UserRole.SOLICITANTE) {
       router.push('/solicitante');
@@ -95,6 +100,29 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+      {redirecting && (
+  <div
+    style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      width: "100vw",
+      height: "100vh",
+      background: "rgba(255,255,255,0.4)",
+      backdropFilter: "blur(4px)",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      zIndex: 9999,
+      flexDirection: "column",
+    }}
+  >
+    <div className={styles.loader}></div>
+    <p style={{ marginTop: "16px", fontWeight: 500 }}>
+      Redirigiendo...
+    </p>
+  </div>
+)}
     </header>
   );
 }

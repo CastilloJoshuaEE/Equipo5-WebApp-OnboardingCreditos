@@ -265,7 +265,6 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         }),
       });
 
-      console.log('📡 Respuesta del servidor:', response.status, response.statusText);
 
       if (!response.ok) {
         const errorResult = await response.json();

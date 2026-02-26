@@ -78,15 +78,12 @@ export default function LoginForm() {
       setIsLoading(true);
       setError('');
 
-      console.log('Enviando credenciales:', data.email);
-
       const result = await signIn('credentials', {
         email: data.email,
         password: data.password,
         redirect: false,
       });
 
-      console.log('Resultado del signIn:', result);
 
       if (result?.error) {
         console.error('Error en signIn:', result.error);
@@ -105,7 +102,6 @@ export default function LoginForm() {
       }
 
       // Login exitoso - obtener información del usuario para determinar el rol
-      console.log('Login exitoso, obteniendo información del usuario...');
       await getSession();
     // Disparar evento personalizado para notificar a otros componentes
     window.dispatchEvent(new Event('session-update'));
@@ -116,8 +112,6 @@ export default function LoginForm() {
       const sessionResponse = await fetch('/api/auth/session');
       const session = await sessionResponse.json();
       
-      console.log('Sesión obtenida:', session);
-
       if (session?.user?.rol) {
         // Redirigir según el rol del usuario
         const userRole = session.user.rol.toLowerCase();
@@ -159,7 +153,7 @@ export default function LoginForm() {
       setRecuperarMessage('');
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${API_URL}/usuario/solicitar-reactivacion`, {
+      const response = await fetch(`${API_URL}/usuarios/solicitar-reactivacion`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

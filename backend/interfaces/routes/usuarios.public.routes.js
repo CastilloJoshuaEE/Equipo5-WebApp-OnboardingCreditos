@@ -225,7 +225,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/recuperar-contrasena', (req, res) => authController.recuperarContrasena(req, res));
+router.post('/recuperar-contrasena', (req, res) => usuarioController.recuperarContrasena(req, res));
 /**
  * @swagger
  * /api/usuarios/session:

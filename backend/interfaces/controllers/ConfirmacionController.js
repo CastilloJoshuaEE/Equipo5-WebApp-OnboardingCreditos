@@ -1,5 +1,5 @@
 // backend/interfaces/controllers/ConfirmacionController.js
-const { supabaseClient } = require('../../infrastructure/database/conexion.js');
+const { supabaseClient } = require('../../infrastructure/database/supabaseClient.js');
 const { enviarEmailConfirmacion } = require('../../infrastructure/services/email/emailConfirmacionServicio.js');
 const { verificarConexionBrevo } = require('../../infrastructure/services/email/emailBrevoAPIService.js');
 const { confirmUserEmail } = require('../../infrastructure/database/supabaseAdmin.js');
@@ -38,7 +38,7 @@ class ConfirmacionController {
    */
   static async enviarEmailBrevo(email, asunto, contenidoHTML, contenidoTexto = '') {
     try {
-      const brevoAPIService = require('../servicios/emailBrevoAPIService');
+      const brevoAPIService = require('../../infrastructure/services/email/emailBrevoAPIService.js');
       return await brevoAPIService.enviarEmail(email, asunto, contenidoHTML, contenidoTexto);
     } catch (error) {
       console.error('Error enviando email:', error);
@@ -134,6 +134,7 @@ class ConfirmacionController {
       // Decodificar y validar el token
       let decodedToken;
       try {
+        const { Buffer } = require('buffer');
         decodedToken = Buffer.from(token, 'base64').toString('utf-8');
         const [userId, userEmail, timestamp] = decodedToken.split(':');
         
@@ -142,7 +143,6 @@ class ConfirmacionController {
           const frontendUrl = ConfirmacionController.getFrontendUrl();
           return res.redirect(`${frontendUrl}/login?error=token_invalido`);
         }
-
         // Verificar expiración (24 horas)
         const tokenTime = parseInt(timestamp);
         const currentTime = Date.now();
