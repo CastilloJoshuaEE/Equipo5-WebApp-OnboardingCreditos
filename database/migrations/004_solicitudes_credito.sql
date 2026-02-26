@@ -13,7 +13,7 @@ CREATE TABLE solicitudes_credito (
     
     -- ===== DATOS DEL CRÉDITO =====
     monto DECIMAL(15,2) NOT NULL CHECK (monto > 0),                            -- Monto solicitado
-    moneda VARCHAR(3) DEFAULT 'ARS' CHECK (moneda IN ('ARS', 'USD')),          -- Peso argentino o USD
+    moneda VARCHAR(3) DEFAULT 'ARS' CHECK (moneda IN ('ARS', 'USD')),          -- Peso argentino 
     plazo_meses INTEGER NOT NULL CHECK (plazo_meses > 0),                      -- Plazo de pago en meses
     proposito TEXT NOT NULL,                                                   -- Para qué necesita el crédito
     

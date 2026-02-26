@@ -73,74 +73,53 @@ export default function LoginForm() {
     }, 1200);
   };
 
-  const onSubmit: SubmitHandler<LoginInput> = async (data) => {
-    try {
-      setIsLoading(true);
-      setError('');
+ const onSubmit: SubmitHandler<LoginInput> = async (data) => {
+  try {
+    // Activar la pantalla de carga
+    setIsLoading(true);
+    setError('');
 
-      const result = await signIn('credentials', {
-        email: data.email,
-        password: data.password,
-        redirect: false,
-      });
+    const result = await signIn('credentials', {
+      email: data.email,
+      password: data.password,
+      redirect: false,
+    });
 
+    if (result?.error) {
+      setError(result.error);
+      setIsLoading(false); // Desactivar carga si hay error
+      return;
+    }
 
-      if (result?.error) {
-        console.error('Error en signIn:', result.error);
-
-        // Mostrar alerta si el backend devolvió mensajes específicos
-        if (result.error.includes('bloqueada')) {
-          alert(`. ${result.error}`);
-        } else if (result.error.includes('intentos')) {
-          alert(`. ${result.error}`);
-        } else {
-          alert('. Credenciales inválidas. Por favor verifica tu email y contraseña.');
-        }
-
-        setError(result.error);
-        return;
-      }
-
-      // Login exitoso - obtener información del usuario para determinar el rol
-      await getSession();
-    // Disparar evento personalizado para notificar a otros componentes
+    // Login exitoso
+    await getSession();
     window.dispatchEvent(new Event('session-update'));
-    
-    // Actualizar localStorage para sincronización entre tabs
     localStorage.setItem('session-refresh', Date.now().toString());
-      // Obtener la sesión actualizada
-      const sessionResponse = await fetch('/api/auth/session');
-      const session = await sessionResponse.json();
-      
-      if (session?.user?.rol) {
-        // Redirigir según el rol del usuario
-        const userRole = session.user.rol.toLowerCase();
-        
-        switch (userRole) {
-          case 'solicitante':
-            router.push('/solicitante');
-            break;
-          case 'operador':
-            router.push('/operador');
-            break;
-          default:
-            router.push('/');
-            break;
-        }
+
+    // Obtener la sesión actualizada para redirigir según rol
+    const sessionResponse = await fetch('/api/auth/session');
+    const session = await sessionResponse.json();
+
+    // Mostrar mensaje en Backdrop mientras redirige
+    setRedirectMessage('Iniciando sesión...');
+    setRedirecting(true);
+
+    setTimeout(() => {
+      if (session?.user?.rol?.toLowerCase() === 'solicitante') {
+        router.push('/solicitante');
+      } else if (session?.user?.rol?.toLowerCase() === 'operador') {
+        router.push('/operador');
       } else {
-        // Si no se puede determinar el rol, redirigir al home
-        console.warn('No se pudo determinar el rol del usuario, redirigiendo al home');
         router.push('/');
       }
-      
-    } catch (error) {
-      console.error('Login error:', error);
-      setError('Error al iniciar sesión. Por favor intenta nuevamente.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    }, 1200);
 
+  } catch (error) {
+    console.error('Login error:', error);
+    setError('Error al iniciar sesión. Por favor intenta nuevamente.');
+    setIsLoading(false);
+  }
+};
   // Función para recuperar cuenta inactiva
   const handleRecuperarCuenta = async () => {
     if (!emailRecuperacion) {
@@ -244,20 +223,21 @@ export default function LoginForm() {
     <>
       {/* Backdrop overlay que cubre la pantalla mientras isLoading = true */}
       <Backdrop
-        open={isLoading || redirecting}
-        sx={{
-          zIndex: (theme) => theme.zIndex.drawer + 1200,
-          color: '#fff',
-          flexDirection: 'column',
-          display: 'flex',
-          gap: 2,
-        }}
-      >
-        <CircularProgress />
-    <Typography variant="body1">
-          {redirecting ? redirectMessage : 'Iniciando sesión...'}
-        </Typography>
-              </Backdrop>
+  open={isLoading || redirecting}
+  sx={{
+    zIndex: (theme) => theme.zIndex.drawer + 1200,
+    color: '#fff',
+    flexDirection: 'column',
+    display: 'flex',
+    gap: 2,
+  }}
+>
+  <CircularProgress color="inherit" />
+  <Typography variant="body1">
+    {redirecting ? redirectMessage : 'Iniciando sesión...'}
+  </Typography>
+</Backdrop>
+    
 
       <Box
         sx={{

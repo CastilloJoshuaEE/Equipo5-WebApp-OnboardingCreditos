@@ -122,8 +122,7 @@ const onSubmit = async (data: RegisterInput) => {
         alert('Registro exitoso. Revisá tu email para confirmar tu cuenta.');
              setIsRedirecting(true);
 
-      setTimeout(() => router.push('/login'), 1000);
-        
+router.replace('/login');        
     } catch (error) {
         console.error('Error completo en registro:', error);
         setError(error instanceof Error ? error.message : 'Error al registrar usuario');
@@ -282,7 +281,6 @@ useEffect(() => {
             >
               <MenuItem value="" disabled>Seleccione un rol</MenuItem>
               <MenuItem value={UserRole.SOLICITANTE}>Solicitante PYME</MenuItem>
-              <MenuItem value={UserRole.OPERADOR}>Operador</MenuItem>
             </Select>
             {errors.rol && (
               <Typography color="error" variant="caption" sx={{ mt: 0.5, ml: 2 }}>

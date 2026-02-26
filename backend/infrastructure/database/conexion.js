@@ -9,7 +9,6 @@ const verificarConexion = async () => {
     if (error) {
       // Si la tabla no existe, es normal al principio
       if (error.code === '42P01') {
-        console.log('.  La tabla usuarios no existe aún. Se creará con los datos iniciales.');
         return true;
       }
       throw error;
@@ -24,7 +23,6 @@ const verificarConexion = async () => {
 };
 const verificarStorage = async () => {
   try {
-    console.log('. Verificando acceso a Storage...');
     
     // Intentar una operación simple de listado
     const { data, error } = await supabaseClient.storage
@@ -43,7 +41,6 @@ const verificarStorage = async () => {
       // Continuar aunque falle el listado, el bucket puede existir
     }
     
-    console.log('. Storage verificado - listado:', data ? 'funciona' : 'no disponible');
     return true;
     
   } catch (error) {

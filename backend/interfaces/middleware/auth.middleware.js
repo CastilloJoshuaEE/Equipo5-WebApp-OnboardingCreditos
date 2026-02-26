@@ -41,7 +41,6 @@ class AuthMiddleware {
             });
         }
 
-        console.log('Verificando token en middleware...');
       const { data: { user }, error } = await supabaseClient.auth.getUser(token);
 
         if (error) {
@@ -72,7 +71,6 @@ class AuthMiddleware {
         console.error('. Error obteniendo perfil en middleware:', profileError);
         
         // . Intentar por email como fallback
-        console.log('. Intentando obtener perfil por email en middleware...');
         const { data: fallbackProfile, error: fallbackError } = await supabaseClient
           .from('usuarios')
           .select('*')
@@ -86,8 +84,6 @@ class AuthMiddleware {
             message: 'Error obteniendo perfil de usuario'
           });
         }
-
-        console.log('. Perfil obtenido por email en middleware exitosamente');
         
         // . Corregir inconsistencia automáticamente
         await this.corregirInconsistenciaIDs(user.id, fallbackProfile.id, user.email);
@@ -119,7 +115,6 @@ class AuthMiddleware {
         ...userProfile
       };
       
-      console.log('. Usuario autorizado:', userProfile.email);
       next();
     } catch (error) {
       console.error('. Error en middleware auth:', error);
@@ -139,11 +134,7 @@ class AuthMiddleware {
    */
   async corregirInconsistenciaIDs(authId, tablaId, email) {
     try {
-      console.log('. [Middleware] Corrigiendo inconsistencia de IDs...');
-      console.log(`   Auth ID: ${authId}`);
-      console.log(`   Tabla ID: ${tablaId}`);
-      console.log(`   Email: ${email}`);
-      
+
       // Actualizar ID en tabla usuarios
       const { error: updateError } = await supabaseAdmin
         .from('usuarios')
@@ -155,7 +146,6 @@ class AuthMiddleware {
         return false;
       }
 
-      console.log('. ID actualizado en tabla usuarios');
 
       // Intentar actualizar en tabla solicitantes si existe
       try {

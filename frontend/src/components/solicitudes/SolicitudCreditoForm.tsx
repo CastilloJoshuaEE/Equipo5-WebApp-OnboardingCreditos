@@ -550,7 +550,7 @@ const limpiarBorrador = () => {
                   error={!!errors.moneda}
                 >
                   <MenuItem value="ARS">Pesos Argentinos (ARS)</MenuItem>
-                  <MenuItem value="USD">Dólares Estadounidenses (USD)</MenuItem>
+                {/**  <MenuItem value="USD">Dólares Estadounidenses (USD)</MenuItem>*/} 
                 </Select>
               </FormControl>
             </Grid>

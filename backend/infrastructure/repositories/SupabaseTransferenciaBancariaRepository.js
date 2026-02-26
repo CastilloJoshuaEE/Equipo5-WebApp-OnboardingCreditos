@@ -272,7 +272,7 @@ class SupabaseTransferenciaBancariaRepository extends TransferenciaBancariaRepos
         .filter(t => t.moneda === 'ARS')
         .reduce((sum, t) => sum + (t.monto || 0), 0);
 
-      estadisticas.monto_total = {
+      estadisticas.monto_total = {        
         USD: montoTotalUSD,
         ARS: montoTotalARS
       };

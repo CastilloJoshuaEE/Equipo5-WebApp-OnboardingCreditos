@@ -269,7 +269,7 @@
  *           type: number
  *         moneda:
  *           type: string
- *           enum: [ARS, USD]
+ *           enum: [ARS]
  *         concepto:
  *           type: string
  *         estado:
@@ -292,7 +292,7 @@
  *           enum: [ahorros, corriente]
  *         moneda:
  *           type: string
- *           enum: [USD, ARS]
+ *           enum: [ARS, USD]
  *         nombre_banco:
  *           type: string
  *         email_contacto:

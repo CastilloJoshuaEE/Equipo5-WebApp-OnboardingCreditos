@@ -6,7 +6,6 @@ class ObtenerMisTransferencias {
   }
 
   async execute(usuario) {
-    console.log(`Obteniendo transferencias para: ${usuario.id} (${usuario.rol})`);
 
     if (usuario.rol !== 'solicitante') {
       return {

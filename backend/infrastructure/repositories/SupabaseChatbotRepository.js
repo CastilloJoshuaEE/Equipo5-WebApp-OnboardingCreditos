@@ -10,7 +10,6 @@ class SupabaseChatbotRepository extends ChatbotRepository {
   async crearInteraccion(interaccionData) {
     // Si no hay usuario_id, no intentamos guardar en la tabla que requiere FK
     if (!interaccionData.usuario_id) {
-        console.log('Usuario no autenticado, no se guarda interacción en DB');
         return {
             id: `temp_${Date.now()}`,
             ...interaccionData,
@@ -18,11 +17,9 @@ class SupabaseChatbotRepository extends ChatbotRepository {
         };
     }
 
-    // CORRECCIÓN: Eliminar cualquier campo id que venga con valor null
+    // Eliminar cualquier campo id que venga con valor null
     const { id, ...dataToInsert } = interaccionData;
     
-    console.log('Guardando interacción en DB:', dataToInsert);
-
     const { data, error } = await this.supabase
         .from('chatbot_interacciones')
         .insert([dataToInsert])

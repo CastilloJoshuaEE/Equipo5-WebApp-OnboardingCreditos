@@ -8,7 +8,7 @@ class CrearContactoBancario{
         const{
             numero_cuenta,
             tipo_cuenta = 'ahorros',
-            moneada = 'USD',
+            moneda = 'USD',
             nombre_cuenta = 'Nexia',
             email_contacto,
             telefono_contacto

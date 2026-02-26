@@ -752,7 +752,7 @@ const usuarioController = new UsuarioController(
     const authMiddleware = new AuthMiddleware();
 
     // VERIFICAR TODOS LOS CONTROLADORES ANTES DE PASARLOS A ROUTES
-    console.log('\n🔍 VERIFICANDO CONTROLADORES ANTES DE PASARLOS A ROUTES:');
+    console.log('\n VERIFICANDO CONTROLADORES ANTES DE PASARLOS A ROUTES:');
     const controllersToCheck = {
       authController,
       usuarioController,
@@ -846,7 +846,7 @@ const usuarioController = new UsuarioController(
     }
 
     // ------------------ VERIFICACIÓN DETALLADA DE ROUTERS ------------------
-    console.log('\n🔍 VERIFICACIÓN DETALLADA DE ROUTERS ANTES DE MONTAR');
+    console.log('\n VERIFICACIÓN DETALLADA DE ROUTERS ANTES DE MONTAR');
     
     // Ahora necesitamos obtener los routers individuales para verificarlos
     // Vamos a inspeccionar el stack de routes para extraerlos

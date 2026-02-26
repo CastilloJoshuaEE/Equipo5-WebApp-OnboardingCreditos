@@ -28,7 +28,6 @@ class NotificacionService {
         return { success: false, error: error.message };
       }
 
-      console.log('. Notificación creada:', { usuarioId, tipo, titulo });
       return { success: true, data };
 
     } catch (error) {
@@ -64,7 +63,6 @@ class NotificacionService {
         return { success: false, error: error.message };
       }
 
-      console.log('. Notificación con solicitud creada:', { usuarioId, solicitudId, tipo });
       return { success: true, data };
 
     } catch (error) {

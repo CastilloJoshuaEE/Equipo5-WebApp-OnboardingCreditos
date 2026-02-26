@@ -3,7 +3,6 @@ const { supabaseAdmin } = require('../infrastructure/database/supabaseAdmin');
 
 const configurarStorage = async () => {
   try {
-    console.log('. Configurando Supabase Storage...');
 
     // 1. Verificar buckets existentes
     const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();

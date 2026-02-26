@@ -24,7 +24,7 @@ class SupabaseNotificacionRepository extends NotificacionRepository{
             .eq('usuario_id', usuarioId)
             .order('created_at', {ascending: false});
         if(leida !==undefined){
-            query = query.ed('leida', leida);
+            query = query.eq('leida', leida);
         }
         query = query.range(offset, offset + limit - 1);
         const {data, error} = await query;
