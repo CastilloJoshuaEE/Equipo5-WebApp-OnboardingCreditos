@@ -6,23 +6,38 @@ import styles from "./Navbar.module.css";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { UserRole } from "@/features/auth/auth.types";
+import { useBackendHealth } from "@/shared/hooks/useBackendHealth";
+import LoadingOverlay from "@/components/ui/LoadingOverlay";
 export default function Navbar() {
   const router = useRouter();
-  const [redirecting, setRedirecting] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
   const { data: session, status } = useSession();
+  const { waitForBackend } = useBackendHealth();
 
-const handleLogin = () => {
-  setRedirecting(true);
-  setTimeout(() => {
-    router.push("/login");
-  }, 800);
-};
-const handleSolicitarCredito = () => {
-  setRedirecting(true);
-  setTimeout(() => {
-    router.push("/register");
-  }, 800);
-};
+  const handleNavigation = async (path: string) => {
+    setShowLoading(true);
+    
+    try {
+      const backendReady = await waitForBackend(15);
+      
+      if (backendReady) {
+        setTimeout(() => {
+          router.push(path);
+        }, 500);
+      } else {
+        alert('No se pudo conectar con el servidor. Por favor, intenta de nuevo.');
+        setShowLoading(false);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al conectar con el servidor');
+      setShowLoading(false);
+    }
+  };
+
+  const handleLogin = () => handleNavigation("/login");
+  const handleSolicitarCredito = () => handleNavigation("/register");
+
   const handleDashboard = () => {
     if (session?.user?.rol === UserRole.SOLICITANTE) {
       router.push('/solicitante');
@@ -51,18 +66,10 @@ const handleSolicitarCredito = () => {
         <div className={styles.navUnion}>
           <nav>
             <ul>
-              <li>
-                <a href="#services">Servicios</a>
-              </li>
-              <li>
-                <a href="#benefits">Beneficios</a>
-              </li>
-              <li>
-                <a href="#advantages">Ventajas</a>
-              </li>
-              <li>
-                <a href="#contacts">Contacto</a>
-              </li>
+              <li><a href="#services">Servicios</a></li>
+              <li><a href="#benefits">Beneficios</a></li>
+              <li><a href="#advantages">Ventajas</a></li>
+              <li><a href="#contacts">Contacto</a></li>
             </ul>
           </nav>
           <div className={styles.navButtons}>
@@ -100,29 +107,9 @@ const handleSolicitarCredito = () => {
           </div>
         </div>
       </div>
-      {redirecting && (
-  <div
-    style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100vw",
-      height: "100vh",
-      background: "rgba(255,255,255,0.4)",
-      backdropFilter: "blur(4px)",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      zIndex: 9999,
-      flexDirection: "column",
-    }}
-  >
-    <div className={styles.loader}></div>
-    <p style={{ marginTop: "16px", fontWeight: 500 }}>
-      Redirigiendo...
-    </p>
-  </div>
-)}
+
+      {/* Loading Overlay */}
+      <LoadingOverlay show={showLoading} />
     </header>
   );
 }

@@ -411,43 +411,6 @@ const colores: Record<string, "default" | "primary" | "warning" | "info" | "succ
           </Card>
         </Grid>
       </Grid>
-
-      {/* Resumen de Documentos */}
-      {solicitud.documentos && solicitud.documentos.length > 0 && (
-        <Card sx={{ mt: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Resumen de Documentos ({solicitud.documentos.length})
-            </Typography>
-            <Grid container spacing={2}>
-              {solicitud.documentos.map((documento) => (
-                <Grid size={{ xs: 12, md: 6, lg: 4 }} key={documento.id}>
-                  <Paper variant="outlined" sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Box>
-                        <Typography variant="subtitle2" gutterBottom>
-                          {documento.tipo.toUpperCase()}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" noWrap>
-                          {documento.nombre_archivo}
-                        </Typography>
-                      </Box>
-                      <Chip 
-                        label={documento.estado} 
-                        color={getEstadoColor(documento.estado)}
-                        size="small"
-                      />
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Subido: {formatDate(documento.created_at)}
-                    </Typography>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          </CardContent>
-        </Card>
-      )}
     </Box>
   );
 }

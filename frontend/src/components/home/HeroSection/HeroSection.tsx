@@ -1,30 +1,49 @@
 // frontend/src/components/home/HeroSection/HeroSection.tsx
-
 "use client";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { UserRole } from "@/features/auth/auth.types";
+import { useBackendHealth } from "@/shared/hooks/useBackendHealth";
+import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import styles from "./HeroSection.module.css";
 
 export default function HeroSection() {
   const router = useRouter();
   const [redirecting, setRedirecting] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
   const { data: session, status } = useSession();
+  const { waitForBackend, isReady, isChecking } = useBackendHealth();
 
-const handleLogin = () => {
-  setRedirecting(true);
-  setTimeout(() => {
-    router.push("/login");
-  }, 800);
-};
-const handleSolicitarCredito = () => {
-  setRedirecting(true);
-  setTimeout(() => {
-    router.push("/register");
-  }, 800);
-};
+  const handleNavigation = async (path: string) => {
+    setShowLoading(true);
+    
+    try {
+      // Esperar a que el backend esté listo
+      const backendReady = await waitForBackend(15); // 15 intentos = ~37.5 segundos máximo
+      
+      if (backendReady) {
+        setRedirecting(true);
+        // Pequeño retraso para mostrar la transición
+        setTimeout(() => {
+          router.push(path);
+        }, 500);
+      } else {
+        // Mostrar error si el backend no responde
+        alert('No se pudo conectar con el servidor. Por favor, intenta de nuevo en unos momentos.');
+        setShowLoading(false);
+      }
+    } catch (error) {
+      console.error('Error en navegación:', error);
+      alert('Error al conectar con el servidor');
+      setShowLoading(false);
+    }
+  };
+
+  const handleLogin = () => handleNavigation("/login");
+  const handleSolicitarCredito = () => handleNavigation("/register");
+
   const handleDashboard = () => {
     if (session?.user?.rol === UserRole.SOLICITANTE) {
       router.push('/solicitante');
@@ -56,7 +75,7 @@ const handleSolicitarCredito = () => {
               {session.user.rol === UserRole.SOLICITANTE && (
                 <button
                   className={styles.btnOutline}
-                  onClick={() => router.push('/solicitante#nueva-solicitud')}
+                  onClick={() => handleNavigation('/solicitante#nueva-solicitud')}
                 >
                   Nueva Solicitud
                 </button>
@@ -92,6 +111,9 @@ const handleSolicitarCredito = () => {
             <span>Desembolsados</span>
           </div>
         </div>
+
+        {/* Loading Overlay */}
+        <LoadingOverlay show={showLoading} message="Conectando con el servidor..." />
       </section>
     );
   }
@@ -99,18 +121,17 @@ const handleSolicitarCredito = () => {
   // Si no está autenticado, mostrar los botones normales
   return (
     <section className={styles.heroSection}>
-              <div className={styles.heroImageContainer}>
-          <Image
-            className={styles.heroImage}
-            src="/ilustraciones/heroSectionIllustration.webp"
-            alt="Crédito Inteligente para PYMES"
-            width={600}
-            height={500}
-            priority
-          />
-        </div>
-        <div className={styles.heroCenter}>
-
+      <div className={styles.heroImageContainer}>
+        <Image
+          className={styles.heroImage}
+          src="/ilustraciones/heroSectionIllustration.webp"
+          alt="Crédito Inteligente para PYMES"
+          width={600}
+          height={500}
+          priority
+        />
+      </div>
+      <div className={styles.heroCenter}>
         <div className={styles.heroContent}>
           <h1>
             Impulsa tu PYME con <span>Crédito Inteligente</span>
@@ -124,18 +145,24 @@ const handleSolicitarCredito = () => {
             <button
               className={styles.btnPrimary}
               onClick={handleLogin}
+              disabled={isChecking}
             >
               Iniciar Sesión
             </button>
             <button
               className={styles.btnOutline}
               onClick={handleSolicitarCredito}
+              disabled={isChecking}
             >
               Solicita tu Crédito
             </button>
           </div>
+          {isChecking && (
+            <p className={styles.checkingMessage}>
+              Verificando conexión con el servidor...
+            </p>
+          )}
         </div>
-        
       </div>
       <div className={styles.heroStats}>
         <div className={styles.statItem}>
@@ -155,29 +182,9 @@ const handleSolicitarCredito = () => {
           <span>Desembolsados</span>
         </div>
       </div>
-      {redirecting && (
-  <div
-    style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100vw",
-      height: "100vh",
-      background: "rgba(255,255,255,0.4)",
-      backdropFilter: "blur(4px)",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      zIndex: 9999,
-      flexDirection: "column",
-    }}
-  >
-    <div className={styles.loader}></div>
-    <p style={{ marginTop: "16px", fontWeight: 500 }}>
-      Redirigiendo...
-    </p>
-  </div>
-)}
+
+      {/* Loading Overlay */}
+      <LoadingOverlay show={showLoading} message="Verificando conexión con el servidor..." />
     </section>
   );
 }

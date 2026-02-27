@@ -10,7 +10,8 @@ import {
   Avatar,
   CircularProgress,
   Card,
-  CardContent
+  CardContent,
+  Backdrop
 } from '@mui/material';
 import { useMemo } from 'react';
 import { 
@@ -22,15 +23,20 @@ import { getSession, useSession } from 'next-auth/react';
 import type { Session } from 'next-auth';
 import './chabot-styles.css';
 import { Mensaje } from '@/features/chatbot/mensaje.types';
+import { useBackendHealth } from '@/shared/hooks/useBackendHealth';
 
 export default function ChatbotWidget() {
   const [abierto, setAbierto] = useState(false);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [mensajeInput, setMensajeInput] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [verificandoBackend, setVerificandoBackend] = useState(false);
   const [session, setSession] = useState<Session | null>(null)
   const [sessionLoading, setSessionLoading] = useState(true);
   const mensajesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Usar el hook de health check
+  const { waitForBackend, isReady, isChecking } = useBackendHealth();
 
   // Usar useSession para obtener la sesión de manera reactiva
   const { data: sessionData, status } = useSession();
@@ -109,8 +115,41 @@ export default function ChatbotWidget() {
     mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Función mejorada para abrir el chat con verificación de backend
+  const handleOpenChat = async () => {
+    setVerificandoBackend(true);
+    
+    try {
+      // Esperar a que el backend esté listo (máximo 10 intentos ~25 segundos)
+      const backendReady = await waitForBackend(10);
+      
+      if (backendReady) {
+        setAbierto(true);
+        // Actualizar sesión al abrir
+        const userSession = await getSession();
+        setSession(userSession);
+      } else {
+        // Mostrar mensaje de error si el backend no responde
+        alert('No se pudo conectar con el servidor. Por favor, intenta más tarde.');
+      }
+    } catch (error) {
+      console.error('Error al abrir chat:', error);
+      alert('Error al conectar con el servidor');
+    } finally {
+      setVerificandoBackend(false);
+    }
+  };
+
+  // Función mejorada para enviar mensaje con verificación de backend
   const enviarMensaje = async () => {
     if (!mensajeInput.trim() || cargando) return;
+
+    // Verificar que el backend sigue activo antes de enviar
+    const backendActivo = await waitForBackend(1);
+    if (!backendActivo) {
+      alert('Conexión con el servidor perdida. Por favor, intenta de nuevo.');
+      return;
+    }
 
     const nuevoMensajeUsuario: Mensaje = {
       id: Date.now().toString(),
@@ -226,21 +265,42 @@ export default function ChatbotWidget() {
       {/* Botón flotante */}
       {!abierto && (
         <IconButton
-          onClick={() => {
-            setAbierto(true);
-            actualizarSesion(); // Actualizar sesión al abrir
-          }}
+          onClick={handleOpenChat}
           className="floating-chat-button"
+          disabled={verificandoBackend}
           sx={{
             '& .MuiSvgIcon-root': {
               color: 'white !important',
               fontSize: '28px'
+            },
+            '&.Mui-disabled': {
+              opacity: 0.7,
+              cursor: 'not-allowed'
             }
           }}
         >
           <SmartToy />
         </IconButton>
       )}
+
+      {/* Backdrop de carga mientras se verifica el backend */}
+      <Backdrop
+        sx={{ 
+          color: '#fff', 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          flexDirection: 'column',
+          gap: 2
+        }}
+        open={verificandoBackend}
+      >
+        <CircularProgress color="inherit" size={60} />
+        <Typography variant="h6">
+          Verificando conexión con el servidor...
+        </Typography>
+        <Typography variant="body2">
+          Esto puede tomar unos segundos
+        </Typography>
+      </Backdrop>
 
       {/* Chatbox - Renderizado condicional en lugar de Collapse */}
       {abierto && (
@@ -268,7 +328,6 @@ export default function ChatbotWidget() {
                 </Box>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                
                 <IconButton 
                   size="small" 
                   onClick={() => setAbierto(false)}

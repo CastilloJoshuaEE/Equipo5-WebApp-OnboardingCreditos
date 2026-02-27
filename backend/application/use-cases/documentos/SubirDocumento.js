@@ -50,7 +50,19 @@ class SubirDocumento {
     documentoEntity.ruta_storage = rutaStorage;
     documentoEntity.informacion_extraida = informacionExtraida;
 
-    const documento = await this.documentoRepository.create(documentoEntity.toJSON());
+    // Asegurar que el objeto a guardar no tenga ID (se generará en el repositorio)
+    const documentoData = {
+      solicitud_id: documentoEntity.solicitud_id,
+      tipo: documentoEntity.tipo,
+      nombre_archivo: documentoEntity.nombre_archivo,
+      ruta_storage: documentoEntity.ruta_storage,
+      tamanio_bytes: documentoEntity.tamanio_bytes,
+      estado: documentoEntity.estado,
+      informacion_extraida: documentoEntity.informacion_extraida
+    };
+
+    // Usar el método create (no crear)
+    const documento = await this.documentoRepository.create(documentoData);
 
     if (tipo === 'dni') {
       await this.iniciarVerificacionDidit(solicitud_id, documento.id, archivo.buffer);
@@ -97,7 +109,7 @@ class SubirDocumento {
           };
         }
 
-        await this.documentoRepository.update(documentoId, {
+        await this.documentoRepository.actualizar(documentoId, {
           estado: estadoDocumento,
           comentarios: `Verificación Didit: ${resultado.data.id_verification?.status}`,
           validado_en: new Date().toISOString(),

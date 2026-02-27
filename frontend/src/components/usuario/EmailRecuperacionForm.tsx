@@ -96,8 +96,6 @@ export default function EmailRecuperacionForm() {
         setLoading(false);
         return;
       }
-
-      console.log('Enviando solicitud para actualizar email de recuperación...');
       
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/usuarioautenticado/email-recuperacion`, 
@@ -113,10 +111,7 @@ export default function EmailRecuperacionForm() {
         }
       );
 
-      console.log('Respuesta del servidor:', response.status);
-
       const data = await response.json();
-      console.log('Datos de respuesta:', data);
 
       if (!response.ok) {
         throw new Error(data.message || `Error ${response.status}: ${response.statusText}`);

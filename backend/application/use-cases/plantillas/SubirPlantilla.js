@@ -19,8 +19,6 @@ class SubirPlantilla {
     const nombreArchivo = archivo.originalname;
     const rutaStorage = this.generarRutaStorage(nombreArchivo, tipo);
 
-    console.log('Subiendo plantilla:', { nombreArchivo, rutaStorage, tipo });
-
     // Validar datos
     try {
       PlantillaDocumento.prototype.validar.call({
@@ -54,8 +52,6 @@ class SubirPlantilla {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     );
 
-    console.log('Archivo subido exitosamente a storage');
-
     // Insertar registro en BD
     const plantillaEntity = new PlantillaDocumento({
       tipo: tipo || 'contrato',
@@ -78,9 +74,6 @@ class SubirPlantilla {
     });
 
     await this.plantillaDocumentoRepository.registrarAuditoria(auditoria.toJSON());
-
-    console.log('Plantilla registrada exitosamente en BD');
-
     return {
       success: true,
       message: 'Plantilla subida exitosamente',

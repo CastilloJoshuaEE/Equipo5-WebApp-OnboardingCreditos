@@ -29,7 +29,6 @@ const getContactoInfo = (solicitud: SolicitudOperador) => {
     }
     
     const usuario = solicitud.solicitantes.usuarios;
-    console.log('👤 Datos de usuario:', usuario);
     
     return {
         nombre: usuario?.nombre_completo || 'No disponible',

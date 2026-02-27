@@ -330,19 +330,13 @@ function enviarNotificacionTiempoReal(userId, notificacion) {
 // INICIALIZAR SERVIDOR
 const iniciarServidor = async () => {
   try {
-    console.log("Iniciando servidor...");
 
     // Verificar conexión
-    console.log("Verificando conexión a Supabase...");
     const conexionExitosa = await verificarConexion();
 
     if (!conexionExitosa) {
       throw new Error("No se pudo conectar a Supabase");
     }
-
-    console.log("Conectado a Supabase PostgreSQL");
-
-    console.log('Verificando configuración de Storage...');
     await configurarStorage();
 
     // INSTANCIAR REPOSITORIOS
@@ -350,7 +344,7 @@ const iniciarServidor = async () => {
     const solicitanteRepository = new SupabaseSolicitanteRepository(supabaseClient);
     const operadorRepository = new SupabaseOperadorRepository(supabaseClient);
     const intentoLoginRepository = new SupabaseIntentoLoginRepository(supabaseClient);
-    const solicitudRepository = new SupabaseSolicitudRepository(supabaseClient);
+    const solicitudRepository = new SupabaseSolicitudRepository(supabaseClient, supabaseAdmin);
     const documentoRepository = new SupabaseDocumentoRepository(supabaseClient, supabaseAdmin);
     const notificacionRepository = new SupabaseNotificacionRepository(supabaseClient, supabaseAdmin);
     const plantillaDocumentoRepository = new SupabasePlantillaDocumentoRepository(supabaseClient, supabaseAdmin);

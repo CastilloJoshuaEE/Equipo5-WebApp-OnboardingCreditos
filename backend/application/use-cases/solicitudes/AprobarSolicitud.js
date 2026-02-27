@@ -45,8 +45,6 @@ class AprobarSolicitud {
     try {
       const contrato = await this.contratoService.generarContratoParaSolicitud(solicitud_id);
 
-      console.log(`Contrato generado para solicitud ${solicitud_id}: ${contrato.id}`);
-
       await this.notificacionService.notificarAprobacionSolicitud(
         solicitud.solicitante_id,
         solicitud_id,

@@ -12,11 +12,14 @@ class EnviarSolicitud {
   async execute(solicitud_id, usuario) {
     const documentosCompletos = await this.documentoRepository.verificarDocumentosObligatorios(solicitud_id);
 
+    // Verificar que documentosFaltantes existe y es un array
+    const documentosFaltantes = documentosCompletos.documentos_faltantes || [];
+    
     if (!documentosCompletos.completos) {
       return {
         success: false,
         status: 400,
-        message: `Documentos obligatorios faltantes: ${documentosCompletos.documentosFaltantes.join(', ')}`
+        message: `Documentos obligatorios faltantes: ${documentosFaltantes.join(', ')}`
       };
     }
 
@@ -61,8 +64,8 @@ class EnviarSolicitud {
         operador_asignado: operadorAsignado,
         operador_info: operadorInfo ? {
           id: operadorInfo.id,
-          nombre: operadorInfo.usuarios.nombre_completo,
-          email: operadorInfo.usuarios.email
+          nombre: operadorInfo.usuarios?.nombre_completo,
+          email: operadorInfo.usuarios?.email
         } : null
       }
     };

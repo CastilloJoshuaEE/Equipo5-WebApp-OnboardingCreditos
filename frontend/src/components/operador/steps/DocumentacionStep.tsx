@@ -242,7 +242,7 @@ const handleEnviarEvaluacion = async () => {
 
         const comentarioFinal = `Evaluación: ${criteriosAprobados}/${totalCriterios} criterios aprobados (${porcentajeAprobado.toFixed(0)}%). ${comentarios ? `Comentarios: ${comentarios}` : ''}`;
 
-        console.log('📤 Enviando evaluación al backend:', {
+        console.log(' Enviando evaluación al backend:', {
             documentoId: documentoEvaluando.id,
             criterios: checklist,
             comentarios: comentarioFinal,
@@ -333,7 +333,6 @@ const handleEnviarEvaluacion = async () => {
     };
 
     const handleVerDocumento = (documento: Documento) => {
-        console.log('👀 Abriendo documento:', documento.nombre_archivo);
         const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
         window.open(supabaseUrl, '_blank');

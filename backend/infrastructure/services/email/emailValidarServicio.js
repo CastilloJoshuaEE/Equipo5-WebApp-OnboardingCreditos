@@ -140,7 +140,6 @@ class emailValidarServicio {
 
     // Si no hay resultados de servicios externos, usar solo validación básica
     if (validationResults.length === 0) {
-      console.log('ℹ️  No hay servicios externos disponibles, usando validación básica');
       const basicResult = await this.basicSyntaxValidation(email);
       validationResults.push(basicResult);
     }

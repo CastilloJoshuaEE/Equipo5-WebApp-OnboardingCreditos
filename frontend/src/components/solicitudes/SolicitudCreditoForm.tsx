@@ -133,33 +133,80 @@ setValue('plazo_meses', data.plazo_meses ?? 0);
     setDocumentos(prev => prev.filter(doc => doc.id !== documentoId));
     console.log('Documento eliminado:', documentoId);
   };
-   // Función para manejar la selección de archivos con tipo específico
-  const handleDocumentoChange = (event: React.ChangeEvent<HTMLInputElement>, tipo: string) => {
-    const files = event.target.files;
-    if (files && files[0]) {
-      const nuevoDocumento: DocumentoConTipo = {
-        file: files[0],
-        tipo: tipo,
-        id: `${tipo}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // ID único
-      };
-      
-      // Verificar si ya existe un documento del mismo tipo
-      const existeMismoTipo = documentos.some(doc => doc.tipo === tipo);
-      
-      if (existeMismoTipo) {
-        if (confirm(`Ya existe un documento de tipo ${obtenerNombreTipo(tipo)}. ¿Desea reemplazarlo?`)) {
-          // Reemplazar el documento existente del mismo tipo
-          setDocumentos(prev => prev.filter(doc => doc.tipo !== tipo).concat([nuevoDocumento]));
-        }
-      } else {
-        // Agregar nuevo documento
-        setDocumentos(prev => [...prev, nuevoDocumento]);
-      }
-      
-      // Limpiar el input file
-      event.target.value = '';
-    }
+  
+const TIPOS_ARCHIVO_PERMITIDOS = {
+  'dni': ['.pdf', '.jpg', '.jpeg', '.png'],
+  'cuit': ['.pdf', '.jpg', '.jpeg', '.png'],
+  'comprobante_domicilio': ['.pdf', '.jpg', '.jpeg', '.png'],
+  'balance_contable': ['.pdf', '.xlsx', '.xls'],
+  'estado_financiero': ['.pdf', '.xlsx', '.xls'],
+  'declaracion_impuestos': ['.pdf', '.xlsx', '.xls']
+};
+
+const obtenerExtension = (filename: string): string => {
+  return filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+};
+
+const validarTipoArchivo = (file: File, tipo: string): boolean => {
+  const extension = obtenerExtension(file.name);
+  const tiposPermitidos = TIPOS_ARCHIVO_PERMITIDOS[tipo as keyof typeof TIPOS_ARCHIVO_PERMITIDOS] || [];
+  
+  // También verificar por MIME type
+  const mimeTypesPermitidos = {
+    'pdf': 'application/pdf',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'xls': 'application/vnd.ms-excel'
   };
+
+  const mimePermitido = Object.entries(mimeTypesPermitidos).some(([ext, mime]) => 
+    tiposPermitidos.includes(`.${ext}`) && file.type === mime
+  );
+
+  return tiposPermitidos.includes(`.${extension}`) || mimePermitido;
+};
+
+// En handleDocumentoChange, agregar validación:
+const handleDocumentoChange = (event: React.ChangeEvent<HTMLInputElement>, tipo: string) => {
+  const files = event.target.files;
+  if (files && files[0]) {
+    const file = files[0];
+    
+    // Validar tipo de archivo
+    if (!validarTipoArchivo(file, tipo)) {
+      setError(`Tipo de archivo no válido para ${obtenerNombreTipo(tipo)}. Formatos permitidos: ${TIPOS_ARCHIVO_PERMITIDOS[tipo as keyof typeof TIPOS_ARCHIVO_PERMITIDOS]?.join(', ') || 'PDF, JPG, PNG'}`);
+      event.target.value = '';
+      return;
+    }
+
+    // Validar tamaño (10MB máximo)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('El archivo no puede superar los 10MB');
+      event.target.value = '';
+      return;
+    }
+
+    const nuevoDocumento: DocumentoConTipo = {
+      file: file,
+      tipo: tipo,
+      id: `${tipo}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    };
+    
+    const existeMismoTipo = documentos.some(doc => doc.tipo === tipo);
+    
+    if (existeMismoTipo) {
+      if (confirm(`Ya existe un documento de tipo ${obtenerNombreTipo(tipo)}. ¿Desea reemplazarlo?`)) {
+        setDocumentos(prev => prev.filter(doc => doc.tipo !== tipo).concat([nuevoDocumento]));
+      }
+    } else {
+      setDocumentos(prev => [...prev, nuevoDocumento]);
+    }
+    
+    event.target.value = '';
+  }
+};
     const obtenerNombreTipo = (tipo: string): string => {
     const tipos: { [key: string]: string } = {
       'dni': 'DNI',
@@ -374,7 +421,7 @@ const limpiarBorrador = () => {
               />
             </Button>
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              Formatos: PDF (Máx. 5MB)
+              Formatos: PDF (Máx. 10MB)
             </Typography>
           </CardContent>
         </Card>
@@ -453,7 +500,7 @@ const limpiarBorrador = () => {
               <input
                 type="file"
                 hidden
-                accept=".pdf"
+                accept=".pdf,.xlsx,.xls"
                 onChange={(e) => handleDocumentoChange(e, 'balance_contable')}
               />
             </Button>
@@ -479,7 +526,7 @@ const limpiarBorrador = () => {
               <input
                 type="file"
                 hidden
-                accept=".pdf"
+                accept=".pdf,.xlsx,.xls"
                 onChange={(e) => handleDocumentoChange(e, 'declaracion_impuestos')}
               />
             </Button>
@@ -518,7 +565,7 @@ const limpiarBorrador = () => {
                 {...register('monto', {
                   valueAsNumber: true,
                 })}
-                label="Monto Solicitado (ARS)"
+                label="Monto Solicitado"
                 type="number"
                 fullWidth
                 error={!!errors.monto}
@@ -549,8 +596,8 @@ const limpiarBorrador = () => {
                   defaultValue="ARS"
                   error={!!errors.moneda}
                 >
-                  <MenuItem value="ARS">Pesos Argentinos (ARS)</MenuItem>
-                {/**  <MenuItem value="USD">Dólares Estadounidenses (USD)</MenuItem>*/} 
+                 {/**  <MenuItem value="ARS">Pesos Argentinos (ARS)</MenuItem>*/} 
+                 <MenuItem value="USD">Dólares Estadounidenses (USD)</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -582,7 +629,7 @@ const limpiarBorrador = () => {
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle2">Monto Solicitado:</Typography>
-              <Typography variant="body1">${monto} ARS</Typography>
+              <Typography variant="body1">${monto}</Typography>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle2">Plazo:</Typography>

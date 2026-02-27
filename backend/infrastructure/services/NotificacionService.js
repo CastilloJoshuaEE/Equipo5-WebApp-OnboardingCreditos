@@ -2,6 +2,54 @@
 const { supabaseAdmin } = require('../database/supabaseAdmin');
 
 class NotificacionService {
+  constructor(notificacionRepository, enviarNotificacionTiempoReal) {
+    this.notificacionRepository = notificacionRepository;
+    this.enviarNotificacionTiempoReal = enviarNotificacionTiempoReal;
+  }
+
+  /**
+   * Crear notificación de operador asignado
+   */
+  async crearNotificacionOperadorAsignado(solicitanteId, solicitudId, operadorInfo) {
+    try {
+      const notificacionData = {
+        usuario_id: solicitanteId,
+        solicitud_id: solicitudId,
+        tipo: 'operador_asignado',
+        titulo: 'Operador asignado a tu solicitud',
+        mensaje: `El operador ${operadorInfo?.usuarios?.nombre_completo || 'asignado'} revisará tu solicitud.`,
+        datos_adicionales: {
+          operador_id: operadorInfo?.id,
+          operador_nombre: operadorInfo?.usuarios?.nombre_completo,
+          operador_email: operadorInfo?.usuarios?.email
+        },
+        leida: false,
+        created_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabaseAdmin
+        .from('notificaciones')
+        .insert([notificacionData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creando notificación de operador asignado:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Enviar notificación en tiempo real
+      if (this.enviarNotificacionTiempoReal) {
+        this.enviarNotificacionTiempoReal(solicitanteId, data);
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error en crearNotificacionOperadorAsignado:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
   /**
    * Crear notificación
    */
@@ -92,7 +140,7 @@ class NotificacionService {
         solicitudId,
         'solicitud_aprobada_operador',
         'Solicitud Aprobada - Proceso Iniciado',
-        'Has aprobado la solicidad. El proceso de firma digital se iniciará automáticamente.',
+        'Has aprobado la solicitud. El proceso de firma digital se iniciará automáticamente.',
         { tipo: 'confirmacion_aprobacion' }
       );
 
@@ -106,25 +154,25 @@ class NotificacionService {
   /**
    * Notificar error en firma digital automática
    */
-static async notificarErrorFirmaDigital(operadorId, solicitudId, errorMessage) {
-  try {
-    return await this.crearNotificacionConSolicitud(
-      operadorId,
-      solicitudId,
-      'error_firma_digital_automatica',
-      'Error en Firma Digital Automática',
-      `No se pudo iniciar automáticamente el proceso de firma digital para la solicitud ${solicitudId}: ${errorMessage}`,
-      { 
-        tipo: 'error',
-        error: errorMessage,
-        requiere_accion: true 
-      }
-    );
-  } catch (error) {
-    console.error('Error notificando error de firma digital:', error);
-    return { success: false, error: error.message };
+  static async notificarErrorFirmaDigital(operadorId, solicitudId, errorMessage) {
+    try {
+      return await this.crearNotificacionConSolicitud(
+        operadorId,
+        solicitudId,
+        'error_firma_digital_automatica',
+        'Error en Firma Digital Automática',
+        `No se pudo iniciar automáticamente el proceso de firma digital para la solicitud ${solicitudId}: ${errorMessage}`,
+        { 
+          tipo: 'error',
+          error: errorMessage,
+          requiere_accion: true 
+        }
+      );
+    } catch (error) {
+      console.error('Error notificando error de firma digital:', error);
+      return { success: false, error: error.message };
+    }
   }
-}
 
   /**
    * Notificar cambio de estado de solicitud
@@ -142,10 +190,6 @@ static async notificarErrorFirmaDigital(operadorId, solicitudId, errorMessage) {
 
       const titulo = `Estado Actualizado: ${estadoNuevo}`;
       const mensaje = mensajes[estadoNuevo] || `El estado de tu solicitud cambió a: ${estadoNuevo}`;
-
-      if (comentarios) {
-        mensaje += `\nComentarios: ${comentarios}`;
-      }
 
       return await this.crearNotificacionConSolicitud(
         usuarioId,

@@ -14,8 +14,6 @@ class ReactivarCuenta {
       };
     }
 
-    console.log('Intentando reactivar cuenta para:', email);
-
     // Buscar usuario inactivo
     const usuario = await this.usuarioRepository.findInactiveByEmail(email);
 

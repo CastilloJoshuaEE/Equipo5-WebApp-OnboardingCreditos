@@ -96,6 +96,25 @@ class SupabaseVerificacionKYCRepository extends VerificacionKYCRepository {
 
     return estadisticas;
   }
+  async obtenerPorSolicitud(solicitudId) {
+  try {
+    const { data, error } = await this.supabase
+      .from('verificaciones_kyc')
+      .select('*')
+      .eq('solicitud_id', solicitudId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error obteniendo verificaciones KYC:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error en obtenerPorSolicitud KYC:', error);
+    return [];
+  }
+}
 }
 
 module.exports = SupabaseVerificacionKYCRepository;

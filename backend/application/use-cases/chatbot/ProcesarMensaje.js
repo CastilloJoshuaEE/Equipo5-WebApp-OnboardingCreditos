@@ -23,12 +23,6 @@ class ProcesarMensaje {
                 message: 'El mensaje es demasiado largo (máx 1000 caracteres)'
             };
         }
-
-        console.log(`Chatbot - Mensaje recibido:`, {
-            usuario: usuario ? usuario.email : 'No autenticado',
-            mensaje: mensaje.substring(0, 100)
-        });
-
         try {
             const respuestaGemini = await this.geminiService.generarRespuesta(mensaje, usuario);
             
@@ -51,10 +45,8 @@ class ProcesarMensaje {
                 try {
                     // CORRECCIÓN: Asegurar que no enviamos id null
                     const datosParaGuardar = interaccion.toJSON();
-                    console.log('Datos a guardar:', datosParaGuardar);
                     
                     interaccionGuardada = await this.chatbotRepository.crearInteraccion(datosParaGuardar);
-                    console.log(`Chatbot - Interacción guardada para usuario: ${usuario.id}`);
                 } catch (saveError) {
                     console.error('Error guardando interacción en DB, pero continuando:', saveError);
                     // No interrumpimos el flujo, solo continuamos
@@ -68,8 +60,6 @@ class ProcesarMensaje {
                 ? respuestaGemini.substring(0, 100) 
                 : 'Respuesta generada';
             
-            console.log(`Chatbot - respuesta generada: ${respuestaPreview}...`);
-
             return {
                 success: true,
                 data: {

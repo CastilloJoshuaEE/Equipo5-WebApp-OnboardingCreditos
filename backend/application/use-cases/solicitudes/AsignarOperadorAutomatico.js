@@ -49,8 +49,6 @@ class AsignarOperadorAutomatico {
 
       await this.solicitudRepository.asignarOperador(solicitudId, operadorAsignado);
 
-      console.log(`Operador ${operadorAsignado} asignado a solicitud ${solicitudId}`);
-
       return operadorAsignado;
     } catch (error) {
       console.error('Error asignando operador automático:', error);

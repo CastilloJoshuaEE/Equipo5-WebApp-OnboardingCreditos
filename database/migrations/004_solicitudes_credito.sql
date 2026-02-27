@@ -41,7 +41,8 @@ CHECK (estado IN (
   'borrador', 'enviado', 'en_revision', 'pendiente_info', 
   'pendiente_firmas', 'aprobado', 'rechazado', 'cerrada'
 ));
-
+ALTER TABLE solicitudes_credito 
+ADD COLUMN tasa_interes DECIMAL(5,2) NULL;
 CREATE INDEX idx_solicitudes_solicitante ON solicitudes_credito(solicitante_id);
 CREATE INDEX idx_solicitudes_estado ON solicitudes_credito(estado);
 CREATE INDEX idx_solicitudes_fecha ON solicitudes_credito(created_at DESC);

@@ -34,6 +34,8 @@ CREATE TABLE solicitudes_credito (
     fecha_decision TIMESTAMPTZ
 );
 ALTER TABLE solicitudes_credito 
+ADD COLUMN tasa_interes DECIMAL(5,2) NULL;
+ALTER TABLE solicitudes_credito 
 DROP CONSTRAINT IF EXISTS solicitudes_credito_estado_check;
 ALTER TABLE solicitudes_credito 
 ADD CONSTRAINT solicitudes_credito_estado_check 

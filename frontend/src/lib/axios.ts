@@ -94,7 +94,6 @@ axiosInstance.interceptors.response.use(
 const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     // Manejo de error 401 - No autorizado
     if (error.response?.status === 401) {
-      console.log('Error 401 - No autorizado');
       if (!originalRequest._retry) {
         originalRequest._retry = true;
         try {
@@ -121,7 +120,6 @@ const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: 
 
     // Manejo de error 403 - Acceso denegado
     if (error.response?.status === 403) {
-      console.log('Error 403 - Acceso denegado');
       sessionEmitter.emit('unauthorized');
     }
 

@@ -10,7 +10,6 @@ class Solicitud {
     this.tasa_interes = data.tasa_interes || 0;
     this.estado = data.estado || 'borrador';
     this.nivel_riesgo = data.nivel_riesgo || 'medio';
-    this.destino_fondos = data.destino_fondos || '';
     this.moneda = data.moneda || 'ARS';
     this.proposito = data.proposito || '';
     this.comentarios = data.comentarios || null;
@@ -26,8 +25,10 @@ class Solicitud {
     ENVIADO: 'enviado',
     EN_REVISION: 'en_revision',
     PENDIENTE_INFO: 'pendiente_info',
+    PENDIENTE_FIRMAS: 'pendiente_firmas',
     APROBADO: 'aprobado',
-    RECHAZADO: 'rechazado'
+    RECHAZADO: 'rechazado',
+    CERRADA: 'cerrada'
   };
 
   static NIVELES_RIESGO = {
@@ -130,7 +131,6 @@ class Solicitud {
       tasa_interes: this.tasa_interes,
       estado: this.estado,
       nivel_riesgo: this.nivel_riesgo,
-      destino_fondos: this.destino_fondos,
       moneda: this.moneda,
       proposito: this.proposito,
       comentarios: this.comentarios,

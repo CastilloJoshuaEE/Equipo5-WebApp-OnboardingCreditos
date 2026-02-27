@@ -28,7 +28,9 @@ import {
   IconButton,
   Drawer,
   useMediaQuery,
-  useTheme
+  useTheme,
+  Alert,
+  Snackbar
 } from '@mui/material';
 import './operador-styles.css';
 import { SolicitudOperador} from '@/features/solicitudes/solicitud.types';
@@ -38,6 +40,16 @@ import { RevisionData } from '@/features/operador/revision.types';
 import { Contrato } from '@/features/contratos/contrato.types';
 import RevisionModal from '@/components/operador/RevisionModal';
 import { FirmaExistente } from '@/features/firma_digital/firmaDigital.types';
+
+// Definir tipo para los filtros
+interface FiltrosState {
+  estado: string;
+  nivel_riesgo: string;
+  fecha_desde: string;
+  fecha_hasta: string;
+  numero_solicitud: string;
+  dni: string;
+}
 
 export default function OperadorDashboard() {
   const theme = useTheme();
@@ -49,7 +61,9 @@ export default function OperadorDashboard() {
   const [habilitaciones, setHabilitaciones] = useState<{[key: string]: HabilitacionTransferencia}>({});
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [filtros, setFiltros] = useState({
+  
+  // Estado para filtros - CORREGIDO: solo una declaración
+  const [filtros, setFiltros] = useState<FiltrosState>({
     estado: '',
     nivel_riesgo: '',
     fecha_desde: '',
@@ -57,7 +71,13 @@ export default function OperadorDashboard() {
     numero_solicitud: '',
     dni: ''
   });
-  
+
+  // CORREGIDO: eliminar la segunda declaración de filtros que estaba causando el error
+  const [busquedaTemporal, setBusquedaTemporal] = useState({
+  numero_solicitud: '',
+  dni: ''
+});
+
   // Estados para las métricas - usamos useMemo para calcularlas solo cuando cambian las solicitudes
   const metricas = useMemo(() => {
     if (!solicitudes.length) {
@@ -108,11 +128,14 @@ export default function OperadorDashboard() {
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<RevisionData | null>(null);
   const [modalRevision, setModalRevision] = useState(false);
   const [cargandoTransferencia, setCargandoTransferencia] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info'>('info');
 
   // Función para refrescar datos después de validar
   const handleDocumentoActualizado = useCallback(async () => {
     console.log('Refrescando datos después de validación...');
-    await cargarDashboard();
+    await cargarDashboard(false);
     
     if (solicitudSeleccionada) {
       await handleIniciarRevision(solicitudSeleccionada.solicitud.id);
@@ -134,11 +157,7 @@ export default function OperadorDashboard() {
   const verificarTodasLasFirmas = async () => {
     const session = await getSession();
     if (!session?.accessToken) {
-      toast({
-        title: "Error de autenticación",
-        description: "No se pudo verificar la sesión",
-        variant: "destructive",
-      });
+      mostrarNotificacion('Error de autenticación', 'No se pudo verificar la sesión', 'error');
       return;
     }
 
@@ -174,19 +193,15 @@ export default function OperadorDashboard() {
         (f: FirmaExistente) => f.firma_existente && f.firma_existente.estado !== 'firmado_completo'
       ).length;
 
-      toast({
-        title: "Verificación de firmas completada",
-        description: `Firmas completas: ${firmasCompletas}, Pendientes: ${firmasPendientes}`,
-        variant: "default",
-      });
+      mostrarNotificacion(
+        'Verificación de firmas completada',
+        `Firmas completas: ${firmasCompletas}, Pendientes: ${firmasPendientes}`,
+        'success'
+      );
 
     } catch (error) {
       console.error('Error verificando firmas:', error);
-      toast({
-        title: "Error",
-        description: "Error verificando firmas digitales",
-        variant: "destructive",
-      });
+      mostrarNotificacion('Error', 'Error verificando firmas digitales', 'error');
     }
   };
 
@@ -199,7 +214,6 @@ export default function OperadorDashboard() {
       return;
     }
 
-    // Usar las solicitudes pasadas como parámetro para evitar dependencia circular
     for (const solicitud of solicitudesActuales) {
       if (solicitud.estado === 'aprobado') {
         try {
@@ -223,7 +237,7 @@ export default function OperadorDashboard() {
     }
     
     setHabilitaciones(nuevasHabilitaciones);
-  }, []); // Sin dependencias externas
+  }, []);
 
   const handleTransferir = (solicitudId: string) => {
     setCargandoTransferencia(true);
@@ -236,8 +250,9 @@ export default function OperadorDashboard() {
     }, 800);
   };
 
-  const cargarDashboard = useCallback(async (forzar = false) => {    
-    if (forzar) {
+  // CORREGIDO: Función cargarDashboard sin parámetro 'forzar' y sin dependencia circular
+  const cargarDashboard = useCallback(async (mostrarToast: boolean = false) => {
+    if (mostrarToast) {
       setActualizando(true);
     }
     
@@ -271,12 +286,8 @@ export default function OperadorDashboard() {
         // Verificar habilitaciones para las nuevas solicitudes
         await verificarHabilitaciones(nuevasSolicitudes);
         
-        if (forzar) {
-          toast({
-            title: "Datos actualizados",
-            description: "La información se ha actualizado correctamente",
-            variant: "default",
-          });
+        if (mostrarToast) {
+          mostrarNotificacion('Datos actualizados', 'La información se ha actualizado correctamente', 'success');
         }
       } else {
         const errorText = await response.text();
@@ -284,37 +295,51 @@ export default function OperadorDashboard() {
       }
     } catch (error) {
       console.error('Error cargando dashboard:', error);
-      if (forzar) {
-        toast({
-          title: "Error",
-          description: "No se pudieron actualizar los datos",
-          variant: "destructive",
-        });
+      if (mostrarToast) {
+        mostrarNotificacion('Error', 'No se pudieron actualizar los datos', 'error');
       }
     } finally {
       setLoading(false);
       setActualizando(false);
     }
-  }, [filtros, toast, verificarHabilitaciones]); // Añadimos verificarHabilitaciones como dependencia
+  }, [filtros, verificarHabilitaciones]); // Dependencias correctas
+
+  // Función auxiliar para mostrar notificaciones
+  const mostrarNotificacion = (titulo: string, descripcion: string, severity: 'success' | 'error' | 'info') => {
+    toast({
+      title: titulo,
+      description: descripcion,
+      variant: severity === 'error' ? 'destructive' : 'default',
+    });
+    
+    // También usar Snackbar como alternativa
+    setSnackbarSeverity(severity);
+    setSnackbarMessage(descripcion);
+    setSnackbarOpen(true);
+  };
 
   // Efecto principal para cargar datos al montar el componente
   useEffect(() => {
-    cargarDashboard();
-  }, [cargarDashboard]); // Solo se ejecuta cuando cargarDashboard cambia
+    cargarDashboard(false);
+  }, [cargarDashboard]); // Solo se ejecuta cuando cargarDashboard cambia (una vez)
 
-  // Efecto para verificar transferencias completadas
+  // Efecto para verificar transferencias completadas - CORREGIDO sin dependencia circular
   useEffect(() => {
-    const transferenciaCompletada = sessionStorage.getItem('transferencia_completada');
-    const solicitudId = sessionStorage.getItem('solicitud_transferencia');
-    
-    if (transferenciaCompletada === 'true' && solicitudId) {
-      console.log('Detectada transferencia completada, actualizando datos...');
-      cargarDashboard(true);
+    const verificarTransferenciaCompletada = async () => {
+      const transferenciaCompletada = sessionStorage.getItem('transferencia_completada');
+      const solicitudId = sessionStorage.getItem('solicitud_transferencia');
       
-      // Limpiar el flag
-      sessionStorage.removeItem('transferencia_completada');
-      sessionStorage.removeItem('solicitud_transferencia');
-    }
+      if (transferenciaCompletada === 'true' && solicitudId) {
+        console.log('Detectada transferencia completada, actualizando datos...');
+        await cargarDashboard(true);
+        
+        // Limpiar el flag
+        sessionStorage.removeItem('transferencia_completada');
+        sessionStorage.removeItem('solicitud_transferencia');
+      }
+    };
+    
+    verificarTransferenciaCompletada();
   }, [cargarDashboard]); // Dependencia única
 
   const handleIniciarRevision = async (solicitudId: string) => {
@@ -349,7 +374,9 @@ export default function OperadorDashboard() {
       'en_revision': 'warning',
       'pendiente_info': 'info',
       'aprobado': 'success',
-      'rechazado': 'error'
+      'rechazado': 'error',
+      'enviado': 'info',
+      'borrador': 'default'
     };
     return colores[estado] || 'default';
   };
@@ -372,6 +399,36 @@ export default function OperadorDashboard() {
     }).format(monto);
   };
 
+const handleAplicarFiltros = () => {
+  // Actualizamos filtros reales solo cuando se hace click
+  setFiltros((prev) => ({
+    ...prev,
+    numero_solicitud: busquedaTemporal.numero_solicitud,
+    dni: busquedaTemporal.dni
+  }));
+
+  // Recargar dashboard con los filtros actualizados
+  cargarDashboard(true);
+
+  if (isMobile) {
+    setFiltrosOpen(false);
+  }
+};
+
+  const handleLimpiarFiltros = () => {
+    setFiltros({
+      estado: '',
+      nivel_riesgo: '',
+      fecha_desde: '',
+      fecha_hasta: '',
+      numero_solicitud: '',
+      dni: ''
+    });
+    setTimeout(() => {
+      cargarDashboard(true);
+    }, 100);
+  };
+
   const FiltrosContent = () => (
     <Box className="filters-content">
       <Typography variant="h6" gutterBottom sx={{ display: { xs: 'none', md: 'block' } }}>
@@ -388,7 +445,10 @@ export default function OperadorDashboard() {
               label="Estado"
             >
               <MenuItem value="">Todos los estados</MenuItem>
+              <MenuItem value="borrador">Borrador</MenuItem>
+              <MenuItem value="enviado">Enviado</MenuItem>
               <MenuItem value="en_revision">En revisión</MenuItem>
+              <MenuItem value="pendiente_info">Pendiente info</MenuItem>
               <MenuItem value="aprobado">Aprobado</MenuItem>
               <MenuItem value="rechazado">Rechazado</MenuItem>
             </Select>
@@ -431,19 +491,29 @@ export default function OperadorDashboard() {
             InputLabelProps={{ shrink: true }}
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 3}}>
+        <Grid size={{ xs: 12, md: 6}}>
           <TextField
             fullWidth
             size="small"
             label="Número Solicitud"
             placeholder="Buscar por número"
-            value={filtros.numero_solicitud}
-            onChange={(e) => setFiltros({...filtros, numero_solicitud: e.target.value})}
-          />
+            value={busquedaTemporal.numero_solicitud}
+  onChange={(e) => setBusquedaTemporal({ ...busquedaTemporal, numero_solicitud: e.target.value })}
+/>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6}}>
+          <TextField
+            fullWidth
+            size="small"
+            label="DNI / CUIT"
+            placeholder="Buscar por DNI o CUIT"
+value={busquedaTemporal.dni}
+  onChange={(e) => setBusquedaTemporal({ ...busquedaTemporal, dni: e.target.value })}
+/>
         </Grid>
       </Grid>
 
-      <Box className="action-buttons" sx={{ mt: 2 }}>
+      <Box className="action-buttons" sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
         <Button 
           onClick={verificarTodasLasFirmas}
           variant="outlined"
@@ -456,27 +526,18 @@ export default function OperadorDashboard() {
         <Button 
           variant="contained" 
           className="btn-primary"
-          onClick={() => cargarDashboard()}
+          onClick={handleAplicarFiltros}
           size={isMobile ? "small" : "medium"}
           fullWidth={isMobile}
           startIcon={<RefreshIcon />}
+          disabled={actualizando}
         >
-          Aplicar
+          {actualizando ? 'Actualizando...' : 'Aplicar'}
         </Button>
         <Button 
           variant="outlined" 
           className="btn-secondary"
-          onClick={() => {
-            setFiltros({
-              estado: '',
-              nivel_riesgo: '',
-              fecha_desde: '',
-              fecha_hasta: '',
-              numero_solicitud: '',
-              dni: ''
-            });
-            cargarDashboard();
-          }}
+          onClick={handleLimpiarFiltros}
           size={isMobile ? "small" : "medium"}
           fullWidth={isMobile}
         >
@@ -485,6 +546,7 @@ export default function OperadorDashboard() {
       </Box>
     </Box>
   );
+  
   return (
     <Box className="operador-dashboard">
       {/* Encabezado */}
@@ -492,10 +554,13 @@ export default function OperadorDashboard() {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
           <Box>
             <Typography variant="h4" className="page-title" sx={{ fontSize: { xs: '1.5rem', md: '2rem' } }}>
-              Dashboard
+              Dashboard Operador
             </Typography>
             <Typography className="page-subtitle" sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }}>
               Bienvenido, gestión de solicitudes de crédito
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Última actualización: {ultimaActualizacion.toLocaleTimeString()}
             </Typography>
           </Box>
           {isMobile && (
@@ -621,8 +686,8 @@ export default function OperadorDashboard() {
         ) : (
           <>
             {/* Vista tabla para escritorio */}
-            <Box className="table-responsive" sx={{ display: { xs: 'none', md: 'block' } }}>
-              <table className="solicitudes-table">
+            <Box className="table-responsive" sx={{ display: { xs: 'none', md: 'block' }, overflowX: 'auto' }}>
+              <table className="solicitudes-table" style={{ minWidth: '1000px' }}>
                 <thead>
                   <tr>
                     <th>ID</th>
@@ -645,13 +710,13 @@ export default function OperadorDashboard() {
   : '-'}
                       </td>
                       <td className="solicitud-empresa">
-                        {solicitud.solicitantes?.nombre_empresa}
+                        {solicitud.solicitantes?.nombre_empresa || 'N/A'}
                       </td>
                       <td className="solicitud-contacto">
                         {getNombreContacto(solicitud)}
                       </td>
                       <td className="solicitud-monto">
-                        ${solicitud.monto.toLocaleString()}
+                        ${solicitud.monto?.toLocaleString() || 0}
                       </td>
                       <td className="solicitud-estado">
                         <Chip 
@@ -662,8 +727,8 @@ export default function OperadorDashboard() {
                       </td>
                       <td className="solicitud-riesgo">
                         <Chip 
-                          label={solicitud.nivel_riesgo}
-                          color={getRiesgoColor(solicitud.nivel_riesgo)}
+                          label={solicitud.nivel_riesgo || 'no asignado'}
+                          color={getRiesgoColor(solicitud.nivel_riesgo || 'medio')}
                           variant="outlined"
                           size="small"
                         />
@@ -721,7 +786,7 @@ export default function OperadorDashboard() {
             {/* Vista cards para mobile */}
             <Grid container spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
               {solicitudes.map((solicitud) => (
-                      <Grid size={{ xs: 12}} key={solicitud.id}>
+                <Grid size={{ xs: 12}} key={solicitud.id}>
                   <Card variant="outlined" className="solicitud-card-mobile">
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 1 }}>
@@ -744,8 +809,8 @@ export default function OperadorDashboard() {
                             sx={{ height: 24, fontSize: '0.7rem' }}
                           />
                           <Chip 
-                            label={`Riesgo: ${solicitud.nivel_riesgo}`}
-                            color={getRiesgoColor(solicitud.nivel_riesgo)}
+                            label={`Riesgo: ${solicitud.nivel_riesgo || 'N/A'}`}
+                            color={getRiesgoColor(solicitud.nivel_riesgo || 'medio')}
                             variant="outlined"
                             size="small"
                             sx={{ height: 20, fontSize: '0.65rem' }}
@@ -754,19 +819,19 @@ export default function OperadorDashboard() {
                       </Box>
 
                       <Grid container spacing={1} alignItems="center" sx={{ mb: 2 }}>
-        <Grid size={{ xs: 6}}>
+                        <Grid size={{ xs: 6}}>
                           <Typography variant="subtitle2" sx={{ fontSize: '0.75rem' }}>Monto</Typography>
                           <Typography sx={{ fontSize: '0.9rem', fontWeight: 500 }}>
-                            ${solicitud.monto.toLocaleString()}
+                            ${solicitud.monto?.toLocaleString() || 0}
                           </Typography>
                         </Grid>
-        <Grid size={{ xs: 6}}>
+                        <Grid size={{ xs: 6}}>
                           <Typography variant="subtitle2" sx={{ fontSize: '0.75rem' }}>Fecha</Typography>
                           <Typography sx={{ fontSize: '0.9rem' }}>
 {solicitud.created_at 
   ? new Date(solicitud.created_at).toLocaleDateString()
   : '-'}
-                            </Typography>
+                          </Typography>
                         </Grid>
                       </Grid>
 
@@ -842,6 +907,22 @@ export default function OperadorDashboard() {
           </Typography>
         </Box>
       )}
+
+      {/* Snackbar para notificaciones */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          severity={snackbarSeverity} 
+          onClose={() => setSnackbarOpen(false)}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

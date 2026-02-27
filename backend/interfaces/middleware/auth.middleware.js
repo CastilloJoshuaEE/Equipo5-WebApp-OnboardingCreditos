@@ -207,7 +207,6 @@ class AuthMiddleware {
         });
       }
       
-      console.log('. Usuario autorizado para ruta:', req.usuario.rol);
       next();
     };
   }

@@ -4,7 +4,6 @@ class VerificarEstadoContrato{
         this.contratoRepository = contratoRepository;
     }
     async execute(firma_id){
-        console.log('Verificando estado del contrato para firma:', firma_id);
         const firma = await this.contratoRepository.verificarEstadoParaFirma(firma_id);
         if(!firma){
             return{

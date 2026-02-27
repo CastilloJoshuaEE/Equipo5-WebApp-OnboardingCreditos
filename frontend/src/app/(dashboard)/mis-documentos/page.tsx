@@ -100,7 +100,7 @@ const [solicitudesConDocumentos, setSolicitudesConDocumentos] =
         }
       });
 
-      const responseTransferencias = await fetch(`${API_URL}/mis-transferencias`, {
+      const responseTransferencias = await fetch(`${API_URL}/transferencias/mis-transferencias`, {
         headers: {
           'Authorization': `Bearer ${session.accessToken}`,
           'Content-Type': 'application/json'

@@ -10,14 +10,28 @@ class SupabaseSolicitudRepository extends SolicitudRepository {
   }
 
   async create(solicitudData) {
-    const { data, error } = await this.supabaseAdmin
-      .from('solicitudes_credito')
-      .insert([solicitudData])
-      .select()
-      .single();
+    try {
+      // Asegurarse de que no se envía id (dejar que la BD lo genere)
+      const { id, ...dataToInsert } = solicitudData;
+      
+      console.log('Creando solicitud con datos:', dataToInsert);
 
-    if (error) throw new Error(`Error creando solicitud: ${error.message}`);
-    return new Solicitud(data);
+      const { data, error } = await this.supabaseAdmin
+        .from('solicitudes_credito')
+        .insert([dataToInsert])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error en create:', error);
+        throw new Error(`Error creando solicitud: ${error.message}`);
+      }
+
+      return new Solicitud(data);
+    } catch (error) {
+      console.error('Error en create:', error);
+      throw error;
+    }
   }
 
   async findById(id) {
