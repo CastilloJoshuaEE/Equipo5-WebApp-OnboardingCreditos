@@ -9,7 +9,37 @@ module.exports = (firmaDigitalController, authMiddleware) => {
    *   - name: Firmas Digitales
    *     description: Endpoints para gestión de firmas digitales
    */
-
+/**
+ * @swagger
+ * /api/firmas/ver-contrato-firmado/{firma_id}:
+ *   get:
+ *     summary: Ver contrato firmado en el navegador
+ *     tags: [Firmas Digitales]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: firma_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Contrato firmado mostrado exitosamente
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Contrato no encontrado
+ */
+router.get('/ver-contrato-firmado/:firma_id',
+  authMiddleware.proteger,
+  authMiddleware.autorizar('operador', 'solicitante'),
+  (req, res) => firmaDigitalController.verContratoFirmado(req, res)
+);
   /**
    * @swagger
    * /api/firmas/iniciar-proceso/{solicitud_id}:

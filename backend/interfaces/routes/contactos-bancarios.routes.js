@@ -11,6 +11,7 @@ module.exports = (contactosBancariosController, authMiddleware) => {
    *     description: Endpoints para gestión de contactos bancarios
    */
 
+  // PRIMERO: Rutas específicas (sin parámetros dinámicos)
   /**
    * @swagger
    * /api/contactos-bancarios/buscar:
@@ -21,7 +22,7 @@ module.exports = (contactosBancariosController, authMiddleware) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: query
-   *         name: numero de cuenta
+   *         name: numero_cuenta
    *         required: true
    *         schema:
    *           type: string
@@ -34,24 +35,6 @@ module.exports = (contactosBancariosController, authMiddleware) => {
     (req, res) => contactosBancariosController.buscarContactosPorNumeroCuenta(req, res)
   );
 
-
-  /**
-   * @swagger
-   * /api/contactos-bancarios:
-   *   get:
-   *     summary: Obtener todos los contactos bancarios
-   *     tags: [Contactos Bancarios]
-   *     description: Obtiene todos los contactos bancarios del sistema (solo operadores)
-   *     security:
-   *       - bearerAuth: []
-   *     responses:
-   *       200:
-   *         description: Lista de contactos bancarios obtenida exitosamente
-   */
-  router.get('/',
-    authMiddleware.proteger,
-    (req, res) => contactosBancariosController.obtenerTodosContactos(req, res)
-  );
   /**
    * @swagger
    * /api/contactos-bancarios/mis-contactos:
@@ -68,6 +51,43 @@ module.exports = (contactosBancariosController, authMiddleware) => {
   router.get('/mis-contactos',
     authMiddleware.proteger,
     (req, res) => contactosBancariosController.obtenerMisContactos(req, res)
+  );
+
+  /**
+   * @swagger
+   * /api/contactos-bancarios/estadisticas:
+   *   get:
+   *     summary: Obtener estadísticas de contactos
+   *     tags: [Contactos Bancarios]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Estadísticas obtenidas exitosamente
+   */
+  router.get('/estadisticas',
+    authMiddleware.proteger,
+    authMiddleware.autorizar('operador'),
+    (req, res) => contactosBancariosController.obtenerEstadisticas(req, res)
+  );
+
+  // DESPUÉS: Rutas con parámetros dinámicos
+  /**
+   * @swagger
+   * /api/contactos-bancarios:
+   *   get:
+   *     summary: Obtener todos los contactos bancarios
+   *     tags: [Contactos Bancarios]
+   *     description: Obtiene todos los contactos bancarios del sistema (solo operadores)
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Lista de contactos bancarios obtenida exitosamente
+   */
+  router.get('/',
+    authMiddleware.proteger,
+    (req, res) => contactosBancariosController.obtenerTodosContactos(req, res)
   );
 
   /**
@@ -159,7 +179,6 @@ module.exports = (contactosBancariosController, authMiddleware) => {
     (req, res) => contactosBancariosController.editarContacto(req, res)
   );
 
-
   /**
    * @swagger
    * /api/contactos-bancarios/{id}:
@@ -183,24 +202,6 @@ module.exports = (contactosBancariosController, authMiddleware) => {
     authMiddleware.proteger,
     authMiddleware.autorizar('operador'),
     (req, res) => contactosBancariosController.eliminarContacto(req, res)
-  );
-
-  /**
-   * @swagger
-   * /api/contactos-bancarios/estadisticas:
-   *   get:
-   *     summary: Obtener estadísticas de contactos
-   *     tags: [Contactos Bancarios]
-   *     security:
-   *       - bearerAuth: []
-   *     responses:
-   *       200:
-   *         description: Estadísticas obtenidas exitosamente
-   */
-  router.get('/estadisticas',
-    authMiddleware.proteger,
-    authMiddleware.autorizar('operador'),
-    (req, res) => contactosBancariosController.obtenerEstadisticas(req, res)
   );
 
   return router;

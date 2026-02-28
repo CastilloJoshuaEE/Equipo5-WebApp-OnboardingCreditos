@@ -12,7 +12,7 @@ class Documento {
     this.informacion_extraida = data.informacion_extraida || null;
     this.validado_en = data.validado_en || null;
     this.created_at = data.created_at || new Date().toISOString();
-    this.updated_at = data.updated_at || new Date().toISOString();
+    this.updateda_at = data.updated_at || new Date().toISOString();
   }
 
   static TIPOS_PERMITIDOS = [

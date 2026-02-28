@@ -174,8 +174,8 @@ const EditarContactoModal: React.FC<EditarContactoModalProps> = ({
                   onChange={(e) => setFormData({...formData, moneda: e.target.value})}
                   label="Moneda"
                 >
-                  <MenuItem value="USD">USD</MenuItem>
-                  <MenuItem value="ARS">ARS</MenuItem>
+                  <MenuItem value="USD">USD</MenuItem>  {/** 
+                  <MenuItem value="ARS">ARS</MenuItem>*/}
                 </Select>
               </FormControl>
             </Box>

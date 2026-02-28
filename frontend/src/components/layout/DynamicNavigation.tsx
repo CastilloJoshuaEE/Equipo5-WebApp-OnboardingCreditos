@@ -76,7 +76,32 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
               />
             </ListItemButton>
           </ListItem>
-
+       {/**   <ListItem sx={{ mb: 1, borderRadius: 1 }}>
+  <ListItemButton
+    onClick={() => handleNavigation('/operador/contactos')}
+    selected={isActive('/operador/contactos')}
+    sx={{
+      borderRadius: 1,
+      '&.Mui-selected': {
+        backgroundColor: 'primary.light',
+        '&:hover': { backgroundColor: 'primary.light' },
+      },
+    }}
+  >
+    
+    <ListItemIcon sx={{ minWidth: 40 }}>
+      <Description />
+    </ListItemIcon>
+    <ListItemText
+      primary="Contactos Bancarios"
+      primaryTypographyProps={{
+        fontSize: '0.9rem',
+        fontWeight: isActive('/operador/contactos') ? '600' : '400',
+      }}
+    /> 
+  </ListItemButton>
+</ListItem>
+*/}
           {shouldShowDocumentAccess() && (
             <ListItem sx={{ mb: 1, borderRadius: 1 }}>
               <ListItemButton

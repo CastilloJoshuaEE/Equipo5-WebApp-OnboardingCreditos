@@ -9,7 +9,7 @@ class CrearContactoBancario{
             numero_cuenta,
             tipo_cuenta = 'ahorros',
             moneda = 'USD',
-            nombre_cuenta = 'Nexia',
+            nombre_banco = 'Nexia',
             email_contacto,
             telefono_contacto
         }= data;

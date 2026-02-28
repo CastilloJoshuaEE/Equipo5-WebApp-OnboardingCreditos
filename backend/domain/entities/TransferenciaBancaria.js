@@ -1,7 +1,9 @@
 // backend/domain/entities/TransferenciaBancaria.js
+const { v4: uuidv4 } = require('uuid');
+
 class TransferenciaBancaria {
   constructor(data = {}) {
-    this.id = data.id || null;
+    this.id = data.id || uuidv4();
     this.solicitud_id = data.solicitud_id || null;
     this.contrato_id = data.contrato_id || null;
     this.contacto_bancario_id = data.contacto_bancario_id || null;

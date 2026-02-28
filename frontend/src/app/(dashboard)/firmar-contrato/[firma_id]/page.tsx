@@ -266,8 +266,8 @@ const handleDescargarContratoFirmado = async (firmaId: string) => {
         const session = await getSession();
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         
-        const response = await fetch(`${API_URL}/firmas/ver-contrato-firmado/${firmaId}`, {
-            headers: {
+const response = await fetch(`${API_URL}/firmas/descargar/${firmaId}`, {
+              headers: {
                 'Authorization': `Bearer ${session?.accessToken}`
             }
         });

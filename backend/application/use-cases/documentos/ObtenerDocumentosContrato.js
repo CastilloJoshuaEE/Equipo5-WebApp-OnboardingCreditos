@@ -5,7 +5,7 @@ class ObtenerDocumentosContrato{
     }
     async execute(solicitud_id, usuario){
         console.log(`Obteniendo documentos de contrato para solicitud: ${solicitud_id}`);
-        let query = this.supabase
+        let query = this.supabaseAdmin
         .from ('contratos')
         .select(`
             *,

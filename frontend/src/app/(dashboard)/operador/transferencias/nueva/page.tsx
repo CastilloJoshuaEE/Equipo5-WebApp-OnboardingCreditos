@@ -391,13 +391,7 @@ const cargarSolicitudInfo = useCallback(async () => {
           >
             AGREGAR/EDITAR/ELIMINAR CONTACTO
           </Button>
-                  <Button 
-          variant="outlined" 
-          onClick={() => window.location.href = `/operador`}
-          sx={{ mt: 2 }}
-        >
-          Volver al Dashboard
-        </Button>
+
         </Box>
         <EditarContactoModal
   open={modalEditarAbierto}

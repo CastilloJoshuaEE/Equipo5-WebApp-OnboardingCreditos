@@ -12,7 +12,7 @@ class FirmaDigitalController {
     repararRelacionFirmaContratoUseCase,
     verificarFirmaExistenteUseCase,
     reiniciarProcesoFirmaUseCase,
-    supabase
+    supabase, firmaDigitalRepository  
   ) {
     this._iniciarProcesoFirma = iniciarProcesoFirmaUseCase;
     this._obtenerInfoFirma = obtenerInfoFirmaUseCase;
@@ -26,6 +26,7 @@ class FirmaDigitalController {
     this._verificarFirmaExistente = verificarFirmaExistenteUseCase;
     this._reiniciarProcesoFirma = reiniciarProcesoFirmaUseCase;
     this.supabase = supabase;
+  this.firmaDigitalRepository = firmaDigitalRepository; 
   }
 
   static generarHashDocumento(buffer, metadatos = {}) {
@@ -53,7 +54,85 @@ class FirmaDigitalController {
   async descargarContratoFirmadoEspecifico(req, res) {
     return this.descargarDocumentoFirmado(req, res);
   }
+// backend/interfaces/controllers/FirmaDigitalController.js
 
+async verContratoFirmado(req, res) {
+  const { firma_id } = req.params;
+  const usuario = req.usuario;
+
+  try {
+    console.log('Ver contrato firmado para:', firma_id);
+    
+    // CORRECCIÓN: usar this.firmaDigitalRepository (sin guión bajo)
+    const tienePermisos = await this.firmaDigitalRepository.verificarPermisos(
+      firma_id,
+      usuario.id,
+      usuario.rol
+    );
+
+    if (!tienePermisos) {
+      return res.status(403).json({
+        success: false,
+        message: 'No tiene permisos para ver este contrato'
+      });
+    }
+
+    // Obtener información de la firma
+    const firma = await this.firmaDigitalRepository.obtenerInfoParaFirma(firma_id);
+    
+    if (!firma) {
+      return res.status(404).json({
+        success: false,
+        message: 'Firma no encontrada'
+      });
+    }
+
+    // Determinar qué documento descargar (priorizar el firmado)
+    let rutaDocumento = null;
+    
+    if (firma.url_documento_firmado) {
+      rutaDocumento = firma.url_documento_firmado;
+    } else if (firma.contratos?.ruta_documento) {
+      rutaDocumento = firma.contratos.ruta_documento;
+    }
+
+    if (!rutaDocumento) {
+      return res.status(404).json({
+        success: false,
+        message: 'Documento no disponible'
+      });
+    }
+
+    // Descargar el archivo de storage
+    const { data: fileData, error } = await this.supabase.storage
+      .from('kyc-documents')
+      .download(rutaDocumento);
+
+    if (error) {
+      console.error('Error descargando documento:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error al descargar el documento'
+      });
+    }
+
+    const buffer = Buffer.from(await fileData.arrayBuffer());
+    
+    // Configurar headers para visualización en navegador
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', 'inline; filename="contrato-firmado.docx"');
+    res.setHeader('Content-Length', buffer.length);
+    
+    res.send(buffer);
+
+  } catch (error) {
+    console.error('Error en verContratoFirmado:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al procesar la solicitud'
+    });
+  }
+}
   async verificarEstadoFirma(req, res) {
     const { firma_id } = req.params;
     try {

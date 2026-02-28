@@ -262,8 +262,9 @@ const cargarContactos = useCallback(async () => {
                   label="Moneda"
                 >
                   <MenuItem value="USD">USD</MenuItem>
+ {/**
                   <MenuItem value="ARS">ARS</MenuItem>
-                </Select>
+                */} </Select>
               </FormControl>
             </Box>
 
@@ -371,13 +372,7 @@ const cargarContactos = useCallback(async () => {
             Volver a Transferencias
           </Button>
         )}
-        <Button 
-          variant="outlined" 
-          onClick={() => window.location.href = '/operador'}
-          sx={{ mt: 2, ml: 2 }}
-        >
-          Volver al Dashboard
-        </Button>
+       
       </Box>
 
       {/* Modal de edición */}

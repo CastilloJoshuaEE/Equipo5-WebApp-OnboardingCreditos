@@ -6,7 +6,7 @@ class ComprobanteTransferencia {
     this.numero_comprobante = data.numero_comprobante || '';
     this.monto = data.monto || 0;
     this.moneda = data.moneda || 'USD';
-    this.estado = data.estado || 'pendiente';
+    this.estado = data.estado || 'completada';
     this.fecha_procesamiento = data.fecha_procesamiento || null;
     this.fecha_completada = data.fecha_completada || null;
     this.ruta_comprobante = data.ruta_comprobante || '';

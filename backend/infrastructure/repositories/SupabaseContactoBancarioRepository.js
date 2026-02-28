@@ -3,13 +3,14 @@ const ContactoBancarioRepository = require('../../domain/repositories/ContactoBa
 const ContactoBancario = require('../../domain/entities/ContactoBancario');
 
 class SupabaseContactoBancarioRepository extends ContactoBancarioRepository {
-  constructor(supabase) {
+  constructor(supabase, supabaseAdmin) {
     super();
     this.supabase = supabase;
+    this.supabaseAdmin =supabaseAdmin;
   }
 
   async crear(contactoData) {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.supabaseAdmin
       .from('contactos_bancarios')
       .insert([contactoData])
       .select()
@@ -20,7 +21,7 @@ class SupabaseContactoBancarioRepository extends ContactoBancarioRepository {
   }
 
   async actualizar(id, updateData) {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.supabaseAdmin
       .from('contactos_bancarios')
       .update(updateData)
       .eq('id', id)
@@ -58,7 +59,7 @@ class SupabaseContactoBancarioRepository extends ContactoBancarioRepository {
   }
 
   async obtenerTodos(activos = true) {
-    let query = this.supabase
+    let query = this.supabaseAdmin
       .from('contactos_bancarios')
       .select('*')
       .order('created_at', { ascending: false });
@@ -74,7 +75,7 @@ class SupabaseContactoBancarioRepository extends ContactoBancarioRepository {
   }
 
   async obtenerConSolicitantes() {
-    const { data: contactos, error: contactosError } = await this.supabase
+    const { data: contactos, error: contactosError } = await this.supabaseAdmin
       .from('contactos_bancarios')
       .select('*')
       .eq('estado', 'activo')
@@ -88,7 +89,7 @@ class SupabaseContactoBancarioRepository extends ContactoBancarioRepository {
 
     const solicitantesIds = [...new Set(contactos.map(c => c.solicitante_id))];
 
-    const { data: solicitantes, error: solicitantesError } = await this.supabase
+    const { data: solicitantes, error: solicitantesError } = await this.supabaseAdmin
       .from('solicitantes')
       .select(`
         id,

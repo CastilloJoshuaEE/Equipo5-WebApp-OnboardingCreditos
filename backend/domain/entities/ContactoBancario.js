@@ -1,7 +1,9 @@
 // backend/domain/entities/ContactoBancario.js
+const { v4: uuidv4 } = require('uuid');
+
 class ContactoBancario{
     constructor(data ={}){
-        this.id = data.id || null;
+        this.id = data.id || uuidv4();
         this.numero_cuenta = data.numero_cuenta || '';
         this.tipo_cuenta = data.tipo_cuenta || 'ahorros';
         this.moneda = data.moneda || 'USD';

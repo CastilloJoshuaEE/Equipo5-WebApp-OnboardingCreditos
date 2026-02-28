@@ -12,7 +12,7 @@ class ObtenerContactosOperador{
             };
         }
         console.log('Obteniendo contactos para operador');
-        const contactos = await this.contactoBancarioRepository.ObtenerTodos();
+        const contactos = await this.contactoBancarioRepository.obtenerTodos();
         console.log(`Contactos encontrados: ${contactos.length}`);
         return{
             success: true,

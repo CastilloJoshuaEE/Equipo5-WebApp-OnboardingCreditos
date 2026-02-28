@@ -318,7 +318,7 @@ class SupabaseTransferenciaBancariaRepository extends TransferenciaBancariaRepos
       .from('solicitudes_credito')
       .select('operador_id, monto, moneda, estado, solicitante_id, numero_solicitud')
       .eq('id', solicitudId)
-      .single();
+      .maybeSingle();
 
     if (error) throw new Error(`Error obteniendo solicitud: ${error.message}`);
     return data;
@@ -329,7 +329,7 @@ class SupabaseTransferenciaBancariaRepository extends TransferenciaBancariaRepos
       .from('contactos_bancarios')
       .select('*, solicitantes: solicitante_id(*)')
       .eq('id', contactoId)
-      .single();
+      .maybeSingle();
 
     if (error) throw new Error(`Error obteniendo contacto: ${error.message}`);
     return data;
@@ -340,7 +340,7 @@ class SupabaseTransferenciaBancariaRepository extends TransferenciaBancariaRepos
       .from('contratos')
       .select('id')
       .eq('solicitud_id', solicitudId)
-      .single();
+      .maybeSingle();
 
     if (error) throw new Error(`Error obteniendo contrato: ${error.message}`);
     return data;

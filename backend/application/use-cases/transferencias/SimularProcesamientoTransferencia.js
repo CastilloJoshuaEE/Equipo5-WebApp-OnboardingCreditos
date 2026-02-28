@@ -1,8 +1,7 @@
 // backend/application/use-cases/transferencias/SimularProcesamientoTransferencia.js
 class SimularProcesamientoTransferencia {
-  constructor(transferenciaRepository, pdfService, notificacionService, supabase) {
+  constructor(transferenciaRepository, notificacionService, supabase) {
     this.transferenciaRepository = transferenciaRepository;
-    this.pdfService = pdfService;
     this.notificacionService = notificacionService;
     this.supabase = supabase;
   }

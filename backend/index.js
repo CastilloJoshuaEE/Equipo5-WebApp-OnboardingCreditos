@@ -353,7 +353,7 @@ const iniciarServidor = async () => {
     const reactivacionCuentaRepository = new SupabaseReactivacionCuentaRepository(supabaseClient);
     const chatbotRepository = new SupabaseChatbotRepository(supabaseClient);
     const comentarioRepository = new SupabaseComentarioRepository(supabaseClient);
-    const contactoBancarioRepository = new SupabaseContactoBancarioRepository(supabaseClient);
+    const contactoBancarioRepository = new SupabaseContactoBancarioRepository(supabaseClient, supabaseAdmin);
     const contratoRepository = new SupabaseContratoRepository(supabaseClient, supabaseAdmin);
     const firmaDigitalRepository = new SupabaseFirmaDigitalRepository(supabaseClient);
     const verificacionKYCRepository = new SupabaseVerificacionKYCRepository(supabaseClient);
@@ -525,7 +525,7 @@ const procesarFirma = new ProcesarFirmaUseCase(
 
     // INSTANCIAR USE CASES - TRANSFERENCIAS
     const verificarHabilitacionTransferencia = new VerificarHabilitacionTransferenciaUseCase(transferenciaRepository);
-    const crearTransferencia = new CrearTransferenciaUseCase(transferenciaRepository);
+    const crearTransferencia = new CrearTransferenciaUseCase(transferenciaRepository, notificacionEmailService, supabaseClient);
     const obtenerComprobante = new ObtenerComprobanteUseCase(transferenciaRepository, supabaseClient);
     const obtenerHistorialTransferencias = new ObtenerHistorialTransferenciasUseCase(transferenciaRepository);
     const obtenerMisTransferencias = new ObtenerMisTransferenciasUseCase(transferenciaRepository);
@@ -632,7 +632,8 @@ const usuarioController = new UsuarioController(
       repararRelacionFirmaContrato,
       verificarFirmaExistente,
       reiniciarProcesoFirma,
-      supabaseClient
+      supabaseClient,
+      firmaDigitalRepository  
     );
 
     const notificacionesController = new NotificacionesController(

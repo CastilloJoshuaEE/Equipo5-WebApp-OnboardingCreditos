@@ -9,7 +9,31 @@ module.exports = (transferenciasBancariasController, authMiddleware) => {
    *   - name: Transferencias
    *     description: Endpoints para gestión de transferencias bancarias
    */
-
+/**
+ * @swagger
+ * /api/transferencias/{transferencia_id}/ver-comprobante:
+ *   get:
+ *     summary: Ver comprobante de transferencia en el navegador
+ *     tags: [Transferencias]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: transferencia_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Comprobante mostrado exitosamente
+ *       404:
+ *         description: Comprobante no encontrado
+ */
+router.get('/:transferencia_id/ver-comprobante',
+  authMiddleware.proteger,
+  (req, res) => transferenciasBancariasController.verComprobante(req, res)
+);
   /**
    * @swagger
    * /api/transferencias/habilitacion/{solicitud_id}:
