@@ -478,6 +478,28 @@ module.exports = (
     authMiddleware.proteger, 
     (req, res) => documentoController.obtenerComprobantesTransferencia(req, res)
   );
-
+/**
+ * @swagger
+ * /api/solicitudes/{solicitud_id}:
+ *   delete:
+ *     summary: Eliminar solicitud en estado borrador
+ *     tags: [Solicitudes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: solicitud_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Solicitud eliminada exitosamente
+ */
+router.delete('/:solicitud_id',
+  authMiddleware.proteger,
+  (req, res) => solicitudesController.eliminarSolicitud(req, res)
+);
   return router;
 };

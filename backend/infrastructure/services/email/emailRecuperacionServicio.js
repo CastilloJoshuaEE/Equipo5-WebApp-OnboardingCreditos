@@ -148,9 +148,23 @@ const crearPlantillaReactivacionHTML = (nombre, enlaceReactivacion) => {
                 <p>Tu cuenta estaba desactivada y ahora puede ser reactivada.</p>
             </div>
             
-            <p style="text-align: center;">
-                <a href="${enlaceReactivacion}" class="button">Reactivar Mi Cuenta</a>
-            </p>
+<p style="text-align: center; margin: 25px 0;">
+  <a href="${enlaceReactivacion}"
+     style="display:inline-block;
+            background-color:#059669;
+            color:#ffffff !important;
+            padding:14px 28px;
+            border-radius:6px;
+            text-decoration:none;
+            font-weight:bold;
+            font-size:16px;
+            border:1px solid #059669;
+            mso-line-height-rule:exactly;">
+    <span style="color:#ffffff !important;">
+      Reactivar Mi Cuenta
+    </span>
+  </a>
+</p>
             
             <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
             <p style="word-break: break-all; font-size: 12px; color: #6b7280;">${enlaceReactivacion}</p>
@@ -246,9 +260,23 @@ const crearPlantillaRecuperacionHTML = (nombre, enlaceRecuperacion) => {
             <p>Estimado/a <strong>${nombre}</strong>,</p>
             <p>Hemos recibido una solicitud para recuperar el acceso a tu cuenta en el Sistema de Créditos de Nexia.</p>
             
-            <p style="text-align: center;">
-                <a href="${enlaceRecuperacion}" class="button">Recuperar Mi Cuenta</a>
-            </p>
+<p style="text-align: center; margin: 25px 0;">
+  <a href="${enlaceRecuperacion}"
+     style="display:inline-block;
+            background-color:#dc2626;
+            color:#ffffff !important;
+            padding:14px 28px;
+            border-radius:6px;
+            text-decoration:none;
+            font-weight:bold;
+            font-size:16px;
+            border:1px solid #dc2626;
+            mso-line-height-rule:exactly;">
+    <span style="color:#ffffff !important;">
+      Recuperar Mi Cuenta
+    </span>
+  </a>
+</p>
             
             <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
             <p style="word-break: break-all; font-size: 12px; color: #6b7280;">${enlaceRecuperacion}</p>

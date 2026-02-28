@@ -328,7 +328,7 @@ router.get('/session', (req, res) => authController.getSession(req, res));
  *       400:
  *         description: Email no válido
  */
-router.post('/solicitar-recuperacion', (req, res) => usuarioController.solicitarRecuperacionCuenta(req, res));
+router.post('/solicitar-reactivacion', (req, res) => usuarioController.solicitarRecuperacionCuenta(req, res));
 
 // ==================== RUTAS PARA ADMINISTRADORES ====================
 

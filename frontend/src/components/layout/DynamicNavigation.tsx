@@ -17,6 +17,7 @@ import {
   Notifications,
   Description,
 } from '@mui/icons-material';
+import { NotificacionesBell } from '@/components/notificaciones/NotificacionesBell';
 import { DynamicNavigationProps } from '@/components/ui/dynamicNavigationProps';
 export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate, navigationHandler }) => {
   const { data: session } = useSession();
@@ -123,7 +124,7 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
                 <Dashboard />
               </ListItemIcon>
               <ListItemText
-                primary="Mis solicitudes"
+                primary="Panel del solicitante"
                 primaryTypographyProps={{
                   fontSize: '0.9rem',
                   fontWeight: isActive('/solicitante') ? '600' : '400',
@@ -186,30 +187,37 @@ export const DynamicNavigation: React.FC<DynamicNavigationProps> = ({ onNavigate
         </ListItemButton>
       </ListItem>
 
-      <ListItem sx={{ mb: 1, borderRadius: 1 }}>
-        <ListItemButton
-          onClick={() => handleNavigation('/notificaciones')}
-          selected={isActive('/notificaciones')}
-          sx={{
-            borderRadius: 1,
-            '&.Mui-selected': {
-              backgroundColor: 'primary.light',
-              '&:hover': { backgroundColor: 'primary.light' },
-            },
-          }}
-        >
-          <ListItemIcon sx={{ minWidth: 40 }}>
-            <Notifications />
-          </ListItemIcon>
-          <ListItemText
-            primary="Notificaciones"
-            primaryTypographyProps={{
-              fontSize: '0.9rem',
-              fontWeight: isActive('/notificaciones') ? '600' : '400',
-            }}
-          />
-        </ListItemButton>
-      </ListItem>
+<ListItem sx={{ mb: 1, borderRadius: 1 }}>
+  <ListItemButton
+    selected={isActive('/notificaciones')}
+    sx={{
+      borderRadius: 1,
+      '&.Mui-selected': {
+        backgroundColor: 'primary.light',
+        '&:hover': { backgroundColor: 'primary.light' },
+      },
+    }}
+  >
+    <ListItemIcon sx={{ minWidth: 40 }}>
+      <NotificacionesBell />
+    </ListItemIcon>
+
+    <ListItemText
+      primary="Notificaciones"
+      primaryTypographyProps={{
+        fontSize: '0.9rem',
+        fontWeight: isActive('/notificaciones') ? '600' : '400',
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        // Simula click en la campana
+        const bellButton = document.querySelector('[aria-label="notificaciones-bell"]') as HTMLElement;
+        bellButton?.click();
+      }}
+      sx={{ cursor: 'pointer' }}
+    />
+  </ListItemButton>
+</ListItem>
     </List>
   );
 };

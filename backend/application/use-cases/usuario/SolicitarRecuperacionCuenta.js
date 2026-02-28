@@ -24,13 +24,6 @@ class SolicitarRecuperacionCuenta {
       };
     }
 
-    if (!usuarioExistente.cuenta_activa) {
-      return {
-        success: false,
-        status: 400,
-        message: 'La cuenta no está activa. Por favor contacta al administrador.'
-      };
-    }
 
     try {
       const emailResult = await this.emailService.enviarEmailRecuperacionCuenta(

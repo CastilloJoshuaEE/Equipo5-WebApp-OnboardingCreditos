@@ -9,7 +9,7 @@ class IniciarRevisionSolicitud {
   }
 
   async execute(solicitudId, operadorId) {
-    const solicitud = await this.solicitudRepository.getSolicitudWithRelations(solicitudId);
+    const solicitud = await this.solicitudRepository.findById(solicitudId);
 
     if (!solicitud) {
       return {

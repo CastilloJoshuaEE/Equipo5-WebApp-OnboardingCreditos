@@ -1,4 +1,5 @@
 // frontend/src/app/restablecer-cuenta/page.tsx
+
 'use client';
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -15,7 +16,7 @@ import {
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 function RestablecerCuentaContent() {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'reactivada'>('loading');
   const [message, setMessage] = useState('');
   const [nuevaContrasena, setNuevaContrasena] = useState('');
   const [confirmarContrasena, setConfirmarContrasena] = useState('');
@@ -23,6 +24,7 @@ function RestablecerCuentaContent() {
   const [showConfirmarContrasena, setShowConfirmarContrasena] = useState(false);
   const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
   const [tokenValido, setTokenValido] = useState(false);
+  const [cuentaYaActiva, setCuentaYaActiva] = useState(false);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -40,19 +42,39 @@ function RestablecerCuentaContent() {
 
       try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+        // Usar fetch normal, no seguir redirecciones automáticamente
         const response = await fetch(
-          `${API_URL}/auth/restablecer-cuenta?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`,
-          { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+          `${API_URL}/reactivacion/procesar?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`,
+          { 
+            method: 'GET', 
+            headers: { 'Content-Type': 'application/json' },
+            redirect: 'manual' // No seguir redirecciones automáticamente
+          }
         );
 
-        if (response.ok) {
-          setStatus('success');
-          setTokenValido(true);
-          setMessage('Token válido. Puedes establecer una nueva contraseña.');
+        // Intentar parsear como JSON
+        const data = await response.json();
+
+        if (data.success) {
+          if (data.cuenta_activa) {
+            setStatus('reactivada');
+            setCuentaYaActiva(true);
+            setMessage('Tu cuenta ya está activa. Puedes iniciar sesión.');
+          } else if (data.cuenta_reactivada) {
+            setStatus('reactivada');
+            setMessage('¡Cuenta reactivada exitosamente! Redirigiendo al login...');
+            setTimeout(() => {
+              router.push('/login?message=cuenta_reactivada');
+            }, 3000);
+          } else {
+            setStatus('success');
+            setTokenValido(true);
+            setMessage('Token válido. Puedes establecer una nueva contraseña.');
+          }
         } else {
-          const errorData = await response.json();
           setStatus('error');
-          setMessage(errorData.message || 'Token inválido o expirado');
+          setMessage(data.message || 'Token inválido o expirado');
         }
       } catch (error) {
         console.error('Error verificando token:', error);
@@ -62,7 +84,7 @@ function RestablecerCuentaContent() {
     };
 
     verificarToken();
-  }, [token, email]);
+  }, [token, email, router]);
 
   const handleCambiarContrasena = async () => {
     if (!nuevaContrasena || !confirmarContrasena) {
@@ -128,21 +150,37 @@ function RestablecerCuentaContent() {
   return (
     <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={3} p={3}>
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
-        Restablecer Contraseña
+        {cuentaYaActiva ? 'Cuenta Activa' : 'Restablecer Contraseña'}
       </Typography>
 
       {message && (
         <Alert
-          severity={message.includes('éxito') ? 'success' : message.includes('válido') ? 'info' : 'error'}
+          severity={
+            message.includes('éxito') ? 'success' : 
+            message.includes('activa') ? 'info' : 
+            message.includes('válido') ? 'info' : 'error'
+          }
           sx={{ width: '100%', maxWidth: 500 }}
         >
           {message}
         </Alert>
       )}
 
-      {tokenValido && status === 'success' && (
+      {cuentaYaActiva && (
+        <Box sx={{ width: '100%', maxWidth: 500, textAlign: 'center' }}>
+          <Button 
+            variant="contained" 
+            onClick={() => router.push('/login')}
+            size="large"
+            sx={{ mt: 2 }}
+          >
+            Ir a Iniciar Sesión
+          </Button>
+        </Box>
+      )}
+
+      {tokenValido && status === 'success' && !cuentaYaActiva && (
         <Box component="form" sx={{ width: '100%', maxWidth: 500 }} gap={2} display="flex" flexDirection="column">
-          {/* Campo Nueva Contraseña */}
           <TextField
             label="Nueva Contraseña"
             type={showNuevaContrasena ? 'text' : 'password'}
@@ -166,7 +204,6 @@ function RestablecerCuentaContent() {
             }}
           />
 
-          {/* Campo Confirmar Contraseña */}
           <TextField
             label="Confirmar Contraseña"
             type={showConfirmarContrasena ? 'text' : 'password'}
@@ -203,11 +240,8 @@ function RestablecerCuentaContent() {
       )}
 
       <Box display="flex" gap={2} mt={2}>
-        <Button variant="outlined" onClick={() => router.push('/login')}>
-          Volver al Login
-        </Button>
         <Button variant="text" onClick={() => router.push('/')}>
-          Ir al Inicio
+          Ir al Home
         </Button>
       </Box>
     </Box>

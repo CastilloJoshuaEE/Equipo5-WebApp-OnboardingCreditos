@@ -13,42 +13,53 @@ import {
   Backdrop,
   CircularProgress
 } from '@mui/material';
-import { EditDocument, WarningAmber, Info } from '@mui/icons-material';
+import { EditDocument, WarningAmber, Info, Block } from '@mui/icons-material';
 import { getSession } from 'next-auth/react';
 import { BotonIniciarFirmaProps } from './ui/firma';
 import { SessionUser } from '@/features/auth/auth.types';
-import { TransferenciaEstado } from '@/features/transferencias/transferencia.types';
+
 interface FirmaExistente {
   id: string;
   estado: string;
   created_at: string;
   fecha_expiracion: string;
 }
+
+interface SolicitudInfo {
+  id: string;
+  estado: string;
+  numero_solicitud: string;
+}
+
 const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [firmaExistente, setFirmaExistente] = useState<FirmaExistente | null>(null);
   const [userRol, setUserRol] = useState<string>('');
-  const [transferenciaEstado, setTransferenciaEstado] = useState<TransferenciaEstado | null>(null);
+  const [solicitudInfo, setSolicitudInfo] = useState<SolicitudInfo | null>(null);
   const [firmaExpirada, setFirmaExpirada] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
   const [overlayMessage, setOverlayMessage] = useState('');
+  const [solicitudCargada, setSolicitudCargada] = useState(false);
 
-  // Obtener el rol del usuario y verificar transferencia al cargar el componente
+  // Obtener el rol del usuario y verificar estado de la solicitud al cargar
   useEffect(() => {
     const obtenerDatosIniciales = async () => {
       try {
+        setSolicitudCargada(false);
         const session = await getSession();
         if (session?.user) {
           const user = session.user as SessionUser;
           setUserRol(user.rol || '');
           
-          // Verificar estado de transferencia
-          await verificarEstadoTransferencia(solicitudId, session.accessToken);
+          // Verificar estado de la solicitud
+          await verificarEstadoSolicitud(solicitudId, session.accessToken);
         }
       } catch (error) {
         console.error('Error obteniendo datos iniciales:', error);
+      } finally {
+        setSolicitudCargada(true);
       }
     };
 
@@ -57,13 +68,13 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
     }
   }, [solicitudId]);
 
-  // Verificar si existe transferencia bancaria
-  const verificarEstadoTransferencia = async (solicitudId: string, token?: string) => {
+  // Verificar el estado de la solicitud
+  const verificarEstadoSolicitud = async (solicitudId: string, token?: string) => {
     try {
-      if (!token) return;
+      if (!token) return null;
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitudId}`, {
+      const response = await fetch(`${API_URL}/solicitudes/${solicitudId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -72,18 +83,19 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
 
       if (response.ok) {
         const result = await response.json();
-        setTransferenciaEstado(result.data);
-        
-        // Verificar explícitamente si existe transferencia
-        console.log('Estado de transferencia:', {
-          existe_transferencia: result.data?.existe_transferencia,
-          habilitado: result.data?.habilitado,
-          datos: result.data
+        const solicitud = result.data;
+        setSolicitudInfo({
+          id: solicitud.id,
+          estado: solicitud.estado,
+          numero_solicitud: solicitud.numero_solicitud
         });
+        console.log('Estado de solicitud:', solicitud.estado);
+        return solicitud;
       }
     } catch (error) {
-      console.error('Error verificando estado de transferencia:', error);
+      console.error('Error verificando estado de solicitud:', error);
     }
+    return null;
   };
 
   // Mostrar overlay de carga
@@ -98,25 +110,40 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
     setOverlayMessage('');
   };
 
+  // Verificar si el botón debe ser visible
+  const botonVisible = () => {
+    // Si no hay información de solicitud, no mostrar
+    if (!solicitudInfo) return false;
+    
+    // SOLO mostrar si la solicitud está APROBADA
+    // NO mostrar si está RECHAZADA o cualquier otro estado
+    return solicitudInfo.estado === 'aprobado';
+  };
+
   // Verificar si el botón debe estar deshabilitado
   const botonDeshabilitado = () => {
-    // Deshabilitar si existe transferencia
-    if (transferenciaEstado?.existe_transferencia) {
-      return true;
-    }
-    
     // Deshabilitar si está cargando o no hay solicitudId
-    return loading || !solicitudId;
+    if (loading || !solicitudId || !solicitudCargada) return true;
+    
+    // Si no es visible, está deshabilitado
+    if (!botonVisible()) return true;
+    
+    return false;
   };
 
   // Obtener el mensaje para el tooltip
   const getTooltipMessage = () => {
-    if (transferenciaEstado?.existe_transferencia) {
-      return "La transferencia bancaria ya fue realizada - Proceso completado";
+    if (!solicitudInfo) return "Cargando información de la solicitud...";
+    
+    if (solicitudInfo.estado !== 'aprobado') {
+      if (solicitudInfo.estado === 'rechazado') {
+        return "La solicitud ha sido rechazada - No se puede iniciar firma digital";
+      }
+      return "La firma digital solo está disponible cuando la solicitud está aprobada";
     }
     
     if (firmaExpirada) {
-      return "El proceso de firma ha expirado. Contacte para reactivar.";
+      return "El proceso de firma ha expirado. Contacte al operador para reactivar.";
     }
     
     return "Iniciar proceso de firma digital del contrato";
@@ -132,7 +159,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
     return (
       <Alert severity="warning" sx={{ mt: 2, mb: 2 }}>
         <Typography variant="body2" fontWeight="bold">
-          . Importante - Plazo de Firma Digital
+          Importante - Plazo de Firma Digital
         </Typography>
         <Typography variant="body2" sx={{ mt: 1 }}>
           • Tienes <strong>7 días</strong> para completar la firma digital del contrato
@@ -180,6 +207,39 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
     );
   };
 
+  // Mensaje cuando la solicitud no está aprobada
+  const MensajeNoAprobada = () => {
+    if (!solicitudInfo) return null;
+    
+    if (solicitudInfo.estado === 'rechazado') {
+      return (
+        <Alert severity="error" sx={{ mb: 2 }} icon={<Block />}>
+          <Typography variant="body2" fontWeight="bold">
+            Solicitud Rechazada
+          </Typography>
+          <Typography variant="body2">
+            Esta solicitud ha sido rechazada. No es posible iniciar el proceso de firma digital.
+          </Typography>
+        </Alert>
+      );
+    }
+    
+    if (solicitudInfo.estado !== 'aprobado') {
+      return (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body2" fontWeight="bold">
+            Solicitud en Estado: {solicitudInfo.estado}
+          </Typography>
+          <Typography variant="body2">
+            El proceso de firma digital solo está disponible cuando la solicitud ha sido aprobada por el operador.
+          </Typography>
+        </Alert>
+      );
+    }
+    
+    return null;
+  };
+
   const verificarFirmaExistente = async () => {
     try {
       const session = await getSession();
@@ -216,7 +276,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
       setError('');
       mostrarOverlay('Iniciando proceso de firma digital...');
 
-      console.log('. Verificando solicitudId:', solicitudId);
+      console.log('Verificando solicitudId:', solicitudId);
 
       if (!solicitudId) {
         setError('ID de solicitud no disponible');
@@ -224,6 +284,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         return;
       }
 
+      // Verificar nuevamente que la solicitud está aprobada
       const session = await getSession();
       if (!session?.accessToken) {
         setError('No estás autenticado');
@@ -231,7 +292,14 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         return;
       }
 
-      console.log('. Iniciando firma para solicitud:', solicitudId);
+      const solicitud = await verificarEstadoSolicitud(solicitudId, session.accessToken);
+      if (!solicitud || solicitud.estado !== 'aprobado') {
+        setError('La solicitud no está aprobada. No se puede iniciar el proceso de firma.');
+        ocultarOverlay();
+        return;
+      }
+
+      console.log('Iniciando firma para solicitud:', solicitudId);
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       
@@ -248,7 +316,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         }),
       });
 
-      console.log('. Respuesta de reinicio:', reinicioResponse.status);
+      console.log('Respuesta de reinicio:', reinicioResponse.status);
 
       // Luego iniciar el nuevo proceso
       setOverlayMessage('Creando nuevo proceso de firma...');
@@ -265,10 +333,9 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         }),
       });
 
-
       if (!response.ok) {
         const errorResult = await response.json();
-        console.error('. Error del servidor:', errorResult);
+        console.error('Error del servidor:', errorResult);
         
         // Manejar caso de firma existente
         if (response.status === 400 && errorResult.data?.firma_existente) {
@@ -296,15 +363,15 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
       }
 
       const result = await response.json();
-      console.log('. Resultado de firma:', result);
+      console.log('Resultado de firma:', result);
 
       if (result.success) {
-        console.log('. Firma iniciada exitosamente');
+        console.log('Firma iniciada exitosamente');
         setOverlayMessage('Proceso iniciado exitosamente. Redirigiendo...');
         onFirmaIniciada(result.data);
         
         if (result.data.firma?.id) {
-          console.log('. Redirigiendo a:', `/firmar-contrato/${result.data.firma.id}`);
+          console.log('Redirigiendo a:', `/firmar-contrato/${result.data.firma.id}`);
           setTimeout(() => {
             window.location.href = `/firmar-contrato/${result.data.firma.id}`;
           }, 1000);
@@ -313,13 +380,13 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
           ocultarOverlay();
         }
       } else {
-        console.error('. Error en respuesta:', result.message);
+        console.error('Error en respuesta:', result.message);
         setError(result.message || 'Error al iniciar proceso de firma');
         ocultarOverlay();
       }
     } catch (error: unknown) {
-      console.error('. Error en firma digital:', error);
-      setError( 'Error de conexión al iniciar firma');
+      console.error('Error en firma digital:', error);
+      setError(error instanceof Error ? error.message : 'Error de conexión al iniciar firma');
       ocultarOverlay();
     } finally {
       setLoading(false);
@@ -381,9 +448,15 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
   };
 
   const handleClick = async () => {
-    // Si ya existe transferencia, no hacer nada
-    if (transferenciaEstado?.existe_transferencia) {
-      return;
+    // Verificar nuevamente que la solicitud está aprobada
+    const session = await getSession();
+    if (session?.accessToken) {
+      const solicitud = await verificarEstadoSolicitud(solicitudId, session.accessToken);
+      if (!solicitud || solicitud.estado !== 'aprobado') {
+        setError('La solicitud no está aprobada. No se puede iniciar el proceso de firma.');
+        setOpen(true);
+        return;
+      }
     }
 
     const existeFirma = await verificarFirmaExistente();
@@ -402,6 +475,10 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
     return userRol === 'operador';
   };
 
+  // Si el botón no debe ser visible, no renderizar nada
+  if (!botonVisible() && solicitudCargada) {
+    return null;
+  }
 
   return (
     <>
@@ -442,18 +519,10 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
             size="small"
             disabled={botonDeshabilitado()}
             sx={{
-              opacity: transferenciaEstado?.existe_transferencia ? 0.6 : 1,
               position: 'relative'
             }}
           >
-            {transferenciaEstado?.existe_transferencia ? (
-              <>
-                <Info sx={{ fontSize: 16, mr: 0.5 }} />
-                Transferencia Realizada ya no se puede iniciar firma digital
-              </>
-            ) : (
-              'Iniciar Firma Digital'
-            )}
+            Iniciar Firma Digital
           </Button>
         </span>
       </Tooltip>
@@ -465,7 +534,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         
         <DialogContent>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
               {error}
             </Alert>
           )}
@@ -476,13 +545,16 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
             </Alert>
           )}
 
+          {/* Mensaje cuando la solicitud no está aprobada */}
+          <MensajeNoAprobada />
+
           {/* Mostrar mensaje de expiración SOLO para solicitantes */}
           <MensajeExpiracion />
           
           {/* Mostrar mensaje informativo para operadores */}
           <MensajeOperador />
 
-          {firmaExistente ? (
+          {firmaExistente && solicitudInfo?.estado === 'aprobado' ? (
             <Box>
               <Alert severity="info" sx={{ mb: 2 }} icon={<WarningAmber />}>
                 Ya existe un proceso de firma en curso para esta solicitud.
@@ -499,7 +571,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
                 ¿Deseas continuar con el proceso de firma existente o crear uno nuevo?
               </Typography>
             </Box>
-          ) : (
+          ) : solicitudInfo?.estado === 'aprobado' ? (
             <Box>
               <p>
                 ¿Estás seguro de que deseas iniciar el proceso de firma digital para esta solicitud?
@@ -513,7 +585,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
                 <br />• Generar hash único para integridad del documento
               </Alert>
             </Box>
-          )}
+          ) : null}
         </DialogContent>
 
         <DialogActions>
@@ -521,7 +593,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
             Cancelar
           </Button>
           
-          {firmaExistente ? (
+          {firmaExistente && solicitudInfo?.estado === 'aprobado' ? (
             <>
               <Button 
                 onClick={handleContinuarFirmaExistente}
@@ -545,7 +617,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
                 </Button>
               )}
             </>
-          ) : (
+          ) : solicitudInfo?.estado === 'aprobado' ? (
             <Button 
               onClick={handleIniciarFirma} 
               variant="contained"
@@ -554,7 +626,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
             >
               {showOverlay ? 'Iniciando...' : 'Continuar a Firma'}
             </Button>
-          )}
+          ) : null}
         </DialogActions>
       </Dialog>
     </>

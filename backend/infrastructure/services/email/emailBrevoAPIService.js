@@ -445,11 +445,21 @@ crearPlantillaBienvenidaHTML(nombre, rol) {
       <p>${mensaje}</p>
 
       <p style="text-align:center; margin: 25px 0;">
-        <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
-           style="display:inline-block; background-color:#2563eb; color:#ffffff; padding:14px 28px; border-radius:6px;
-                  text-decoration:none; font-weight:bold; font-size:16px;">
-          Iniciar Sesión en el Sistema
-        </a>
+<a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login"
+   style="display:inline-block;
+          background-color:#2563eb;
+          color:#ffffff !important;
+          padding:14px 28px;
+          border-radius:6px;
+          text-decoration:none;
+          font-weight:bold;
+          font-size:16px;
+          border:1px solid #2563eb;
+          mso-line-height-rule:exactly;">
+  <span style="color:#ffffff !important;">
+    Iniciar Sesión en el Sistema
+  </span>
+</a>
       </p>
     </div>
     <div class="footer">

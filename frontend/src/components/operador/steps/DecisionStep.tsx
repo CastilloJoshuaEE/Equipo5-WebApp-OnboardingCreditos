@@ -94,7 +94,7 @@ export default function DecisionStep({
             const estadosFinales = ['aprobado', 'rechazado'];
             const yaRevisada = estadosFinales.includes(solicitud.estado);
             
-            console.log('📊 Estado actual:', solicitud.estado, '¿Ya revisada?:', yaRevisada);
+            console.log('Estado actual:', solicitud.estado, '¿Ya revisada?:', yaRevisada);
             
             setSolicitudYaRevisada(yaRevisada);
         } else {

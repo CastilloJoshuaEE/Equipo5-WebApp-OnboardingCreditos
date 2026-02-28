@@ -11,7 +11,8 @@ class SolicitudesController {
     obtenerEstadisticasUseCase,
     solicitarInformacionAdicionalUseCase,
     iniciarVerificacionKYCUseCase,
-    asignarOperadorAutomaticoUseCase
+    asignarOperadorAutomaticoUseCase,
+    eliminarSolicitudUseCase
   ) {
     this._crearSolicitud = crearSolicitudUseCase;
     this._obtenerMisSolicitudes = obtenerMisSolicitudesUseCase;
@@ -24,6 +25,7 @@ class SolicitudesController {
     this._solicitarInformacionAdicional = solicitarInformacionAdicionalUseCase;
     this._iniciarVerificacionKYC = iniciarVerificacionKYCUseCase;
     this._asignarOperadorAutomatico = asignarOperadorAutomaticoUseCase;
+    this._eliminarSolicitud = eliminarSolicitudUseCase;
   }
 
   async crearSolicitud(req, res) {
@@ -104,6 +106,11 @@ class SolicitudesController {
 
   async calcularNivelRiesgo(req, res) {
     return res.status(501).json({ success: false, message: 'No implementado directamente' });
+  }
+  async eliminarSolicitud(req, res) {
+    const { solicitud_id } = req.params;
+    const result = await this._eliminarSolicitud.execute(solicitud_id, req.usuario);
+    return res.status(result.status || (result.success ? 200 : 500)).json(result);
   }
 }
 

@@ -196,7 +196,7 @@ const ObtenerEstadisticasSolicitudesUseCase = require("./application/use-cases/s
 const SolicitarInformacionAdicionalUseCase = require("./application/use-cases/solicitudes/SolicitarInformacionAdicional");
 const IniciarVerificacionKYCUseCase = require("./application/use-cases/solicitudes/IniciarVerificacionKYC");
 const AsignarOperadorAutomaticoUseCase = require("./application/use-cases/solicitudes/AsignarOperadorAutomatico");
-
+const EliminarSolicitudUseCase = require("./application/use-cases/solicitudes/EliminarSolicitud");
 // CONTROLLERS
 const AuthController = require("./interfaces/controllers/AuthController");
 const UsuarioController = require("./interfaces/controllers/UsuarioController");
@@ -454,7 +454,7 @@ const gestionUsuarios = new GestionUsuariosUseCase(usuarioRepository);
     const solicitarInformacionAdicional = new SolicitarInformacionAdicionalUseCase(solicitudRepository, solicitudInformacionRepository);
     const iniciarVerificacionKYC = new IniciarVerificacionKYCUseCase(solicitudRepository, verificacionKYCRepository, DiditService, supabaseClient);
     const asignarOperadorAutomatico = new AsignarOperadorAutomaticoUseCase(solicitudRepository, supabaseClient);
-
+    const eliminarSolicitud = new EliminarSolicitudUseCase(solicitudRepository, supabaseClient);
     // INSTANCIAR USE CASES - FIRMAS DIGITALES
     const iniciarProcesoFirma = new IniciarProcesoFirmaUseCase(firmaDigitalRepository, contratoRepository, WordService, NotificacionService, supabaseClient);
     const obtenerInfoFirma = new ObtenerInfoFirmaUseCase(firmaDigitalRepository, supabaseClient);
@@ -675,7 +675,8 @@ const usuarioController = new UsuarioController(
       obtenerEstadisticasSolicitudes,
       solicitarInformacionAdicional,
       iniciarVerificacionKYC,
-      asignarOperadorAutomatico
+      asignarOperadorAutomatico,
+      eliminarSolicitud
     );
 
     const inspectController = (name, controller) => {

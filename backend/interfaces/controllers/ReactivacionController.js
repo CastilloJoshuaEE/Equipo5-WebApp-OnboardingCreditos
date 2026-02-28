@@ -35,16 +35,6 @@ class ReactivacionController {
   async procesarRecuperacionCuenta(req, res) {
     const result = await this._procesarRecuperacionCuenta.execute(req.query);
 
-    if (result.success && result.cuenta_reactivada) {
-      const frontendUrl = ReactivacionController.getFrontendUrl();
-      return res.redirect(`${frontendUrl}/login?message=cuenta_reactivada`);
-    }
-
-    if (result.success && result.cuenta_activa) {
-      const frontendUrl = ReactivacionController.getFrontendUrl();
-      return res.redirect(`${frontendUrl}/login?message=cuenta_ya_activa`);
-    }
-
     return res.status(result.status || 400).json(result);
   }
 }

@@ -40,6 +40,7 @@ export function NotificacionesBell() {
   return (
     <>
       <IconButton
+          aria-label="notificaciones-bell"
         onClick={abrirModal}
         disabled={cargando}
         color="inherit"

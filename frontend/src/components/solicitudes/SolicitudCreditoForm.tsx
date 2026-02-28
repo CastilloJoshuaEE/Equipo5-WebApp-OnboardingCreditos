@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Box,
   Button,
-  TextField,
+  TextField, 
   Typography,
   Alert,
   Stepper,
@@ -295,7 +295,7 @@ const renderListaDocumentos = () => (
     )}
   </Box>
 );
-  const onSubmit = async (data: SolicitudCreditoInput) => {
+ const onSubmit = async (data: SolicitudCreditoInput) => {
   try {
     setError('');
     setSuccess('');
@@ -318,33 +318,45 @@ const renderListaDocumentos = () => (
         },
         body: JSON.stringify(data)
       });
-      if (!solicitudResponse.ok) throw new Error('Error al crear la solicitud');
+      
+      if (!solicitudResponse.ok) {
+        const errorData = await solicitudResponse.json();
+        throw new Error(errorData.message || 'Error al crear la solicitud');
+      }
 
       const solicitudResult = await solicitudResponse.json();
       nuevaSolicitudId = solicitudResult.data.id;
       setSolicitudId(nuevaSolicitudId);
     }
 
-    // Subir documentos
-    for (const documento of documentos) {
+    // Subir documentos 
+    const documentosPromises = documentos.map(async (documento) => {
       const formData = new FormData();
       if (!nuevaSolicitudId) throw new Error('ID de solicitud inválido');
+      
       formData.append('archivo', documento.file);
       formData.append('solicitud_id', nuevaSolicitudId);
-      formData.append('tipo', obtenerTipoDocumento(documento.file.name));
+      formData.append('tipo', documento.tipo); // Usar el tipo directamente del objeto
 
       const documentoResponse = await fetch(`${API_URL}/solicitudes/${nuevaSolicitudId}/documentos`, {
         method: 'POST',
         body: formData,
         headers: {
           'Authorization': `Bearer ${session.accessToken}`
+          // NO incluir 'Content-Type' porque FormData lo establece automáticamente
         }
       });
 
       if (!documentoResponse.ok) {
-        console.error('Error subiendo documento:', documento.file.name);
+        const errorData = await documentoResponse.json().catch(() => ({}));
+        console.error('Error subiendo documento:', documento.file.name, errorData);
+        throw new Error(`Error al subir ${documento.file.name}: ${errorData.message || 'Error desconocido'}`);
       }
-    }
+
+      return await documentoResponse.json();
+    });
+
+    await Promise.all(documentosPromises);
 
     // Enviar solicitud
     const enviarResponse = await fetch(`${API_URL}/solicitudes/${nuevaSolicitudId}/enviar`, {
@@ -353,9 +365,13 @@ const renderListaDocumentos = () => (
         'Authorization': `Bearer ${session.accessToken}`
       }
     });
-    if (!enviarResponse.ok) throw new Error('Error al enviar la solicitud');
+    
+    if (!enviarResponse.ok) {
+      const errorData = await enviarResponse.json();
+      throw new Error(errorData.message || 'Error al enviar la solicitud');
+    }
 
-    // . LIMPIAR BORRADOR DESPUÉS DE ENVÍO EXITOSO
+    // LIMPIAR BORRADOR DESPUÉS DE ENVÍO EXITOSO
     limpiarBorrador();
 
     setSuccess('Solicitud de crédito enviada exitosamente');
@@ -380,15 +396,10 @@ const limpiarBorrador = () => {
   localStorage.removeItem('solicitud_borrador');
   console.log('. Borrador genérico eliminado del localStorage');
 };
-  const obtenerTipoDocumento = (nombreArchivo: string): string => {
-    if (nombreArchivo.includes('dni')) return 'dni';
-    if (nombreArchivo.includes('cuit')) return 'cuit';
-    if (nombreArchivo.includes('domicilio')) return 'comprobante_domicilio';
-    if (nombreArchivo.includes('balance')) return 'balance_contable';
-    if (nombreArchivo.includes('financiero')) return 'estado_financiero';
-    if (nombreArchivo.includes('impuestos')) return 'declaracion_impuestos';
-    return 'otros';
-  };
+const obtenerTipoDocumento = (documento: DocumentoConTipo): string => {
+  // El tipo ya está definido en el objeto documento
+  return documento.tipo;
+};
   // Renderizar los controles de subida de documentos
   const renderControlesDocumentos = () => (
     <Grid container spacing={3}>

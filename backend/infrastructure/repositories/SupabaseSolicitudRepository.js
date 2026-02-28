@@ -101,54 +101,45 @@ class SupabaseSolicitudRepository extends SolicitudRepository {
     return data.map(s => new Solicitud(s));
   }
   async findByOperador(operadorId, filtros = {}) {
-    let query = this.supabase
-      .from('solicitudes_credito')
-      .select(`
-        *,
-        solicitantes!solicitudes_credito_solicitante_id_fkey (
-          id,
-          nombre_empresa,
-          cuit,
-          representante_legal,
-          domicilio,
-          usuarios!solicitantes_id_fkey (
-            nombre_completo,
-            email,
-            telefono,
-            dni
-          )
+  let query = this.supabase
+    .from('solicitudes_credito')
+    .select(`
+      *,
+      solicitantes!solicitante_id (
+        id,
+        nombre_empresa,
+        cuit,
+        representante_legal,
+        domicilio,
+        usuarios!inner (
+          nombre_completo,
+          email,
+          telefono,
+          dni
         )
-      `)
-      .eq('operador_id', operadorId);
+      ),
+      contratos(*),
+      transferencias_bancarias(*)
+    `)
+    .eq('operador_id', operadorId);
 
-    // Aplicar filtros si existen
-    if (filtros.estado) {
-      query = query.eq('estado', filtros.estado);
-    }
-
-    if (filtros.nivel_riesgo) {
-      query = query.eq('nivel_riesgo', filtros.nivel_riesgo);
-    }
-
-    if (filtros.fecha_desde) {
-      query = query.gte('created_at', filtros.fecha_desde);
-    }
-
-    if (filtros.fecha_hasta) {
-      query = query.lte('created_at', filtros.fecha_hasta);
-    }
-
-    if (filtros.numero_solicitud) {
-      query = query.ilike('numero_solicitud', `%${filtros.numero_solicitud}%`);
-    }
-
-    query = query.order('created_at', { ascending: false });
-
-    const { data, error } = await query;
-
-    if (error) throw error;
-    return data.map(s => new Solicitud(s));
+  if (filtros.estado)           query = query.eq('estado', filtros.estado);
+  if (filtros.nivel_riesgo)     query = query.eq('nivel_riesgo', filtros.nivel_riesgo);
+  if (filtros.fecha_desde)      query = query.gte('created_at', filtros.fecha_desde);
+  if (filtros.fecha_hasta)      query = query.lte('created_at', filtros.fecha_hasta);
+  if (filtros.numero_solicitud) query = query.ilike('numero_solicitud', `%${filtros.numero_solicitud}%`);
+  if (filtros.dni) {
+    query = query.or(
+      `solicitantes.cuit.ilike.%${filtros.dni}%,solicitantes.usuarios.dni.ilike.%${filtros.dni}%`
+    );
   }
+
+  query = query.order('created_at', { ascending: false });
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];   // devolver array plano, no mapear a Solicitud para preservar joins
+}
   async findByNumero(numeroSolicitud) {
     const { data, error } = await this.supabase
       .from('solicitudes_credito')
@@ -351,6 +342,49 @@ class SupabaseSolicitudRepository extends SolicitudRepository {
 
     return operadorAsignado;
   }
+  async eliminarConDocumentos(solicitudId) {
+  try {
+    // 1. Obtener documentos para eliminar del storage
+    const { data: documentos } = await this.supabase
+      .from('documentos')
+      .select('ruta_storage')
+      .eq('solicitud_id', solicitudId);
+
+    // 2. Eliminar archivos del storage
+    if (documentos && documentos.length > 0) {
+      for (const doc of documentos) {
+        if (doc.ruta_storage) {
+          try {
+            await this.supabase.storage
+              .from('kyc-documents')
+              .remove([doc.ruta_storage]);
+          } catch (error) {
+            console.warn('Error eliminando archivo:', error);
+          }
+        }
+      }
+    }
+
+    // 3. Eliminar documentos (cascada en BD maneja esto, pero hacemos explícito)
+    await this.supabase
+      .from('documentos')
+      .delete()
+      .eq('solicitud_id', solicitudId);
+
+    // 4. Eliminar la solicitud
+    const { error } = await this.supabaseAdmin
+      .from('solicitudes_credito')
+      .delete()
+      .eq('id', solicitudId);
+
+    if (error) throw error;
+    
+    return true;
+  } catch (error) {
+    console.error('Error eliminando solicitud con documentos:', error);
+    throw error;
+  }
+}
 }
 
 module.exports = SupabaseSolicitudRepository;

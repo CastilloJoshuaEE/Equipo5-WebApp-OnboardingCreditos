@@ -1,108 +1,122 @@
 // backend/application/use-cases/reactivacion/ProcesarRecuperacionCuenta.js
-const ReactivacionCuenta = require('../../../domain/entities/ReactivacionCuenta');
 
 class ProcesarRecuperacionCuenta {
   constructor(usuarioRepository, supabaseAdmin, authController) {
     this.usuarioRepository = usuarioRepository;
     this.supabaseAdmin = supabaseAdmin;
-    this.authController = authController;
+    this.authController = authController; 
   }
 
   async execute({ token, email }) {
-    console.log('[RECUPERACIÓN] Procesando recuperación de cuenta (JSON):', {
-      token: token ? `${token.substring(0, 20)}...` : 'undefined',
-      email
-    });
-
-    if (!token || !email) {
-      return {
-        success: false,
-        status: 400,
-        message: 'Token o email faltante'
-      };
-    }
-
     try {
-      const decodedToken = ReactivacionCuenta.decodificarToken(token);
-      console.log('Token decodificado:', decodedToken);
+      console.log('[RECUPERACIÓN] Procesando recuperación de cuenta (JSON):', { token, email });
 
-      if (decodedToken.email !== email) {
-        console.error('Email no coincide:', { tokenEmail: decodedToken.email, email });
+      if (!token || !email) {
         return {
           success: false,
           status: 400,
-          message: 'Token inválido'
+          message: 'Token y email son requeridos'
         };
       }
 
-      const tokenTime = decodedToken.timestamp;
-      const currentTime = Date.now();
+      // Decodificar token
+      let tokenData;
+      try {
+        const decoded = Buffer.from(token, 'base64').toString('utf-8');
+        console.log('Token decodificado:', decoded);
+        
+        const parts = decoded.split(':');
+        if (parts.length !== 4) {
+          throw new Error('Formato de token inválido');
+        }
+        
+        const [userId, tokenEmail, timestamp, type] = parts;
+        
+        if (type !== 'recuperacion') {
+          throw new Error('Tipo de token inválido');
+        }
+        
+        tokenData = {
+          userId,
+          email: tokenEmail,
+          timestamp: parseInt(timestamp)
+        };
+        
+        console.log('Token válido, buscando usuario:', tokenData.email);
+      } catch (error) {
+        console.error('Error decodificando token:', error);
+        return {
+          success: false,
+          status: 400,
+          message: 'Token inválido o malformado'
+        };
+      }
+
+      // Verificar que el email del token coincide con el email proporcionado
+      if (tokenData.email !== email) {
+        return {
+          success: false,
+          status: 400,
+          message: 'El email no coincide con el token'
+        };
+      }
+
+      // Verificar expiración (1 hora)
+      const now = Date.now();
+      const tokenAge = now - tokenData.timestamp;
       const oneHour = 60 * 60 * 1000;
 
-      if (currentTime - tokenTime > oneHour) {
-        console.error('Token expirado:', { tokenTime, currentTime });
+      if (tokenAge > oneHour) {
         return {
           success: false,
           status: 400,
-          message: 'Token expirado'
+          message: 'El token ha expirado. Por favor solicita uno nuevo.'
         };
       }
 
-      console.log('Token válido, buscando usuario:', email);
-
-      const usuario = await this.usuarioRepository.findByEmail(email);
+      // Buscar usuario inactivo
+      const usuario = await this.usuarioRepository.findInactiveByEmail(email);
 
       if (!usuario) {
-        console.error('Usuario no encontrado:', email);
+        // Verificar si el usuario ya está activo
+        const usuarioActivo = await this.usuarioRepository.findByEmail(email);
+        
+        if (usuarioActivo && usuarioActivo.cuenta_activa) {
+          return {
+            success: true,
+            cuenta_activa: true,
+            message: 'La cuenta ya está activa'
+          };
+        }
+
         return {
           success: false,
           status: 404,
-          message: 'Usuario no encontrado'
-        };
-      }
-
-      if (usuario.id !== decodedToken.userId) {
-        console.warn('INCONSISTENCIA DE ID DETECTADA:', {
-          tokenUserId: decodedToken.userId,
-          tablaUserId: usuario.id,
-          email
-        });
-
-        console.log('Corrigiendo inconsistencia de ID...');
-        await this.supabaseAdmin
-          .from('usuarios')
-          .update({ id: decodedToken.userId })
-          .eq('email', email);
-      }
-
-      if (usuario.cuenta_activa) {
-        console.log('Usuario ya está activo:', email);
-        return {
-          success: true,
-          message: 'Cuenta ya activa',
-          cuenta_activa: true
+          message: 'No se encontró una cuenta desactivada con este email'
         };
       }
 
       console.log('Usuario inactivo encontrado, reactivando cuenta...');
 
-      await this.usuarioRepository.reactivate(decodedToken.userId);
+      // Reactivar la cuenta
+      const usuarioReactivated = await this.usuarioRepository.reactivate(usuario.id);
 
-      const limpiezaExitosa = await this.authController.limpiarIntentosFallidos(email);
 
       return {
         success: true,
-        message: 'Cuenta reactivada exitosamente',
         cuenta_reactivada: true,
-        email,
-        intentos_limpiados: limpiezaExitosa
+        message: 'Cuenta reactivada exitosamente',
+        data: {
+          usuario: usuarioReactivated
+        }
       };
-    } catch (decodeError) {
-      console.error('Error decodificando token:', decodeError);
+
+    } catch (error) {
+      console.error('Error procesando recuperación:', error);
       return {
         success: false,
-        status: 400,
-        message: 'Token inválido'
+        status: 500,
+        message: 'Error al procesar la recuperación: ' + error.message
       };
     }
   }
