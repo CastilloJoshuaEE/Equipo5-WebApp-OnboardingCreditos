@@ -144,7 +144,9 @@ const ObtenerNotificacionesUseCase = require("./application/use-cases/notificaci
 const ObtenerContadorNoLeidasUseCase = require("./application/use-cases/notificaciones/ObtenerContadorNoLeidas");
 const MarcarComoLeidaUseCase = require("./application/use-cases/notificaciones/MarcarComoLeida");
 const MarcarTodasComoLeidasUseCase = require("./application/use-cases/notificaciones/MarcarTodasComoLeidas");
-
+const NotificarFirmaSolicitanteCompletada = require("./application/use-cases/notificaciones/NotificarFirmaSolicitanteCompletada");
+const NotificarFirmaOperadorCompletada = require("./application/use-cases/notificaciones/NotificarFirmaOperadorCompletada");
+const NotificarFirmaCompletada = require("./application/use-cases/notificaciones/NotificarFirmaCompletada");
 // USE CASES - WEBHOOKS
 const ProcesarWebhookDiditUseCase = require("./application/use-cases/webhooks/ProcesarWebhookDidit");
 
@@ -352,7 +354,7 @@ const iniciarServidor = async () => {
     const chatbotRepository = new SupabaseChatbotRepository(supabaseClient);
     const comentarioRepository = new SupabaseComentarioRepository(supabaseClient);
     const contactoBancarioRepository = new SupabaseContactoBancarioRepository(supabaseClient);
-    const contratoRepository = new SupabaseContratoRepository(supabaseClient);
+    const contratoRepository = new SupabaseContratoRepository(supabaseClient, supabaseAdmin);
     const firmaDigitalRepository = new SupabaseFirmaDigitalRepository(supabaseClient);
     const verificacionKYCRepository = new SupabaseVerificacionKYCRepository(supabaseClient);
     const transferenciaRepository = new SupabaseTransferenciaBancariaRepository(supabaseClient);
@@ -418,7 +420,7 @@ const gestionUsuarios = new GestionUsuariosUseCase(usuarioRepository);
     const obtenerEstadisticasContactos = new ObtenerEstadisticasContactosUseCase(contactoBancarioRepository);
 
     // INSTANCIAR USE CASES - CONTRATOS
-    const generarContratoParaSolicitud = new GenerarContratoParaSolicitudUseCase(contratoRepository, WordService, supabaseClient);
+    const generarContratoParaSolicitud = new GenerarContratoParaSolicitudUseCase(contratoRepository, WordService, supabaseAdmin);
     const verificarEstadoContrato = new VerificarEstadoContratoUseCase(contratoRepository);
     const obtenerContenidoContrato = new ObtenerContenidoContratoUseCase(contratoRepository, supabaseClient);
     const obtenerContratosUsuario = new ObtenerContratosUsuarioUseCase(contratoRepository);
@@ -448,17 +450,42 @@ const gestionUsuarios = new GestionUsuariosUseCase(usuarioRepository);
     const obtenerTodasSolicitudes = new ObtenerTodasSolicitudesUseCase(solicitudRepository);
     const obtenerSolicitudDetalle = new ObtenerSolicitudDetalleUseCase(solicitudRepository, documentoRepository, verificacionKYCRepository);
     const enviarSolicitud = new EnviarSolicitudUseCase(solicitudRepository, documentoRepository, notificacionService, supabaseClient);
-    const aprobarSolicitud = new AprobarSolicitudUseCase(solicitudRepository, notificacionService, contratoRepository);
+    const aprobarSolicitud = new AprobarSolicitudUseCase(solicitudRepository, notificacionService, generarContratoParaSolicitud );
     const rechazarSolicitud = new RechazarSolicitudUseCase(solicitudRepository);
     const obtenerEstadisticasSolicitudes = new ObtenerEstadisticasSolicitudesUseCase(solicitudRepository);
     const solicitarInformacionAdicional = new SolicitarInformacionAdicionalUseCase(solicitudRepository, solicitudInformacionRepository);
     const iniciarVerificacionKYC = new IniciarVerificacionKYCUseCase(solicitudRepository, verificacionKYCRepository, DiditService, supabaseClient);
     const asignarOperadorAutomatico = new AsignarOperadorAutomaticoUseCase(solicitudRepository, supabaseClient);
     const eliminarSolicitud = new EliminarSolicitudUseCase(solicitudRepository, supabaseClient);
+
+    // INSTANCIAR USE CASES - NOTIFICACIONES
+    const obtenerNotificaciones = new ObtenerNotificacionesUseCase(notificacionRepository);
+    const obtenerContadorNoLeidas = new ObtenerContadorNoLeidasUseCase(notificacionRepository);
+    const marcarComoLeida = new MarcarComoLeidaUseCase(notificacionRepository);
+    const marcarTodasComoLeidas = new MarcarTodasComoLeidasUseCase(notificacionRepository);
+const notificarFirmaSolicitanteCompletada = new NotificarFirmaSolicitanteCompletada(
+    notificacionRepository, 
+    supabaseClient
+);
+const notificarFirmaOperadorCompletada = new NotificarFirmaOperadorCompletada(
+    notificacionRepository, 
+    supabaseClient
+);
+const notificarFirmaCompletada = new NotificarFirmaCompletada(
+    notificacionRepository, 
+    supabaseClient
+);
     // INSTANCIAR USE CASES - FIRMAS DIGITALES
-    const iniciarProcesoFirma = new IniciarProcesoFirmaUseCase(firmaDigitalRepository, contratoRepository, WordService, NotificacionService, supabaseClient);
+    const iniciarProcesoFirma = new IniciarProcesoFirmaUseCase(firmaDigitalRepository, contratoRepository, WordService, NotificacionService, supabaseAdmin);
     const obtenerInfoFirma = new ObtenerInfoFirmaUseCase(firmaDigitalRepository, supabaseClient);
-    const procesarFirma = new ProcesarFirmaUseCase(firmaDigitalRepository, WordService, NotificacionService);
+const procesarFirma = new ProcesarFirmaUseCase(
+    firmaDigitalRepository, 
+    WordService, 
+    notificacionService,
+    notificarFirmaSolicitanteCompletada,
+    notificarFirmaOperadorCompletada,
+    notificarFirmaCompletada
+);
     const descargarDocumentoFirmado = new DescargarDocumentoFirmadoUseCase(firmaDigitalRepository, supabaseClient);
     const obtenerFirmasPendientes = new ObtenerFirmasPendientesUseCase(firmaDigitalRepository);
     const obtenerAuditoriaFirma = new ObtenerAuditoriaFirmaUseCase(firmaDigitalRepository);
@@ -467,12 +494,6 @@ const gestionUsuarios = new GestionUsuariosUseCase(usuarioRepository);
     const repararRelacionFirmaContrato = new RepararRelacionFirmaContratoUseCase(firmaDigitalRepository);
     const verificarFirmaExistente = new VerificarFirmaExistenteUseCase(firmaDigitalRepository);
     const reiniciarProcesoFirma = new ReiniciarProcesoFirmaUseCase(firmaDigitalRepository);
-
-    // INSTANCIAR USE CASES - NOTIFICACIONES
-    const obtenerNotificaciones = new ObtenerNotificacionesUseCase(notificacionRepository);
-    const obtenerContadorNoLeidas = new ObtenerContadorNoLeidasUseCase(notificacionRepository);
-    const marcarComoLeida = new MarcarComoLeidaUseCase(notificacionRepository);
-    const marcarTodasComoLeidas = new MarcarTodasComoLeidasUseCase(notificacionRepository);
 
     // INSTANCIAR USE CASES - WEBHOOKS
     const procesarWebhookDidit = new ProcesarWebhookDiditUseCase(verificacionKYCRepository, documentoRepository, DiditService);
@@ -725,23 +746,6 @@ const usuarioController = new UsuarioController(
       solicitudesController
     };
 
-    for (const [name, controller] of Object.entries(controllers)) {
-      if (!controller || typeof controller !== 'object') {
-        console.error(` Controller ${name} no es un objeto:`, controller);
-      } else {
-        console.log(` Controller ${name} instanciado correctamente`);
-        try {
-          const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(controller));
-          methods.forEach(m => {
-            if (typeof controller[m] !== 'function') {
-              console.warn(` Método ${m} de ${name} no es función:`, controller[m]);
-            }
-          });
-        } catch (error) {
-          // Ignorar errores de inspección
-        }
-      }
-    }
 
     // INSTANCIAR MIDDLEWARE
     const authMiddleware = new AuthMiddleware();

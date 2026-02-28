@@ -1,7 +1,9 @@
 // backend/domain/entities/Contrato.js
+const { v4: uuidv4 } = require('uuid');
+
 class Contrato{
     constructor(data={}){
-        this.id = data.id || null;
+        this.id = data.id || uuidv4();
         this.solicitud_id = data.solicitud_id || null;
         this.numero_contrato = data.numero_contrato || '';
         this.monto_aprobado = data.monto_aprobado || 0;

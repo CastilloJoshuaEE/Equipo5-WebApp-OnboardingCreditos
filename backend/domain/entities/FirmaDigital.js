@@ -1,7 +1,9 @@
 // backend/domain/entities/FirmaDigital.js
+const { v4: uuidv4 } = require('uuid');
+
 class FirmaDigital{
     constructor(data={}){
-        this.id = data.id || null;
+        this.id = data.id ||  uuidv4();
         this.contrato_id = data.contrato_id || null;
         this.solicitud_id = data.solicitud_id || null;
         this.signature_request_id = data.signature_request_id || null;

@@ -9,18 +9,18 @@ class IniciarProcesoFirma{
         contratoRepository,
         wordService,
         notificacionService,
-        supabase
+        supabaseAdmin
     ){
         this.firmaDigitalRepository = firmaDigitalRepository;
         this.contratoRepository = contratoRepository;
         this.wordService = wordService;
         this.notificacionService = notificacionService;
-        this.supabase = supabase;
+        this.supabaseAdmin = supabaseAdmin;
     }
     async execute(solicitud_id, usuario, {forzar_reinicio}){
         console.log('Iniciando proceso de firma para solicitud:', solicitud_id);
         // 1. Verificar que la solicitud existe y está aprobada
-        const { data: solicitud, error: solError} = await this.supabase
+        const { data: solicitud, error: solError} = await this.supabaseAdmin
             .from('solicitudes_credito')
             .select(`
                 *,
@@ -36,7 +36,7 @@ class IniciarProcesoFirma{
                 )
                 `)
             .eq('id', solicitud_id)
-            .eq('estado', aprobado)
+            .eq('estado', 'aprobado')
             .single();
         if(solError || !solicitud){
             return {
@@ -56,60 +56,57 @@ class IniciarProcesoFirma{
             contratoExistente =null;
         }
         if(!contratoExistente){
-            console.log('No existe contrato, generando uno nuevo...');
-            try{
-                const generarContratoUseCase = new GenerarContratoParaSolicitud(
-                    this.contratoRepository,
-                    this.wordService,
-                    this.supabase
-                );
-                const nuevoContrato = await generarContratoUseCase.execute(solicitud_id);
-                const { data: contratoGenerado} = await this.supabase   
-                    .from('contratos')
-                    .select('*')
-                    .eq('solicitud_id', solicitud_id)
-                    .single();
-                if(!contratoGenerado){
-                    throw new Error('No se pudo obtener el contrato generado');
-                }
-                contratoFinal = contratoGenerado;
-                console.log('..Contrato generado exitosamente:', contratoFinal.id);
-            } catch (error){
-                console.error('Error generando contrato:', error);
-                return {
-                    success: false,
-                    status: 400,
-                    message: 'Error generando contrato:'+error.message
-                };
-            }
-        } else{
-            console.log('Contrato existente encontrado, actualizando:', contratoExistente.id);
-            try{
-                const { data:contratoActualizado, error: updateError} = await this.supabase
-                    .from('contratos')
-                    .update({
-                        estato: 'generado',
-                        updated_at: new Date().toISOString(),
-                        monto_aprobado: solicitud.monto,
-                        plazo_meses: solicitud.plazo_meses
-                    })
-                    .eq('id', contratoExistente.id)
-                    .select()
-                    .single();
-                if(updateError){
-                    throw new Error('Error actualizando contrato existente:'+updateError.message);
-                }  
-                contratoFinal =contratoActualizado;
-                console.log('Contrato existente actualizado:', contratoFinal.id);
-            } catch(error){
-                console.error('Error actualizando contrato existente:', error);
-                return {
-                    success: false,
-                    status: 400,
-                    message: 'Error actualizando contrato existente:' + error.message
-                };
-            }
+    console.log('No existe contrato, generando uno nuevo...');
+    try{
+        const generarContratoUseCase = new GenerarContratoParaSolicitud(
+            this.contratoRepository,
+            this.wordService,
+            this.supabaseAdmin
+        );
+        
+        // EJECUTAR y GUARDAR el resultado directamente
+        const contratoGenerado = await generarContratoUseCase.execute(solicitud_id);
+        
+        if(!contratoGenerado){
+            throw new Error('No se pudo obtener el contrato generado');
         }
+        
+        // USAR el contrato devuelto por execute() en lugar de hacer otra consulta
+        contratoFinal = contratoGenerado;
+        console.log('Contrato generado exitosamente:', contratoFinal.id);
+        
+    } catch (error){
+        console.error('Error generando contrato:', error);
+        return {
+            success: false,
+            status: 400,
+            message: 'Error generando contrato:' + error.message
+        };
+    }
+}
+ else {
+    console.log('Contrato existente encontrado, actualizando:', contratoExistente.id);
+    try {
+        // Usar el repositorio directamente en lugar de supabaseAdmin
+        const contratoActualizado = await this.contratoRepository.actualizar(contratoExistente.id, {
+            estado: 'generado',
+            monto_aprobado: solicitud.monto,
+            plazo_meses: solicitud.plazo_meses,
+            numero_contrato: `CONTR-${solicitud.numero_solicitud}-${Date.now()}`
+        });
+        
+        contratoFinal = contratoActualizado;
+        console.log('Contrato existente actualizado:', contratoFinal.id);
+        
+    } catch(error) {
+        console.error('Error actualizando contrato existente:', error);
+        return {
+            success: false,
+            status: 400,
+            message: 'Error actualizando contrato existente:' + error.message
+        };
+    }
+}
         // 3. Verificar que el contrato tiene documento
         if(!contratoFinal.ruta_documento){
             console.log('Contrato sin documento, generando word');
@@ -117,10 +114,10 @@ class IniciarProcesoFirma{
                 const generarContratoUseCase = new GenerarContratoParaSolicitud(
                     this.contratoRepository,
                     this.wordService,
-                    this.supabase
+                    this.supabaseAdmin
                 );
                 await generarContratoUseCase.generarWordContrato(contratoFinal.id, solicitud);
-                const { data:contratoActualizado} = await this.supabase
+                const { data:contratoActualizado} = await this.supabaseAdmin
                     .from('contratos')
                     .select('*')
                     .eq('id', contratoFinal.id)
@@ -141,48 +138,66 @@ class IniciarProcesoFirma{
             
         }
         // 4. Verificar que el documento existe en storage
-        console.log('Verificando docuemento en storage:', contratoFinal.ruta_documento);
-        const { data: fileData, error: fileError} = await this.supabase.storage
+console.log('Verificando documento en storage:', contratoFinal.ruta_documento);
+
+let fileData;
+const { data: downloadData, error: fileError } = await this.supabaseAdmin.storage
+    .from('kyc-documents')
+    .download(contratoFinal.ruta_documento);
+
+if (fileError) {
+    console.error('Documento no encontrado en storage:', fileError);
+    try {
+        console.log('Regenerando documento...');
+        const generarContratoUseCase = new GenerarContratoParaSolicitud(
+            this.contratoRepository,
+            this.wordService,
+            this.supabaseAdmin
+        );
+        
+        // Regenerar el word (esto actualiza la ruta en la BD)
+        await generarContratoUseCase.generarWordContrato(contratoFinal.id, solicitud);
+        
+        // AHORA SÍ, descargar el documento recién generado
+        const { data: newFileData, error: newFileError } = await this.supabaseAdmin.storage
             .from('kyc-documents')
             .download(contratoFinal.ruta_documento);
-        if(fileError){
-            console.error('Documento no encontrado en storage:', fileError);
-            try{
-                console.log('Regenerando documento...');
-                const generarContratoUseCase = new GenerarContratoParaSolicitud(
-                    this.contratoRepository,
-                    this.wordService,
-                    this.supabase
-                );
-                await generarContratoUseCase.generarWordContrato(contratoFinal.id, solicitud);
-                const { data:fileDataRetry, error: fileErrorRetry} = await this.supabase.storage
-                    .from('kyc-documents')
-                    .download(contratoFinal.ruta_documento);
-                if(fileErrorRetry){
-                    throw new Error('No se pudo regenerar el documento:'+fileErrorRetry.message);
-                }
-                console.log('Documento regenerado exitosamente');
-            } catch (regenerateError){
-                console.error('Error regenerando documento:', regenerateError);
-                return {
-                    success: false,
-                    status: 400,
-                    message: 'El documento del contrato no está disponible:' + regenerateError.message
-                };
-            }
+            
+        if (newFileError) {
+            throw new Error('No se pudo regenerar el documento: ' + newFileError.message);
         }
-        console.log('Documento verificando exitosamente');
-        // 5. Verificar si ya existe proceso de firma
-        const firmaExistente = await this.firmaDigitalRepository.verificarFirmaActiva(solicitud_id);
-        if(firmaExistente){
-            console.log('Ya existe proceso de firma:', firmaExistente);
-            console.log('Reemplazando firma existente con nueva firma...');
-            await this.firmaDigitalRepository.actualizar(firmaExistente.id,{
-                estado:'reemplazado',
-                updated_at: new Date().toISOString()
-            });
-            console.log('Firma anterior marcada como reemplazada:', firmaExistente.id);
-        }
+        
+        // Asignar el nuevo fileData
+        fileData = newFileData;
+        console.log('Documento regenerado exitosamente');
+        
+    } catch (regenerateError) {
+        console.error('Error regenerando documento:', regenerateError);
+        return {
+            success: false,
+            status: 400,
+            message: 'El documento del contrato no está disponible: ' + regenerateError.message
+        };
+    }
+} else {
+    // Si no hay error, asignar el fileData descargado
+    fileData = downloadData;
+}
+
+console.log('Documento verificado exitosamente');
+
+// 5. Verificar si ya existe proceso de firma
+const firmaExistente = await this.firmaDigitalRepository.verificarFirmaActiva(solicitud_id);
+if(firmaExistente){
+    console.log('Ya existe proceso de firma:', firmaExistente);
+    console.log('Reemplazando firma existente con nueva firma...');
+    await this.firmaDigitalRepository.actualizar(firmaExistente.id,{
+        estado:'reemplazado',
+        updated_at: new Date().toISOString()
+    });
+    console.log('Firma anterior marcada como reemplazada:', firmaExistente.id);
+}
+
         // 6. Procesar el documento para firma
         const buffer = Buffer.from(await fileData.arrayBuffer());
         const metadatosDocumento= {
@@ -240,7 +255,7 @@ class IniciarProcesoFirma{
         });
         const firma = await this.firmaDigitalRepository.crear(firmaEntity.toJSON());
         // 9. Actualizar contrato
-        await this.supabase
+        await this.supabaseAdmin
             .from('contratos')
             .update({
                 estado: 'pendiente_firma',

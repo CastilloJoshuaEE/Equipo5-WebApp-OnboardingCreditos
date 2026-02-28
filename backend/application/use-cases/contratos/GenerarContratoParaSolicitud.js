@@ -2,103 +2,134 @@
 const Contrato = require('../../../domain/entities/Contrato');
 const ContratoController = require('../../../interfaces/controllers/ContratoController');
 class GenerarContratoParaSolicitud{
-    constructor(contratoRepository, wordService, supabase){
+    constructor(contratoRepository, wordService, supabaseAdmin){
         this.contratoRepository = contratoRepository;
         this.wordService = wordService;
-        this.supabase = supabase;
+        this.supabaseAdmin = supabaseAdmin;
     }
     async execute(solicitudId){
         // Obtener solicitud
-        const { data: solicitud, error} = await this.supabase
-            .from('solicitudes_credito')
-            .select(`
-                *,
-                solicitantes: solicitantes!solicitante_id(
-                    usuarios(*),
-                    nombre_empresa,
-                    cuit,
-                    representante_legal,
-                    domicilio
-                ),
-                operadores: operadores!operador_id(
-                    usuarios(*)
-                )
-
-                `)
-            .eq('id', solicitudId)
-            .eq('estado', 'aprobado')
-            .single();
-        if(error || !solicitud){
-            throw new Error('Solicitud no encontrada o no aprobada');
-        }
-        // VERIFICAR SI YA EXISTE UN CONTRATO PARA ESTA SOLICITUD
-        let contratoExistente;
-        try{
-            contratoExistente = await this.contratoRepository.obtenerPorSolicitud(solicitudId);
-        } catch( error){
-            console.log('No se pudo verificar contrato existente, creando uno nuevo...');
-            contratoExistente = null;
-        }
-        if(contratoExistente){
-            console.log('Contrato existente encontrado, actualizando:', contratoExistente.id);
-            const numeroContrato = this.generarNumeroContrato(solicitud.numero_solicitud);
-            const updateData = {
-                numero_contrato: numeroContrato,
-                monto_aprobado: solicitud.monto,
-                tasa_interes: 24.50,
-                plazo_meses: solicitud.plazo_meses,
-                estado: 'generado',
-                updated_at: new Date().toISOString()
-            };
-            const contratoActualizado = await this.contratoRepository.actualizar(contratoExistente.id, updateData);
-            // Generar word del contrato actualizado
-            await this.generarWordContrato(contratoActualizado.id, solicitud);
-            console.log('Contrato existente actualizado para solicitud:', solicitudId);
-            return contratoActualizado;
-
-        }
-        // Si no existe, crear uno nuevo
+        const { data: solicitud, error} = await this.supabaseAdmin
+        .from('solicitudes_credito')
+        .select(`
+            *,
+            solicitantes: solicitantes!solicitante_id(
+                usuarios(*),
+                nombre_empresa,
+                cuit,
+                representante_legal,
+                domicilio
+            ),
+            operadores: operadores!operador_id(
+                usuarios(*)
+            )
+        `)
+        .eq('id', solicitudId)
+        .eq('estado', 'aprobado')
+        .single();
+        
+    if(error || !solicitud){
+        throw new Error('Solicitud no encontrada o no aprobada');
+    }
+    
+    // VERIFICAR SI YA EXISTE UN CONTRATO PARA ESTA SOLICITUD
+    let contratoExistente;
+    try{
+        contratoExistente = await this.contratoRepository.obtenerPorSolicitud(solicitudId);
+    } catch(error){
+        console.log('No se pudo verificar contrato existente, creando uno nuevo...');
+        contratoExistente = null;
+    }
+    
+    if(contratoExistente){
+        console.log('Contrato existente encontrado, actualizando:', contratoExistente.id);
         const numeroContrato = this.generarNumeroContrato(solicitud.numero_solicitud);
-        const contratoEntity = new Contrato({
-            solicitud_id: solicitudId,
+        const updateData = {
             numero_contrato: numeroContrato,
             monto_aprobado: solicitud.monto,
             tasa_interes: 24.50,
             plazo_meses: solicitud.plazo_meses,
             estado: 'generado',
-            tipo: 'credito_standard'
-        });
-        // Validar datos
-        const erroresValidacion = contratoEntity.validarDatos();
-        if(erroresValidacion.length >0){
-            throw new Error(`Datos de contrato inválidos: ${erroresValidacion.join(', ')}`);
-
-        }
-        // Crear contrato
-        const contrato = await this.contratoRepository.crear(contratoEntity.toJSON());
-        // Generar word del contrato
-        await this.generarWordContrato(contrato.id, solicitud);
-        console.log('Nuevo contrato generado para solicitud:', solicitudId);
-        return contrato;
-
-
+            updated_at: new Date().toISOString()
+        };
+        
+        const contratoActualizado = await this.contratoRepository.actualizar(contratoExistente.id, updateData);
+        
+        // Generar word del contrato actualizado
+        const rutaStorage = await this.generarWordContrato(contratoActualizado.id, solicitud);
+        
+        // Actualizar la ruta del documento
+        contratoActualizado.ruta_documento = rutaStorage;
+        
+        console.log('Contrato existente actualizado para solicitud:', solicitudId);
+        return contratoActualizado; // ← DEVOLVER el objeto actualizado
     }
+    
+    // Si no existe, crear uno nuevo
+    const numeroContrato = this.generarNumeroContrato(solicitud.numero_solicitud);
+    const contratoEntity = new Contrato({
+        solicitud_id: solicitudId,
+        numero_contrato: numeroContrato,
+        monto_aprobado: solicitud.monto,
+        tasa_interes: 24.50,
+        plazo_meses: solicitud.plazo_meses,
+        estado: 'generado',
+        tipo: 'credito_standard'
+    });
+    
+    // Validar datos
+    const erroresValidacion = contratoEntity.validarDatos();
+    if(erroresValidacion.length > 0){
+        throw new Error(`Datos de contrato inválidos: ${erroresValidacion.join(', ')}`);
+    }
+    
+    // Crear contrato
+    const contrato = await this.contratoRepository.crear(contratoEntity.toJSON());
+    
+    // Generar word del contrato
+    const rutaStorage = await this.generarWordContrato(contrato.id, solicitud);
+    
+    // Actualizar el objeto contrato con la ruta
+    contrato.ruta_documento = rutaStorage;
+    
+    console.log('Nuevo contrato generado para solicitud:', solicitudId);
+    return contrato; // ← DEVOLVER el objeto completo
+}
     generarNumeroContrato(numeroSolicitud){
         return `CONTR-${numeroSolicitud}-${Date.now()}`;
     }
-    async generarWordContrato(contratoId, solicitud){
-        console.log('Generando word para contrato:', contratoId);
-        const pdfBuffer = await ContratoController.crearDOCXContrato(solicitud);
-        const nombreArchivo = `contrato-${contratoId}.docx`;
-        const rutaStorage = `contratos/${nombreArchivo}`;
-        await this.wordService.subirDocumento(nombreArchivo, pdfBuffer,{
-            contrato_id: contratoId,
-            solicitud_id: solicitud.id,
-            numero_solicitud: solicitud.numero_solicitud
+async generarWordContrato(contratoId, solicitud){
+    console.log('Generando word para contrato:', contratoId);
+    const pdfBuffer = await ContratoController.crearDOCXContrato(solicitud);
+    const nombreArchivo = `contrato-${contratoId}.docx`;
+    const rutaStorage = `contratos/${nombreArchivo}`;
+    
+    // Usar supabaseAdminAdmin para evitar problemas de RLS
+    const { error: uploadError } = await this.supabaseAdmin.storage
+        .from('kyc-documents')
+        .upload(rutaStorage, pdfBuffer, {
+            contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            upsert: true,
+            cacheControl: '3600'
         });
-        await this.contratoRepository.actualizarRutaDocumento(contratoId, rutaStorage);
-        console.log('word de contrato generado y guardado:', rutaStorage);
-        return rutaStorage;
+        
+    if (uploadError) {
+        console.error('Error subiendo documento:', uploadError);
+        throw new Error(`Error subiendo documento: ${uploadError.message}`);
     }
+    
+    // Verificar que se subió correctamente obteniendo la URL pública
+    const { data: urlData } = this.supabaseAdmin.storage
+        .from('kyc-documents')
+        .getPublicUrl(rutaStorage);
+    
+    console.log('Documento subido exitosamente, URL pública:', urlData.publicUrl);
+    
+    // Actualizar la ruta en la base de datos
+    await this.contratoRepository.actualizarRutaDocumento(contratoId, rutaStorage);
+    
+    console.log('Word de contrato generado y guardado:', rutaStorage);
+    return rutaStorage;
+}
 }
 module.exports = GenerarContratoParaSolicitud;

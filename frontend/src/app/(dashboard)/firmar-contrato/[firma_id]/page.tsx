@@ -1,6 +1,7 @@
-// frontend/src/pages/firmar-contrato/[firma_id].tsx
+// frontend/src/app/(dashboard)/firmar-contrato/[firma_id].tsx
+'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/router';
+import { useRouter, useParams } from 'next/navigation';
 import { Session } from 'next-auth';
 import { getSession } from 'next-auth/react';
 import { 
@@ -31,8 +32,9 @@ import VisorWordFirma from '@/components/FirmaDigital/VisorWordFirma';
 import { InfoFirmaData } from '@/features/firma_digital/firmaDigital.types';
 import { DocumentoFirmado } from '@/features/firma_digital/firmaDigital.types';
 const FirmaContratoPage = () => {
-  const router = useRouter();
-  const { firma_id } = router.query;  
+const router = useRouter();
+const params = useParams();
+const firma_id = params?.firma_id as string;
   const [session, setSession] = useState<Session | null>(null);
   const [infoFirma, setInfoFirma] = useState<InfoFirmaData | null>(null);
   const [documento, setDocumento] = useState<DocumentoFirmado | null>(null);
@@ -362,24 +364,7 @@ const handleDescargarContratoFirmado = async (firmaId: string) => {
         <Typography variant="h4" gutterBottom>
           Firma Digital de Contrato
         </Typography>
-        
-        <Button
-          variant="outlined"
-          onClick={() => {
-            // Redirigir según el rol del usuario
-            const userRole = session?.user?.rol;
-            if (userRole === 'operador') {
-              router.push('/operador');
-            } else if (userRole === 'solicitante') {
-              router.push('/solicitante');
-            } else {
-              router.push('/');
-            }
-          }}
-          sx={{ mb: 2 }}
-        >
-          Volver al Dashboard
-        </Button>
+
 
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2, flexWrap: 'wrap' }}>
           <Chip 
@@ -489,21 +474,7 @@ const handleDescargarContratoFirmado = async (firmaId: string) => {
 >
     Descargar Contrato Firmado
 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    const userRole = session?.user?.rol;
-                    if (userRole === 'operador') {
-                      router.push('/operador');
-                    } else if (userRole === 'solicitante') {
-                      router.push('/solicitante');
-                    } else {
-                      router.push('/');
-                    }
-                  }}
-                >
-                  Volver al Dashboard
-                </Button>
+
               </Box>
             </Box>
           </CardContent>

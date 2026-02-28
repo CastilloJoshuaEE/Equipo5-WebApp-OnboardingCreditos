@@ -204,7 +204,15 @@ export default function OperadorDashboard() {
       return t ? total + (parseFloat(t.monto.toString()) || 0) : total;
     }, 0);
     const listasParaTransferencia = solicitudes.filter(solicitud => {
-      const tieneContratoFirmado = solicitud.contratos?.some((c: Contrato) => c.estado === 'firmado_completo');
+      const contratosArray = Array.isArray(solicitud.contratos)
+  ? solicitud.contratos
+  : solicitud.contratos
+  ? [solicitud.contratos]
+  : [];
+
+const tieneContratoFirmado = contratosArray.some(
+  (c: Contrato) => c.estado === 'firmado_completo'
+);
       const tieneTransferenciaCompletada = solicitud.transferencias_bancarias?.some((t: TransferenciaBancaria) => t.estado === 'completada');
       return solicitud.estado === 'aprobado' && tieneContratoFirmado && !tieneTransferenciaCompletada;
     }).length;

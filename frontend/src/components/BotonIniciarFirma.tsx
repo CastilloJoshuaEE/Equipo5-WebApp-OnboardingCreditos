@@ -192,7 +192,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
     return (
       <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
         <Typography variant="body2" fontWeight="bold">
-          ℹ️ Información - Proceso de Firma Digital
+          Información - Proceso de Firma Digital
         </Typography>
         <Typography variant="body2" sx={{ mt: 1 }}>
           • El solicitante tiene <strong>7 días</strong> para completar la firma digital
@@ -479,7 +479,17 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
   if (!botonVisible() && solicitudCargada) {
     return null;
   }
+const getTextoBotonPrincipal = () => {
+  if (userRol === 'solicitante') {
+    return 'Continuar Firma Digital';
+  }
 
+  if (userRol === 'operador') {
+    return 'Iniciar Firma Digital';
+  }
+
+  return 'Firma Digital';
+};
   return (
     <>
       {/* Overlay de carga */}
@@ -522,7 +532,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
               position: 'relative'
             }}
           >
-            Iniciar Firma Digital
+  {getTextoBotonPrincipal()}
           </Button>
         </span>
       </Tooltip>
@@ -568,7 +578,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
               </Box>
               
               <Typography variant="body2" sx={{ mt: 2 }}>
-                ¿Deseas continuar con el proceso de firma existente o crear uno nuevo?
+                ¿Deseas continuar con el proceso de firma ?
               </Typography>
             </Box>
           ) : solicitudInfo?.estado === 'aprobado' ? (

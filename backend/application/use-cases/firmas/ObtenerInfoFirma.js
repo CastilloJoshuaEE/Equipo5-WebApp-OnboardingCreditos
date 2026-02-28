@@ -20,7 +20,7 @@ class ObtenerInfoFirma{
             };
         }
         // Obtener información de la firma
-        const firma = await this.firmaDigitalRepository.obtenerInfoFirma(firma_id);
+        const firma = await this.firmaDigitalRepository.obtenerInfoParaFirma(firma_id);
         if(!firma){
             return {
                 success: false,

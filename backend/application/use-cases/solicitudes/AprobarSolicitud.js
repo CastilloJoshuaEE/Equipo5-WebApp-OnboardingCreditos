@@ -2,10 +2,10 @@
 const Solicitud = require('../../../domain/entities/Solicitud');
 
 class AprobarSolicitud {
-  constructor(solicitudRepository, notificacionService, contratoService) {
+  constructor(solicitudRepository, notificacionService, generarContratoUseCase) {
     this.solicitudRepository = solicitudRepository;
     this.notificacionService = notificacionService;
-    this.contratoService = contratoService;
+    this.generarContratoUseCase = generarContratoUseCase;
   }
 
   async execute(solicitud_id, { comentarios, condiciones }, usuario) {
@@ -43,7 +43,7 @@ class AprobarSolicitud {
     }
 
     try {
-      const contrato = await this.contratoService.generarContratoParaSolicitud(solicitud_id);
+      const contrato = await this.generarContratoUseCase.generarContratoParaSolicitud(solicitud_id);
 
       await this.notificacionService.notificarAprobacionSolicitud(
         solicitud.solicitante_id,

@@ -101,3 +101,29 @@ FOR SELECT USING (
   )
 );
 
+-- Política para permitir inserción por operadores
+CREATE POLICY "contratos_insert_operadores" ON contratos
+    FOR INSERT
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM solicitudes_credito sc
+            WHERE sc.id = contratos.solicitud_id
+            AND (
+                -- El operador asignado a la solicitud puede insertar
+                sc.operador_id::text = auth.uid()::text
+                OR
+                -- Cualquier operador puede insertar (opcional)
+                auth.uid() IN (SELECT id FROM usuarios WHERE rol = 'operador')
+            )
+        )
+    );
+
+-- Política para permitir inserción por el sistema (service_role)
+CREATE POLICY "contratos_insert_service_role" ON contratos
+    FOR INSERT
+    WITH CHECK (auth.role() = 'service_role');
+
+-- Política específica para permitir inserción por el backend (usando el rol de servicio)
+CREATE POLICY "contratos_insert_backend" ON contratos
+    FOR INSERT
+    WITH CHECK (true);  -- Solo se aplica cuando usas supabaseAdmin

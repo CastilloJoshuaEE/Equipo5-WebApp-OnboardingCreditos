@@ -3,13 +3,15 @@ const ContratoRepository = require('../../domain/repositories/ContratoRepository
 const Contrato = require('../../domain/entities/Contrato');
 
 class SupabaseContratoRepository extends ContratoRepository {
-  constructor(supabase) {
+  constructor(supabase, supabaseAdmin) {
     super();
     this.supabase = supabase;
+    this.supabaseAdmin = supabaseAdmin; 
   }
 
   async crear(contratoData) {
-    const { data, error } = await this.supabase
+    
+    const { data, error } = await this.supabaseAdmin
       .from('contratos')
       .insert([contratoData])
       .select()
@@ -20,16 +22,46 @@ class SupabaseContratoRepository extends ContratoRepository {
   }
 
   async actualizar(id, updateData) {
-    const { data, error } = await this.supabase
-      .from('contratos')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+  // Primero verificar que existe exactamente un registro
+  const { data: existing, error: checkError } = await this.supabaseAdmin
+    .from('contratos')
+    .select('id')
+    .eq('id', id);
 
-    if (error) throw new Error(`Error actualizando contrato: ${error.message}`);
-    return new Contrato(data);
+  if (checkError) {
+    throw new Error(`Error verificando contrato: ${checkError.message}`);
   }
+
+  if (!existing || existing.length === 0) {
+    throw new Error(`Contrato con ID ${id} no encontrado`);
+  }
+
+  if (existing.length > 1) {
+    // Esto no debería pasar con UUID, pero por si acaso
+    console.warn(`Múltiples contratos encontrados con ID ${id}. Usando el primero.`);
+  }
+
+  // Realizar la actualización
+  const { data, error } = await this.supabaseAdmin
+    .from('contratos')
+    .update({
+      ...updateData,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select();
+
+  if (error) {
+    throw new Error(`Error actualizando contrato: ${error.message}`);
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error('No se pudo obtener el contrato actualizado');
+  }
+
+  // Devolver el primer resultado
+  return new Contrato(data[0]);
+}
 
   async obtenerPorId(id) {
     const { data, error } = await this.supabase
@@ -58,7 +90,7 @@ class SupabaseContratoRepository extends ContratoRepository {
   }
 
   async obtenerPorSolicitud(solicitudId) {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.supabaseAdmin
       .from('contratos')
       .select('*')
       .eq('solicitud_id', solicitudId)
@@ -123,7 +155,7 @@ class SupabaseContratoRepository extends ContratoRepository {
   }
 
   async actualizarRutaDocumento(contratoId, rutaDocumento) {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.supabaseAdmin
       .from('contratos')
       .update({
         ruta_documento: rutaDocumento,

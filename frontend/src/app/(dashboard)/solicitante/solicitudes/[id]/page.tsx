@@ -262,15 +262,7 @@ const BotonEliminarSolicitud = ({ solicitudId, solicitudEstado, onEliminar }: {
         >
           {error}
         </Alert>
-        <Button 
-          variant="outlined" 
-          onClick={() => router.push('/solicitante')}
-          fullWidth={isMobile}
-          startIcon={<ArrowBackIcon />}
-          sx={{ mt: 2 }}
-        >
-          Volver al Dashboard
-        </Button>
+
       </Box>
     );
   }
@@ -595,17 +587,6 @@ const BotonEliminarSolicitud = ({ solicitudId, solicitudEstado, onEliminar }: {
                 Acciones
               </Typography>
               
-              {!isMobile && (
-                <Button 
-                  variant="outlined" 
-                  fullWidth
-                  onClick={() => router.push('/solicitante')}
-                  startIcon={<ArrowBackIcon />}
-                  sx={{ mb: 1 }}
-                >
-                  Volver al Dashboard
-                </Button>
-              )}
 
  {/* Solo mostrar el botón de firma si la solicitud está APROBADA */}
     {solicitud.estado === 'aprobado' && (
