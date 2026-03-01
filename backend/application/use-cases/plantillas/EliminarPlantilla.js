@@ -7,7 +7,6 @@ class EliminarPlantilla {
   }
 
   async execute(id, usuario, req) {
-    console.log('Eliminando plantilla ID:', id);
 
     const resultado = await this.plantillaDocumentoRepository.eliminar(id);
 

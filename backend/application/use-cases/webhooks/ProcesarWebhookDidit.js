@@ -7,7 +7,6 @@ class ProcesarWebhookDidit{
         this.diditService = diditService;
     }
     async execute ( payload, signature, timestamp){
-        console.log('Webhook recibido de Didit:', payload.session_id);
         if(!this.diditService.verifyWebhookSignature(payload, signature, timestamp)){
             console.error('Firma de webhook inválida');
             return {
@@ -36,7 +35,6 @@ class ProcesarWebhookDidit{
             await this.actualizarDocumentosVerificados(verificacion.solicitud_id, decision.id_verification);
             
         }
-        console.log(`Webhook procesado: ${session_id}-${status}`);
         return {
             success: true,
             message: 'Webhook procesado'
@@ -53,7 +51,6 @@ class ProcesarWebhookDidit{
                     comentarios: `Verificado automáticamente por Didit- ${idVerification.document_Type}`,
                     validado_en: new Date().toISOString()
                 });
-                console.log(`Documento DNI validado automáticamente para solicitud:${solicitudId}`);
             }
 
         } catch (error) {

@@ -14,8 +14,6 @@ class SupabaseSolicitudRepository extends SolicitudRepository {
       // Asegurarse de que no se envía id (dejar que la BD lo genere)
       const { id, ...dataToInsert } = solicitudData;
       
-      console.log('Creando solicitud con datos:', dataToInsert);
-
       const { data, error } = await this.supabaseAdmin
         .from('solicitudes_credito')
         .insert([dataToInsert])
@@ -36,7 +34,6 @@ class SupabaseSolicitudRepository extends SolicitudRepository {
 
   async findById(id) {
     try {
-      console.log(` Buscando solicitud con ID: ${id}`);
 
       const { data, error } = await this.supabaseAdmin
         .from('solicitudes_credito')

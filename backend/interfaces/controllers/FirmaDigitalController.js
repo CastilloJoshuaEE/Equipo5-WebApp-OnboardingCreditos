@@ -61,9 +61,8 @@ async verContratoFirmado(req, res) {
   const usuario = req.usuario;
 
   try {
-    console.log('Ver contrato firmado para:', firma_id);
     
-    // CORRECCIÓN: usar this.firmaDigitalRepository (sin guión bajo)
+    //  usar this.firmaDigitalRepository (sin guión bajo)
     const tienePermisos = await this.firmaDigitalRepository.verificarPermisos(
       firma_id,
       usuario.id,

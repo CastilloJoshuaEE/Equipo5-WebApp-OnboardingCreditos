@@ -2,7 +2,7 @@
 const { Document, Paragraph, TextRun, Packer, HeadingLevel, AlignmentType, Table, TableCell, TableRow, WidthType } = require('docx');
 const mammoth = require('mammoth');
 const crypto = require('crypto');
-const { supabaseClient } = require('../database/supabaseClient');
+const { supabaseAdmin } = require('../database/supabaseAdmin');
 
 class WordService {
     
@@ -11,10 +11,9 @@ class WordService {
      */
    static async procesarFirmaAcumulativa(firma_id, datosFirma, tipo) {
     try {
-        console.log('. . Procesando firma acumulativa para:', firma_id);
 
         // 1. Obtener información COMPLETA de la firma con estado actual
-        const { data: firma, error: firmaError } = await supabaseClient
+        const { data: firma, error: firmaError } = await supabaseAdmin
             .from('firmas_digitales')
             .select(`
                 *,
@@ -38,10 +37,8 @@ class WordService {
             throw new Error('No se encontró documento para firmar');
         }
 
-        console.log('. Usando documento:', rutaDocumentoActual);
-
         // 3. VERIFICAR que el documento existe en storage
-        const { data: fileData, error: fileError } = await supabaseClient.storage
+        const { data: fileData, error: fileError } = await supabaseAdmin.storage
             .from('kyc-documents')
             .download(rutaDocumentoActual);
 
@@ -55,7 +52,7 @@ class WordService {
         const contenidoExistente = await WordService.extraerContenidoSinFirmasDuplicadas(bufferActual);
         
         // 5. OBTENER INFORMACIÓN ACTUALIZADA DE AMBAS FIRMAS
-        const { data: firmaActualizada } = await supabaseClient
+        const { data: firmaActualizada } = await supabaseAdmin
             .from('firmas_digitales')
             .select('fecha_firma_solicitante, fecha_firma_operador')
             .eq('id', firma_id)
@@ -130,7 +127,6 @@ class WordService {
      */
    static async extraerContenidoSinFirmasDuplicadas(bufferDocumento) {
     try {
-        console.log('. Extrayendo contenido sin duplicar firmas...');
         
         const result = await mammoth.extractRawText({ 
             buffer: bufferDocumento,
@@ -153,7 +149,6 @@ class WordService {
             if (indice !== -1) {
                 // Conservar solo el contenido ANTES del patrón
                 contenido = contenido.substring(0, indice).trim();
-                console.log('. Se eliminó sección de firmas con patrón:', patron);
                 break;
             }
         }
@@ -161,7 +156,6 @@ class WordService {
         // LIMPIAR saltos de línea excesivos
         contenido = contenido.replace(/\n{3,}/g, '\n\n'); // Máximo 2 saltos de línea consecutivos
         
-        console.log('. Contenido limpiado exitosamente');
         return contenido;
         
     } catch (error) {
@@ -177,10 +171,9 @@ class WordService {
    
     static async generarSeccionFirmasActualizada(firma_id, datosFirma, tipo) {
     try {
-        console.log('. Generando sección de firmas actualizada para:', firma_id);
         
         // Obtener información ACTUAL de la firma con todas las firmas registradas
-        const { data: firmaCompleta, error } = await supabaseClient
+        const { data: firmaCompleta, error } = await supabaseAdmin
             .from('firmas_digitales')
             .select(`
                 fecha_firma_solicitante,
@@ -247,7 +240,6 @@ HASH DE VALIDACIÓN: ${firmaCompleta.hash_documento_original}
 ✓ DOCUMENTO FIRMADO DIGITALMENTE - VÁLIDO LEGALMENTE`;
         }
 
-        console.log('. Sección de firmas generada exitosamente');
         return seccionFirmas;
 
     } catch (error) {
@@ -267,7 +259,6 @@ HASH DE VALIDACIÓN: ${datosFirma.hashDocumento}
 }
      static async combinarContenidoYFirmas(contenido, seccionFirmas) {
     try {
-        console.log('. Combinando contenido y firmas en documento final...');
         
         // Dividir el contenido en párrafos preservando la estructura
         const lineas = contenido.split('\n');
@@ -440,7 +431,6 @@ HASH DE VALIDACIÓN: ${datosFirma.hashDocumento}
      */
  static async agregarFirmaADocumento(bufferDocumento, firmaData) {
     try {
-        console.log('. Procesando firma en documento Word existente...');
         
         // Extraer contenido REAL con formato preservado
         const contenidoOriginal = await this.extraerContenidoWord(bufferDocumento);
@@ -585,7 +575,6 @@ HASH DE VALIDACIÓN: ${datosFirma.hashDocumento}
     } catch (error) {
         console.error('. Error procesando documento Word:', error);
         
-        console.log('. Usando fallback con firmas visibles');
         return await this.fallbackConFirmas(bufferDocumento, firmaData);
     }
 }
@@ -674,7 +663,6 @@ static formatearContenidoContrato(contenido) {
      */
     static async preservarYFirmarDocumento(bufferOriginal, firmaData) {
         try {
-            console.log('. Preservando documento original y agregando firmas...');
             
             // Extraer contenido REAL
             const contenidoOriginal = await this.extraerContenidoWord(bufferOriginal);
@@ -756,15 +744,11 @@ static formatearContenidoContrato(contenido) {
      */
     static async subirDocumento(nombreArchivo, buffer, metadatos = {}) {
         try {
-            console.log('. Subiendo documento a Supabase Storage:', {
-                nombreArchivo,
-                tamanio: buffer.length,
-                metadatos
-            });
+
 
             const rutaStorage = `contratos-firmados/${nombreArchivo}`;
 
-            const { data, error } = await supabaseClient.storage
+            const { data, error } = await supabaseAdmin.storage
                 .from('kyc-documents')
                 .upload(rutaStorage, buffer, {
                     contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -777,9 +761,6 @@ static formatearContenidoContrato(contenido) {
                 throw error;
             }
 
-            console.log('. Documento subido exitosamente a Supabase:', {
-                ruta: rutaStorage
-            });
 
             return {
                 success: true,
@@ -822,7 +803,6 @@ static formatearContenidoContrato(contenido) {
      */
     static async crearSolicitudFirma(contratoId, solicitante) {
         try {
-            console.log('. Creando solicitud de firma interna para:', contratoId);
 
             const firmaId = crypto.randomUUID();
             const urlFirma = `/firmar-contrato/${firmaId}`;
@@ -852,7 +832,7 @@ static formatearContenidoContrato(contenido) {
      */
     static async verificarEstadoFirma(signatureRequestId) {
         try {
-            const { data: firma, error } = await supabaseClient
+            const { data: firma, error } = await supabaseAdmin
                 .from('firmas_digitales')
                 .select('estado')
                 .eq('id', signatureRequestId)
@@ -882,7 +862,7 @@ static formatearContenidoContrato(contenido) {
      */
     static async descargarDocumento(rutaStorage) {
         try {
-            const { data, error } = await supabaseClient.storage
+            const { data, error } = await supabaseAdmin.storage
                 .from('kyc-documents')
                 .download(rutaStorage);
 
@@ -901,7 +881,7 @@ static formatearContenidoContrato(contenido) {
      */
     static async verificarDocumentoExiste(rutaStorage) {
         try {
-            const { data, error } = await supabaseClient.storage
+            const { data, error } = await supabaseAdmin.storage
                 .from('kyc-documents')
                 .download(rutaStorage);
 
@@ -920,7 +900,7 @@ static formatearContenidoContrato(contenido) {
      */
   static async verificarIntegridadCompleta(firma_id) {
     try {
-        const { data: firma } = await supabaseClient
+        const { data: firma } = await supabaseAdmin
             .from('firmas_digitales')
             .select('fecha_firma_operador, fecha_firma_solicitante')
             .eq('id', firma_id)
@@ -932,13 +912,6 @@ static formatearContenidoContrato(contenido) {
 
     
         const ambasFirmasPresentes = firma.fecha_firma_operador && firma.fecha_firma_solicitante;
-        
-        console.log('. Verificación de integridad:', {
-            firma_id,
-            fecha_operador: firma.fecha_firma_operador,
-            fecha_solicitante: firma.fecha_firma_solicitante,
-            ambasFirmasPresentes
-        });
 
         return ambasFirmasPresentes; // Esto siempre será boolean
 
@@ -952,7 +925,7 @@ static formatearContenidoContrato(contenido) {
      */
     static async obtenerUltimoDocumento(firma_id) {
         try {
-            const { data: firma } = await supabaseClient
+            const { data: firma } = await supabaseAdmin
                 .from('firmas_digitales')
                 .select('url_documento_firmado, ruta_documento, hash_documento_firmado')
                 .eq('id', firma_id)
@@ -969,7 +942,7 @@ static formatearContenidoContrato(contenido) {
                 throw new Error('No hay documento disponible para firmar');
             }
 
-            const { data: fileData, error: fileError } = await supabaseClient.storage
+            const { data: fileData, error: fileError } = await supabaseAdmin.storage
                 .from('kyc-documents')
                 .download(rutaDocumento);
 

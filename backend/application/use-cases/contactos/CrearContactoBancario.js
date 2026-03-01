@@ -42,10 +42,8 @@ class CrearContactoBancario{
             };
         }
         // Verificar si el email pertenece a un solicitante
-        console.log('Buscando solicitante por email:', email_contacto);
         const usuarioSolicitante = await this.contactoBancarioRepository.obtenerSolicitantePorEmail(email_contacto);
         if(!usuarioSolicitante){
-            console.log('No se encontró solicitante con email:', email_contacto);
             return {
                 success: false, 
                 status: 404,
@@ -53,7 +51,6 @@ class CrearContactoBancario{
             };
         }
         contactoEntity.solicitante_id = usuarioSolicitante.id;
-        console.log('Solicitante encontrado:', contactoEntity.solicitante_id);
         // Verificar si ya existe un contacto con el mismo número de cuenta
         const existeContacto = await this.contactoBancarioRepository.existeNumeroCuenta(numero_cuenta);
         if(existeContacto){
@@ -63,10 +60,8 @@ class CrearContactoBancario{
                 message: 'Ya existe un contacto con ese número de cuenta'
             };
         }
-        console.log('Guardando contacto bancario:', contactoEntity.toJSON());
         // Crear contacto
         const contacto = await this.contactoBancarioRepository.crear(contactoEntity.toJSON());
-        console.log('Contacto bancario creado exitosamente:', contacto.id);
         return{
             success: true,
             status: 201,

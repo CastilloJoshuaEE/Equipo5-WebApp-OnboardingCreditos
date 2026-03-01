@@ -223,7 +223,6 @@ const cargarSolicitudInfo = useCallback(async () => {
             motivo: motivo || 'Transferencia de crédito aprobado'
         };
 
-        console.log('Enviando datos de transferencia:', transferenciaData);
 
         const response = await fetch(`${API_URL}/transferencias`, {
             method: 'POST',

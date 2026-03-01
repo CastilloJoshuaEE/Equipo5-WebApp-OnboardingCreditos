@@ -5,7 +5,6 @@ class EliminarComentario {
   }
 
   async execute(comentarioId, usuario) {
-    console.log(` Eliminando comentario: ${comentarioId}`);
 
     // Verificar permisos
     const tienePermisos = await this.comentarioRepository.verificarPermisos(
@@ -25,7 +24,6 @@ class EliminarComentario {
     try {
       await this.comentarioRepository.eliminar(comentarioId);
 
-      console.log(`. Comentario eliminado: ${comentarioId}`);
 
       return {
         success: true,

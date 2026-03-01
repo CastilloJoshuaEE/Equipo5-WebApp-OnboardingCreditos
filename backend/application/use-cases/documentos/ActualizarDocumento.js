@@ -8,7 +8,6 @@ class ActualizarDocumento {
   }
 
   async execute(documento_id, tipo, archivo, usuario) {
-    console.log('. Actualizando documento:', { documento_id, tipo, archivo: archivo ? archivo.originalname : 'NO ARCHIVO' });
 
     if (!documento_id || !tipo || !archivo) {
       return {
@@ -29,12 +28,10 @@ class ActualizarDocumento {
       };
     }
 
-    console.log(`. Actualizando documento ${tipo} con ID: ${documento_id}`);
 
     // Eliminar archivo anterior del storage
     try {
       await this.documentoRepository.eliminarArchivoStorage(documentoActual.ruta_storage);
-      console.log('. Archivo anterior eliminado:', documentoActual.ruta_storage);
     } catch (storageError) {
       console.warn('. Error eliminando archivo anterior:', storageError.message);
     }
@@ -67,8 +64,6 @@ class ActualizarDocumento {
     };
 
     const documento = await this.documentoRepository.actualizar(documento_id, documentoData);
-
-    console.log(`. Documento ${tipo} actualizado en BD con ID:`, documento.id);
 
     // Si es DNI, iniciar nueva verificación
     if (tipo === 'dni') {

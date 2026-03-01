@@ -11,9 +11,7 @@ class ObtenerContactosOperador{
                 message: 'Solo los operadores pueden acceder a esta función'
             };
         }
-        console.log('Obteniendo contactos para operador');
         const contactos = await this.contactoBancarioRepository.obtenerTodos();
-        console.log(`Contactos encontrados: ${contactos.length}`);
         return{
             success: true,
             data: contactos

@@ -63,36 +63,37 @@ class SupabaseFirmaDigitalRepository extends FirmaDigitalRepository{
         if(error && error.code !== 'PGRST116') throw error;
         return data? new FirmaDigital(data) : null;
     }
-      async obtenerInfoParaFirma(firmaId) {
-    const { data, error } = await this.supabase
-      .from('firmas_digitales')
-      .select(`
+async obtenerInfoParaFirma(firmaId) {
+  const { data, error } = await this.supabase
+    .from('firmas_digitales')
+    .select(`
+      id,
+      estado,
+      fecha_expiracion,
+      hash_documento_original,
+      contrato_id,
+      solicitud_id,
+      url_documento_firmado,
+      ruta_documento,  
+      contratos (
         id,
-        estado,
-        fecha_expiracion,
-        hash_documento_original,
-        contrato_id,
+        ruta_documento,
         solicitud_id,
-        contratos (
-          id,
-          ruta_documento,
-          solicitud_id,
-          numero_contrato,
-          estado
-        ),
-        solicitudes_credito (
-          numero_solicitud,
-          solicitante_id,
-          operador_id
-        )
-      `)
-      .eq('id', firmaId)
-      .single();
+        numero_contrato,
+        estado
+      ),
+      solicitudes_credito (
+        numero_solicitud,
+        solicitante_id,
+        operador_id
+      )
+    `)
+    .eq('id', firmaId)
+    .single();
 
-    if (error) return null;
-    return data;
-  }
-
+  if (error) return null;
+  return data;
+}
   async obtenerPendientesPorUsuario(usuarioId, usuarioRol) {
     let query = this.supabase
       .from('firmas_digitales')

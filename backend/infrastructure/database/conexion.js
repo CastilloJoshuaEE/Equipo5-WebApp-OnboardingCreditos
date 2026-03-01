@@ -14,7 +14,6 @@ const verificarConexion = async () => {
       throw error;
     }
     
-    console.log('. Conexión a Supabase establecida correctamente');
     return true;
   } catch (error) {
     console.error('. Error conectando a Supabase:', error.message);

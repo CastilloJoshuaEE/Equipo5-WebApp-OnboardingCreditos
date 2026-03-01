@@ -23,8 +23,6 @@ class emailValidarServicio {
         return null;
       }
 
-      console.log(`. Usando Abstract API con key: ${apiKey.substring(0, 8)}...`);
-
       const response = await axios.get(`https://emailvalidation.abstractapi.com/v1/`, {
         params: {
           email: email,
@@ -32,8 +30,6 @@ class emailValidarServicio {
         },
         timeout: 10000 // Aumentar timeout
       });
-
-      console.log('. Respuesta de Abstract API:', JSON.stringify(response.data, null, 2));
 
       if (response.data) {
         const data = response.data;
@@ -51,7 +47,6 @@ class emailValidarServicio {
         };
       }
     } catch (error) {
-      console.log('. Abstract API validation failed:', error.message);
       if (error.response) {
         console.log('. Detalles del error:', {
           status: error.response.status,
@@ -121,7 +116,6 @@ class emailValidarServicio {
 
   // Método principal que prueba todos los servicios
   async validateEmail(email) {
-    console.log(`. Validando email: ${email}`);
     
     let validationResults = [];
 
@@ -157,8 +151,6 @@ class emailValidarServicio {
       timestamp: new Date().toISOString()
     };
 
-    console.log(`. Resultado final: ${finalResult.isValid ? '. VÁLIDO' : '. INVÁLIDO'} (confianza: ${Math.round(finalResult.confidence * 100)}%)`);
-
     return finalResult;
   }
 
@@ -181,8 +173,6 @@ async validateEmailBeforeAuth(req, res, next) {
           message: 'Email es requerido'
         });
       }
-
-      console.log(`. [VALIDACIÓN] Verificando email antes de registro: ${email}`);
 
       // Validación rápida primero
 const quickValidation = await this.quickValidate(email);      
@@ -211,7 +201,6 @@ const fullValidation = await this.validateEmail(email);
 
       // Email válido, agregar resultado a la request
       req.emailValidation = fullValidation;
-      console.log(`. Email validado exitosamente: ${email}`);
       next();
 
     } catch (error) {

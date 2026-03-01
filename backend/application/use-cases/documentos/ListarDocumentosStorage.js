@@ -5,7 +5,6 @@ class ListarDocumentosStorage {
   }
 
   async execute(solicitud_id, usuario) {
-    console.log(` Listando documentos en storage para solicitud: ${solicitud_id}`);
 
     // Verificar permisos de la solicitud
     const { data: solicitud } = await this.supabase

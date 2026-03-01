@@ -94,7 +94,6 @@ const onSubmit = async (data: RegisterInput) => {
         setError('');
         setIsSubmitting(true);
         
-        console.log('Datos enviados al servidor:', data);
         
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         const response = await fetch(`${API_URL}/usuarios/registro`, {
@@ -106,7 +105,6 @@ const onSubmit = async (data: RegisterInput) => {
         });
 
         const responseData = await response.json();
-        console.log('Respuesta completa del servidor:', responseData);
 
         if (!response.ok) {
             // Mostrar errores específicos del backend
@@ -117,7 +115,6 @@ const onSubmit = async (data: RegisterInput) => {
             throw new Error(responseData.message || `Error ${response.status} en el registro`);
         }
 
-        console.log('Registro exitoso:', responseData);
         
         alert('Registro exitoso. Revisá tu email para confirmar tu cuenta.');
              setIsRedirecting(true);

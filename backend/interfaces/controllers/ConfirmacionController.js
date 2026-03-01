@@ -55,7 +55,6 @@ class ConfirmacionController {
    */
   static async enviarEmailConfirmacionCuenta(email, nombre, userId) {
     try {
-      console.log(`. [CONFIRMACIÓN] Enviando email de confirmación a: ${email}`);
       
       const configuracionValida = await verificarConexionBrevo();
       
@@ -91,7 +90,6 @@ class ConfirmacionController {
    */
   static async enviarEmailBienvenidaDespuesConfirmacion(email, nombre, rol) {
     try {
-      console.log(`. [BIENVENIDA] Enviando email de bienvenida post-confirmación a: ${email}`);
       
       // Esperar un momento para asegurar que la cuenta esté completamente activa
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -122,8 +120,6 @@ class ConfirmacionController {
     try {
       const { token, email } = req.query;
 
-      console.log('. [CONFIRMACIÓN] Procesando confirmación:', { token, email });
-
       // Validar parámetros requeridos
       if (!token || !email) {
         const frontendUrl = ConfirmacionController.getFrontendUrl();
@@ -152,8 +148,6 @@ class ConfirmacionController {
           const frontendUrl = ConfirmacionController.getFrontendUrl();
           return res.redirect(`${frontendUrl}/login?error=token_expirado`);
         }
-
-        console.log('. Token válido, activando cuenta para:', email);
 
         // Buscar y activar usuario (código existente)
         const { data: usuario, error: usuarioError } = await supabaseClient
@@ -186,8 +180,6 @@ class ConfirmacionController {
           throw updateError;
         }
 
-        console.log('. Cuenta activada exitosamente en tabla local para:', email);
-
         // Confirmar en Supabase Auth
         const confirmResult = await confirmUserEmail(usuario.id);
 
@@ -203,8 +195,6 @@ class ConfirmacionController {
           usuario.nombre_completo, 
           usuario.rol
         );
-
-        console.log('. Cuenta activada exitosamente para:', email);
 
         // . CRÍTICA: Redirigir siempre al frontend seguro
         const frontendUrl = ConfirmacionController.getFrontendUrl();
@@ -244,8 +234,6 @@ class ConfirmacionController {
           message: 'Email es requerido'
         });
       }
-
-      console.log('. [CONFIRMACIÓN] Reenviando confirmación a:', email);
 
       // Buscar usuario
       const { data: usuario, error: usuarioError } = await supabaseClient
@@ -339,7 +327,6 @@ class ConfirmacionController {
    */
   static async enviarEmailBienvenida(email, nombre, rol) {
     try {
-      console.log(`. [BREVO] Intentando enviar email de bienvenida a: ${email}`);
       
       const configuracionValida = await verificarConexionBrevo();
       

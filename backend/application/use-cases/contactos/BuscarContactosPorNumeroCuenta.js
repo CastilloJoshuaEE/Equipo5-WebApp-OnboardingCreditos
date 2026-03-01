@@ -4,7 +4,6 @@ class BuscarContactosPorNumeroCuenta{
         this.contactoBancarioRepository = contactoBancarioRepository;
     }
     async execute({numero_cuenta}, usuario){
-        console.log('Buscando contactos por número de cuenta:', numero_cuenta);
         if(!numero_cuenta){
             return{
                 success: false,
@@ -13,7 +12,6 @@ class BuscarContactosPorNumeroCuenta{
             };
         }
         const contactos = await this.contactoBancarioRepository.buscarPorNumeroCuenta(numero_cuenta);
-        console.log(`Contactos encontrados: ${contactos.length}`);
         return {
             success: true,
             data: {

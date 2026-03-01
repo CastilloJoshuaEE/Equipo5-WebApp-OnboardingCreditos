@@ -17,20 +17,17 @@ class SolicitarReactivacionCuenta {
       };
     }
 
-    console.log('Solicitando reactivación para:', email);
 
     // Buscar usuario inactivo
     const usuario = await this.usuarioRepository.findInactiveByEmail(email);
 
     if (!usuario) {
-      console.log('Usuario inactivo no encontrado:', email);
       return {
         success: true,
         message: 'Si el email está registrado y la cuenta está inactiva, recibirás un enlace de reactivación.'
       };
     }
 
-    console.log('Usuario inactivo encontrado:', usuario.nombre_completo);
 
     // Generar token de reactivación
     const token = ReactivacionCuenta.generarToken(usuario.id, email);
@@ -51,7 +48,6 @@ class SolicitarReactivacionCuenta {
       );
 
       if (emailResult.success) {
-        console.log('Email de reactivación enviado exitosamente');
         return {
           success: true,
           message: 'Se ha enviado un enlace de reactivación a tu email. Por favor revisa tu bandeja de entrada.'

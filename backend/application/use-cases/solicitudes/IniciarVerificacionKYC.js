@@ -8,7 +8,6 @@ class IniciarVerificacionKYC {
   }
 
   async execute(solicitud_id) {
-    console.log(`Iniciando verificación KYC para solicitud: ${solicitud_id}`);
 
     const solicitud = await this.solicitudRepository.findById(solicitud_id);
 
@@ -60,8 +59,6 @@ class IniciarVerificacionKYC {
       proveedor: 'didit',
       created_at: new Date().toISOString()
     });
-
-    console.log(`Verificación KYC iniciada: ${resultado.sessionId}`);
 
     return {
       success: true,

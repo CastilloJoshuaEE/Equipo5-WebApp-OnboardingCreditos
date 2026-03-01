@@ -6,7 +6,6 @@ class EvaluarDocumento{
         this.notificacionService = notificacionService;
     }
     async execute(documento_id, {criterios, comentarios, estado}, usuario){
-console.log(`. Evaluando documento ${documento_id}`, { criterios, estado, comentarios });        // Obtener documento actual
         const documento = await this.documentoRepository.obtenerPorId(documento_id);
         if(!documento){
             return {

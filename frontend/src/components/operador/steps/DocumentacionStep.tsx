@@ -153,8 +153,6 @@ const icons: Record<string, ReactNode> = {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    // Abrir modal de evaluación
-// En DocumentacionStep.tsx - mejorar handleAbrirEvaluacion
 const handleAbrirEvaluacion = async (documento: Documento) => {
     setDocumentoEvaluando(documento);
     setChecklist({});
@@ -168,10 +166,7 @@ const handleAbrirEvaluacion = async (documento: Documento) => {
         if (historial && historial.length > 0) {
             // Tomar la última evaluación registrada
             const ultimaEvaluacion = historial[0];
-            
-            console.log('. Última evaluación encontrada:', ultimaEvaluacion);
-                        console.log('. Criterios recibidos:', ultimaEvaluacion.criterios);
-            console.log('. Tipo de criterios:', typeof ultimaEvaluacion.criterios);
+
             // Mapear criterios al checklist - manejar diferentes estructuras
             if (ultimaEvaluacion.criterios && typeof ultimaEvaluacion.criterios === 'object') {
                 const criteriosMapeados: {[key: string]: boolean} = {};
@@ -185,7 +180,6 @@ const handleAbrirEvaluacion = async (documento: Documento) => {
                     criteriosMapeados[criterio.id] = valor === true;
                 });
                 
-                console.log('. Criterios mapeados al checklist:', criteriosMapeados);
                 setChecklist(criteriosMapeados);
             } else {
                 console.warn('. No se encontraron criterios válidos en la evaluación');
@@ -241,14 +235,6 @@ const handleEnviarEvaluacion = async () => {
         }
 
         const comentarioFinal = `Evaluación: ${criteriosAprobados}/${totalCriterios} criterios aprobados (${porcentajeAprobado.toFixed(0)}%). ${comentarios ? `Comentarios: ${comentarios}` : ''}`;
-
-        console.log(' Enviando evaluación al backend:', {
-            documentoId: documentoEvaluando.id,
-            criterios: checklist,
-            comentarios: comentarioFinal,
-            estado: estadoFinal,
-            porcentajeAprobado
-        });
 
         // Usar la función de evaluación
         if (onEvaluarDocumento) {
@@ -318,7 +304,6 @@ const handleEnviarEvaluacion = async () => {
                 link.click();
                 document.body.removeChild(link);
                 window.URL.revokeObjectURL(url);
-                console.log('. Documento descargado exitosamente');
             } else {
                 const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
                 const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;

@@ -98,11 +98,7 @@ const cargarContactos = useCallback(async () => {
       setError(null);
       
       const session = await getSession();
-      
-      console.log(' Guardando contacto bancario:', {
-        numero_cuenta: formData.numero_cuenta
-      });
-      
+
       const response = await fetch(`${API_URL}/contactos-bancarios`, {
         method: 'POST',
         headers: {
@@ -119,7 +115,6 @@ const cargarContactos = useCallback(async () => {
       });
 
       const data = await response.json();
-      console.log('📡 Respuesta guardar contacto:', data);
 
       if (data.success) {
         setSuccess('Contacto bancario guardado exitosamente');

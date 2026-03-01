@@ -112,7 +112,6 @@ class EnviarSolicitud {
         })
         .eq('id', solicitudId);
 
-      console.log(`Nivel de riesgo calculado: ${nivelRiesgo} (puntaje: ${puntajeRiesgo})`);
     } catch (error) {
       console.error('Error calculando nivel de riesgo:', error);
     }

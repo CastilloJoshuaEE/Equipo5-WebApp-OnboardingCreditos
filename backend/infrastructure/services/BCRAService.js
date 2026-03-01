@@ -18,7 +18,6 @@ class BCRAService {
 
     async consultarDeudas(cuit) {
         try {
-            console.log(`. Consultando BCRA para CUIT: ${cuit}`);
             
             // Validar CUIT (11 dígitos)
             const cuitLimpio = cuit.replace(/\D/g, '');
@@ -27,9 +26,7 @@ class BCRAService {
             }
 
             const url = `${this.baseURL}/CentralDeDeudores/v1.0/Deudas/${cuitLimpio}`;
-            
-            console.log(`. URL de consulta: ${url}`);
-            
+                        
             const response = await axios.get(url, {
                 timeout: this.timeout,
                 httpsAgent: this.httpsAgent,
@@ -55,41 +52,80 @@ class BCRAService {
             };
         } catch (error) {
             console.error('. Error consultando BCRA:', error.message);
-            
-            // Manejar diferentes tipos de error
-            if (error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || 
-                error.code === 'SELF_SIGNED_CERT_IN_CHAIN' ||
-                error.message.includes('unable to verify the first certificate')) {
-                
-                console.log('. Reintentando consulta sin verificación SSL...');
-                return await this.consultarDeudasSinSSL(cuit);
-            }
-            
-            if (error.response) {
-                const status = error.response.status;
-                console.error(`. Status code: ${status}`);
-                
-                if (status === 404) {
-                    return {
-                        success: true,
-                        data: null,
-                        message: 'No se encontraron registros en BCRA para el CUIT proporcionado',
-                        consulta: new Date().toISOString()
-                    };
-                } else if (status === 400) {
-                    return {
-                        success: false,
-                        error: 'Parámetro erróneo: CUIT inválido',
-                        data: null
-                    };
-                } else if (status === 500) {
-                    return {
-                        success: false,
-                        error: 'Error interno del servidor BCRA',
-                        data: null
-                    };
-                }
-            }
+             if (error.response) {
+        const status = error.response.status;
+        console.error(`. Status code: ${status}`);
+
+        //  Servicio temporalmente no disponible
+        if (status === 503 || status === 502 || status === 504) {
+            console.log('. Servicio BCRA no disponible, usando datos simulados');
+
+            return {
+                success: true,
+                data: {
+                    deudas: [],
+                    message: 'Servicio BCRA temporalmente no disponible - Verificación automática omitida',
+                    entidades: []
+                },
+                simulado: true,
+                consulta: new Date().toISOString()
+            };
+        }
+
+        // 404 → No tiene deudas
+        if (status === 404) {
+            return {
+                success: true,
+                data: null,
+                message: 'No se encontraron registros en BCRA para el CUIT proporcionado',
+                consulta: new Date().toISOString()
+            };
+        }
+
+        // 400 → CUIT inválido
+        if (status === 400) {
+            return {
+                success: false,
+                error: 'Parámetro erróneo: CUIT inválido',
+                data: null
+            };
+        }
+
+        // 500 → Error interno
+        if (status === 500) {
+            return {
+                success: false,
+                error: 'Error interno del servidor BCRA',
+                data: null
+            };
+        }
+    }
+
+    //  Errores de certificado SSL
+    if (
+        error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+        error.code === 'SELF_SIGNED_CERT_IN_CHAIN' ||
+        error.message.includes('unable to verify the first certificate')
+    ) {
+        return await this.consultarDeudasSinSSL(cuit);
+    }
+
+    //  Error de red (sin response)
+    if (!error.response) {
+        console.log('. Error de red o timeout - usando datos simulados');
+
+        return {
+            success: true,
+            data: {
+                deudas: [],
+                message: 'Servicio BCRA no disponible - Verificación automática omitida',
+                entidades: []
+            },
+            simulado: true,
+            error: error.message,
+            consulta: new Date().toISOString()
+        };
+    }
             
             return {
                 success: false,

@@ -247,10 +247,7 @@ const handleDescargarComprobante = async (transferencia: DocumentoTransferenciaB
     
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
     
-    // Log para depuración
-    console.log('Transferencia a descargar:', transferencia);
-    console.log('Ruta comprobante:', transferencia.ruta_comprobante);
-    
+
     const response = await fetch(`${API_URL}/transferencias/${transferencia.id}/comprobante/descargar`, {
       headers: {
         'Authorization': `Bearer ${session.accessToken}`
@@ -290,9 +287,7 @@ const handleDescargarComprobante = async (transferencia: DocumentoTransferenciaB
     }
     
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    
-    console.log(`Obteniendo vista previa de ${tipo}:`, id);
-    
+        
     const response = await fetch(`${API_URL}/documentos/${tipo}/${id}/ver`, {
       headers: {
         'Authorization': `Bearer ${session.accessToken}`
@@ -301,7 +296,6 @@ const handleDescargarComprobante = async (transferencia: DocumentoTransferenciaB
 
     if (response.ok) {
       const data = await response.json();
-      console.log('Respuesta vista previa:', data);
       
       if (data.success && data.data.url) {
         setUrlVistaPrevia(data.data.url);
@@ -559,18 +553,7 @@ const handleDescargarComprobante = async (transferencia: DocumentoTransferenciaB
               </Typography>
             </Box>
           )}
-          
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Estado
-            </Typography>
-            <Chip
-              icon={getEstadoIcon(transferencia.estado)}
-              label={transferencia.estado?.toUpperCase() || 'SIN ESTADO'}
-              color={getEstadoColor(transferencia.estado)}
-              size="small"
-            />
-          </Box>
+        
           
           <Box>
             <Typography variant="subtitle2" color="text.secondary">

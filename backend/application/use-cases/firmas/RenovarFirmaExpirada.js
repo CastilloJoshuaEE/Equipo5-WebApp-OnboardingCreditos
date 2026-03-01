@@ -5,7 +5,6 @@ class RenovarFirmaExpirada{
 
     }
     async execute(firma_id, usuario){
-        console.log('Renovando firma expirada:', firma_id);
         const firmaRenovada = await this.firmaDigitalRepository.renovarFirmaExpirada(firma_id);
         // Registrar auditoria
         await this.firmaDigitalRepository.registrarAuditoria({

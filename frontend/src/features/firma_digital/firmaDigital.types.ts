@@ -2,10 +2,10 @@
 export interface FirmaDigital {
   id: string;
   estado: string;
-  fecha_firma_completa: string;
-  url_documento_firmado: string;
-  ruta_documento: string;
-  integridad_valida: boolean;
+  fecha_firma_completa?: string;
+  url_documento_firmado?: string;
+  ruta_documento?: string;
+  integridad_valida?: boolean;
 }
 
 export interface VerificacionFirma {
@@ -52,6 +52,10 @@ export interface FirmaData {
 export type FirmaDigitalData = {
   id: string;
   estado: string;
+    fecha_firma_completa?: string;
+  url_documento_firmado?: string;
+  ruta_documento?: string;
+  integridad_valida?: boolean;
 };
 export interface FirmaExistente {
   existe?: boolean;

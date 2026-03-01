@@ -5,7 +5,6 @@ class RepararRelacionFirmaContrato {
   }
 
   async execute(firma_id, usuario) {
-    console.log('. Reparando relación firma-contrato para:', firma_id);
 
     const resultado = await this.firmaDigitalRepository.repararRelacionFirmaContrato(firma_id);
 

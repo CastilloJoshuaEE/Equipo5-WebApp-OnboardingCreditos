@@ -4,7 +4,6 @@ class DescargarDocumento{
         this.documentoRepository = documentoRepository;
     }
     async execute(documento_id, usuario){
-        console.log(`Descargando documento:${documento_id}`);
         // Verificar permisos
         const tienePermisos = await this.documentoRepository.verificarPermisos(
             documento_id,
@@ -31,7 +30,6 @@ class DescargarDocumento{
         const fileData = await this.documentoRepository.descargarArchivo(documento.ruta_storage);
         const arrayBuffer = await fileData.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        console.log(`Documento descargado:${documento.nombre_archivo}`);
         return {
             success: true,
             data: {

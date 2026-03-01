@@ -4,7 +4,6 @@ class EliminarDocumento{
         this.documentoRepository = documentoRepository;
     }
     async execute (documento_id){
-        console.log('Eliminando documento:', documento_id);
         if(!documento_id){
             return {
                 success: false,
@@ -24,13 +23,11 @@ class EliminarDocumento{
         // Eliminar archivo del storage
         try {
             await this.documentoRepository.eliminarArchivoStorage(documento.ruta_storage);
-            console.log('Archivo eliminado:', documento.ruta_storage);
         } catch (storageError) {
             console.warn('Error eliminando archivo:', storageError.message);
         }
         // Eliminar registro de la base de datos
         await this.documentoRepository.eliminar(documento_id);
-        console.log(`Documento eliminado: ${documento_id}`);
         return {
             success:true,
             message: 'Documento eliminado exitosamente'

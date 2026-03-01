@@ -4,7 +4,6 @@ class DescargarComprobante{
         this.supabase = supabase;
     }
     async execute(transferencia_id, usuario){
-        console.log(`Descargando comprobante: ${transferencia_id}`);
         // Obtener información de la transferencia
         const {data: transferencia, error: transferenciaError} = await this.supabase
             .from('transferencias_bancarias')

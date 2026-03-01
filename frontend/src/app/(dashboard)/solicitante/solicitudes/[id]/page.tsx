@@ -251,17 +251,7 @@ const BotonEliminarSolicitud = ({ solicitudId, solicitudEstado, onEliminar }: {
   if (error) {
     return (
       <Box sx={{ p: isMobile ? 2 : 3 }}>
-        <Alert 
-          severity="error"
-          action={
-            <Button color="inherit" size="small" onClick={cargarDetalleSolicitud}>
-              Reintentar
-            </Button>
-          }
-          sx={{ mb: 2 }}
-        >
-          {error}
-        </Alert>
+       
 
       </Box>
     );

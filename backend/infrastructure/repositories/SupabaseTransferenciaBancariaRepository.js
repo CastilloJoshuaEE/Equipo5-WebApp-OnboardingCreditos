@@ -3,9 +3,10 @@ const TransferenciaBancariaRepository = require('../../domain/repositories/Trans
 const TransferenciaBancaria = require('../../domain/entities/TransferenciaBancaria');
 
 class SupabaseTransferenciaBancariaRepository extends TransferenciaBancariaRepository {
-  constructor(supabase) {
+  constructor(supabase, supabaseAdmin) {
     super();
     this.supabase = supabase;
+    this.supabaseAdmin = supabaseAdmin;
   }
 
   async crear(transferenciaData) {
@@ -358,7 +359,7 @@ class SupabaseTransferenciaBancariaRepository extends TransferenciaBancariaRepos
   }
 
   async crearNotificaciones(notificacionesData) {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.supabaseAdmin
       .from('notificaciones')
       .insert(notificacionesData)
       .select();

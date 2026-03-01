@@ -6,7 +6,22 @@ class NotificacionService {
     this.notificacionRepository = notificacionRepository;
     this.enviarNotificacionTiempoReal = enviarNotificacionTiempoReal;
   }
-
+/**
+ * Notificar aprobación de solicitud (método de instancia)
+ */
+async notificarAprobacionSolicitud(solicitudId, solicitanteId, operadorId) {
+  try {
+    // Usar el método estático internamente
+    return await NotificacionService.notificarAprobacionSolicitud(
+      solicitudId, 
+      solicitanteId, 
+      operadorId
+    );
+  } catch (error) {
+    console.error('Error notificando aprobación:', error);
+    return { success: false, error: error.message };
+  }
+}
   /**
    * Crear notificación de operador asignado
    */

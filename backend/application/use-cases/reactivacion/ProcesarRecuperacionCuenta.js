@@ -9,7 +9,6 @@ class ProcesarRecuperacionCuenta {
 
   async execute({ token, email }) {
     try {
-      console.log('[RECUPERACIÓN] Procesando recuperación de cuenta (JSON):', { token, email });
 
       if (!token || !email) {
         return {
@@ -23,7 +22,6 @@ class ProcesarRecuperacionCuenta {
       let tokenData;
       try {
         const decoded = Buffer.from(token, 'base64').toString('utf-8');
-        console.log('Token decodificado:', decoded);
         
         const parts = decoded.split(':');
         if (parts.length !== 4) {
@@ -42,7 +40,6 @@ class ProcesarRecuperacionCuenta {
           timestamp: parseInt(timestamp)
         };
         
-        console.log('Token válido, buscando usuario:', tokenData.email);
       } catch (error) {
         console.error('Error decodificando token:', error);
         return {
@@ -96,7 +93,6 @@ class ProcesarRecuperacionCuenta {
         };
       }
 
-      console.log('Usuario inactivo encontrado, reactivando cuenta...');
 
       // Reactivar la cuenta
       const usuarioReactivated = await this.usuarioRepository.reactivate(usuario.id);

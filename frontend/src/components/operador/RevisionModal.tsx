@@ -59,7 +59,6 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
                 throw new Error('No hay sesión activa');
             }
 
-            console.log('. Validando documento en backend:', documentoId, estado);
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
             
@@ -82,7 +81,6 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
             }
 
             const result = await response.json();
-            console.log('. Documento validado exitosamente:', result);
 
             setSuccess(`Documento ${estado} exitosamente`);
             
@@ -114,7 +112,6 @@ if (error instanceof Error) {
             throw new Error('No hay sesión activa');
         }
 
-        console.log('. Evaluando documento con criterios:', documentoId, criterios, comentarios);
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         
@@ -123,8 +120,6 @@ if (error instanceof Error) {
             criterios: criterios,
             comentarios: comentarios
         };
-
-        console.log('. Enviando evaluación:', endpoint, body);
 
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -141,7 +136,6 @@ if (error instanceof Error) {
         }
 
         const result = await response.json();
-        console.log('. Documento evaluado exitosamente:', result);
 
         // Mostrar mensaje de éxito con detalles
         const criteriosAprobados = Object.values(criterios).filter(Boolean).length;
@@ -150,7 +144,7 @@ if (error instanceof Error) {
         
         setSuccess(`. Documento evaluado: ${result.data.evaluacion.estado} (${porcentajeAprobado.toFixed(0)}% criterios aprobados)`);
         
-        // . CORRECCIÓN: Refrescar datos después de evaluación
+        // .  Refrescar datos después de evaluación
         if (onDocumentoActualizado) {
             setTimeout(() => {
                 onDocumentoActualizado();

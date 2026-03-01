@@ -6,7 +6,6 @@ class ForzarActualizacionEstado {
   }
 
   async execute(solicitud_id, usuario) {
-    console.log(`Forzando actualización para solicitud: ${solicitud_id} por usuario: ${usuario.id}`);
 
     const { data: firmas, error: firmaError } = await this.supabase
       .from('firmas_digitales')
@@ -25,7 +24,6 @@ class ForzarActualizacionEstado {
     }
 
     if (!firmas || firmas.length === 0) {
-      console.log(`No se encontró proceso de firma para: ${solicitud_id}`);
       return {
         success: false,
         status: 404,
@@ -34,7 +32,6 @@ class ForzarActualizacionEstado {
     }
 
     const firmaActual = firmas[0];
-    console.log(`Estado actual de firma: ${firmaActual.estado}, Integridad: ${firmaActual.integridad_valida}`);
 
     let ambasPartesFirmaron = false;
     let motivo = '';

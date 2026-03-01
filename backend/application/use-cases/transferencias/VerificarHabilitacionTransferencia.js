@@ -5,11 +5,9 @@ class VerificarHabilitacionTransferencia {
   }
 
   async execute(solicitud_id) {
-    console.log(`Verificando habilitación para solicitud: ${solicitud_id}`);
 
     const firmas = await this.transferenciaRepository.verificarEstadoFirma(solicitud_id);
 
-    console.log('Firmas encontradas:', firmas?.length || 0);
 
     if (!firmas || firmas.length === 0) {
       return {
@@ -30,13 +28,6 @@ class VerificarHabilitacionTransferencia {
       firma.estado === 'firmado_completo'
     );
 
-    console.log('Resultado verificación firma:', {
-      estado: firma.estado,
-      integridad_valida: firma.integridad_valida,
-      tiene_firma_solicitante: !!firma.fecha_firma_solicitante,
-      tiene_firma_operador: !!firma.fecha_firma_operador,
-      ambas_partes_firmaron: ambasPartesFirmaron
-    });
 
     if (!ambasPartesFirmaron) {
       return {
@@ -66,8 +57,6 @@ class VerificarHabilitacionTransferencia {
         }
       };
     }
-
-    console.log(`Transferencia HABILITADA para solicitud: ${solicitud_id} - Ambas partes firmaron`);
 
     return {
       success: true,

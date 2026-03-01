@@ -11,7 +11,7 @@ module.exports = (transferenciasBancariasController, authMiddleware) => {
    */
 /**
  * @swagger
- * /api/transferencias/{transferencia_id}/ver-comprobante:
+ * /api/transferencias/{transferencia_id}/ver:
  *   get:
  *     summary: Ver comprobante de transferencia en el navegador
  *     tags: [Transferencias]
@@ -30,7 +30,7 @@ module.exports = (transferenciasBancariasController, authMiddleware) => {
  *       404:
  *         description: Comprobante no encontrado
  */
-router.get('/:transferencia_id/ver-comprobante',
+  router.get('/:transferencia_id/comprobante/ver',
   authMiddleware.proteger,
   (req, res) => transferenciasBancariasController.verComprobante(req, res)
 );
@@ -115,7 +115,7 @@ router.get('/:transferencia_id/ver-comprobante',
 
   /**
    * @swagger
-   * /api/transferencias/comprobante/{transferencia_id}:
+   * /api/transferencias/{transferencia_id}/comprobante/descargar:
    *   get:
    *     summary: Obtener comprobante de transferencia
    *     tags: [Transferencias]
@@ -138,11 +138,10 @@ router.get('/:transferencia_id/ver-comprobante',
    *       404:
    *         description: Transferencia no encontrada
    */
-  router.get('/comprobante/:transferencia_id',
+  router.get('/:transferencia_id/comprobante/descargar',
     authMiddleware.proteger,
     (req, res) => transferenciasBancariasController.obtenerComprobante(req, res)
   );
-
   /**
    * @swagger
    * /api/transferencias/historial:

@@ -37,12 +37,10 @@ class GenerarContratoParaSolicitud{
     try{
         contratoExistente = await this.contratoRepository.obtenerPorSolicitud(solicitudId);
     } catch(error){
-        console.log('No se pudo verificar contrato existente, creando uno nuevo...');
         contratoExistente = null;
     }
     
     if(contratoExistente){
-        console.log('Contrato existente encontrado, actualizando:', contratoExistente.id);
         const numeroContrato = this.generarNumeroContrato(solicitud.numero_solicitud);
         const updateData = {
             numero_contrato: numeroContrato,
@@ -61,7 +59,6 @@ class GenerarContratoParaSolicitud{
         // Actualizar la ruta del documento
         contratoActualizado.ruta_documento = rutaStorage;
         
-        console.log('Contrato existente actualizado para solicitud:', solicitudId);
         return contratoActualizado; // ← DEVOLVER el objeto actualizado
     }
     
@@ -92,14 +89,12 @@ class GenerarContratoParaSolicitud{
     // Actualizar el objeto contrato con la ruta
     contrato.ruta_documento = rutaStorage;
     
-    console.log('Nuevo contrato generado para solicitud:', solicitudId);
     return contrato; // ← DEVOLVER el objeto completo
 }
     generarNumeroContrato(numeroSolicitud){
         return `CONTR-${numeroSolicitud}-${Date.now()}`;
     }
 async generarWordContrato(contratoId, solicitud){
-    console.log('Generando word para contrato:', contratoId);
     const pdfBuffer = await ContratoController.crearDOCXContrato(solicitud);
     const nombreArchivo = `contrato-${contratoId}.docx`;
     const rutaStorage = `contratos/${nombreArchivo}`;
@@ -122,13 +117,10 @@ async generarWordContrato(contratoId, solicitud){
     const { data: urlData } = this.supabaseAdmin.storage
         .from('kyc-documents')
         .getPublicUrl(rutaStorage);
-    
-    console.log('Documento subido exitosamente, URL pública:', urlData.publicUrl);
-    
+        
     // Actualizar la ruta en la base de datos
     await this.contratoRepository.actualizarRutaDocumento(contratoId, rutaStorage);
     
-    console.log('Word de contrato generado y guardado:', rutaStorage);
     return rutaStorage;
 }
 }

@@ -7,7 +7,6 @@ class ObtenerComentariosSolicitud {
   async execute(solicitudId, usuario, filtros = {}) {
     const { tipo, limit = 50, offset = 0 } = filtros;
 
-    console.log(`. Obteniendo comentarios para solicitud: ${solicitudId}`);
 
     // Verificar permisos
     const tienePermisos = await this.comentarioRepository.verificarPermisosSolicitud(
@@ -36,8 +35,6 @@ class ObtenerComentariosSolicitud {
       if (comentarios.length > 0) {
         await this.comentarioRepository.marcarComoLeidos(solicitudId, usuario.id);
       }
-
-      console.log(`. Comentarios obtenidos: ${comentarios.length}`);
 
       return {
         success: true,

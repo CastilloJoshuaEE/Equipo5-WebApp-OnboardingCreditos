@@ -67,8 +67,6 @@ const enviarEmail = async (opcionesEmail) => {
             }
         }).filter(Boolean);
 
-        console.log(`. Número de adjuntos formateados: ${adjuntosFormateados.length}`);
-
         // Usando Brevo API para enviar emails con adjuntos
         const resultado = await brevoAPIService.enviarEmailConAdjuntos(
             destinatarioFormateado, 
@@ -85,7 +83,6 @@ const enviarEmail = async (opcionesEmail) => {
 }
 const enviarEmailConfirmacionCuenta = async (email, nombre, userId) => {
   try {
-    console.log(`. [CONFIRMACIÓN] Enviando email de confirmación a: ${email}`);
     
     const tokenConfirmacion = generarTokenConfirmacion(userId, email);
     

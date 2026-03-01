@@ -1,7 +1,9 @@
 // backend/domain/entities/Notificacion.js
+const { v4: uuidv4 } = require('uuid');
+
 class Notificacion{
     constructor(data = {}){
-        this.id = data.id || null;
+        this.id = data.id ||  uuidv4();
         this.usuario_id = data.usuario_id || null;
         this.solicitud_id = data.solicitud_id || null;
         this.tipo = data.tipo || '';

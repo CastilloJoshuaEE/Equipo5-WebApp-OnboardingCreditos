@@ -15,7 +15,6 @@ class ActualizarPlantilla {
       };
     }
 
-    console.log('Actualizando plantilla ID:', id);
 
     // Obtener plantilla existente
     const plantilla = await this.plantillaDocumentoRepository.obtenerPorId(id);
@@ -52,8 +51,6 @@ class ActualizarPlantilla {
     });
 
     await this.plantillaDocumentoRepository.registrarAuditoria(auditoria.toJSON());
-
-    console.log('Plantilla actualizada exitosamente');
 
     return {
       success: true,

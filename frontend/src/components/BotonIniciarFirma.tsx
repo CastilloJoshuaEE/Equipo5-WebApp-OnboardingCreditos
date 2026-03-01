@@ -89,7 +89,6 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
           estado: solicitud.estado,
           numero_solicitud: solicitud.numero_solicitud
         });
-        console.log('Estado de solicitud:', solicitud.estado);
         return solicitud;
       }
     } catch (error) {
@@ -175,7 +174,7 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
             📞 <strong>Teléfono:</strong> +51 987 654 321
           </Typography>
           <Typography variant="body2">
-            📧 <strong>Email:</strong> contacto@nexia.com
+             <strong>Email:</strong> contacto@nexia.com
           </Typography>
         </Box>
       </Alert>
@@ -276,7 +275,6 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
       setError('');
       mostrarOverlay('Iniciando proceso de firma digital...');
 
-      console.log('Verificando solicitudId:', solicitudId);
 
       if (!solicitudId) {
         setError('ID de solicitud no disponible');
@@ -299,8 +297,6 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         return;
       }
 
-      console.log('Iniciando firma para solicitud:', solicitudId);
-
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       
       // Primero, intentar reiniciar cualquier proceso existente
@@ -316,7 +312,6 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
         }),
       });
 
-      console.log('Respuesta de reinicio:', reinicioResponse.status);
 
       // Luego iniciar el nuevo proceso
       setOverlayMessage('Creando nuevo proceso de firma...');
@@ -363,15 +358,12 @@ const BotonIniciarFirma = ({ solicitudId, onFirmaIniciada }: BotonIniciarFirmaPr
       }
 
       const result = await response.json();
-      console.log('Resultado de firma:', result);
 
       if (result.success) {
-        console.log('Firma iniciada exitosamente');
         setOverlayMessage('Proceso iniciado exitosamente. Redirigiendo...');
         onFirmaIniciada(result.data);
         
         if (result.data.firma?.id) {
-          console.log('Redirigiendo a:', `/firmar-contrato/${result.data.firma.id}`);
           setTimeout(() => {
             window.location.href = `/firmar-contrato/${result.data.firma.id}`;
           }, 1000);

@@ -35,8 +35,9 @@ class TransferenciasBancariasController {
     return res.status(result.status || (result.success ? 201 : 500)).json(result);
   }
 
+  // Descarga binaria del comprobante PDF
   async obtenerComprobante(req, res) {
-    const { transferencia_id } = req.params;
+    const transferencia_id = req.params.transferencia_id;
     const result = await this._obtenerComprobante.execute(transferencia_id, req.usuario);
 
     if (!result.success) {
@@ -45,7 +46,58 @@ class TransferenciasBancariasController {
 
     res.setHeader('Content-Type', result.data.content_type);
     res.setHeader('Content-Disposition', `attachment; filename="${result.data.nombre_archivo}"`);
+    res.setHeader('Content-Length', result.data.buffer.length);
     res.send(result.data.buffer);
+  }
+
+  // Vista previa: retorna URL pública del comprobante
+  async verComprobante(req, res) {
+    try {
+      const { transferencia_id } = req.params;
+      const usuario = req.usuario;
+
+      const { data: transferencia, error } = await this.supabase
+        .from('transferencias_bancarias')
+        .select(`
+          id,
+          ruta_comprobante,
+          numero_comprobante,
+          estado,
+          solicitudes_credito(solicitante_id, operador_id)
+        `)
+        .eq('id', transferencia_id)
+        .single();
+
+      if (error || !transferencia) {
+        return res.status(404).json({ success: false, message: 'Transferencia no encontrada' });
+      }
+
+      // Verificar permisos
+      const solicitud = transferencia.solicitudes_credito;
+      if (usuario.rol === 'solicitante' && solicitud?.solicitante_id !== usuario.id) {
+        return res.status(403).json({ success: false, message: 'Sin permisos' });
+      }
+
+      if (!transferencia.ruta_comprobante) {
+        return res.status(404).json({ success: false, message: 'Comprobante no disponible' });
+      }
+
+      const { data: urlData } = this.supabase.storage
+        .from('kyc-documents')
+        .getPublicUrl(transferencia.ruta_comprobante);
+
+      return res.json({
+        success: true,
+        data: {
+          url: urlData.publicUrl,
+          nombre: `comprobante-${transferencia.numero_comprobante}`,
+          tipo: 'comprobante'
+        }
+      });
+    } catch (error) {
+      console.error('Error en verComprobante:', error);
+      res.status(500).json({ success: false, message: 'Error al obtener vista previa' });
+    }
   }
 
   async obtenerHistorial(req, res) {
@@ -72,7 +124,6 @@ class TransferenciasBancariasController {
   async verificarFirma(req, res) {
     try {
       const { solicitud_id } = req.params;
-
       const { data: firma } = await this.supabase
         .from('firmas_digitales')
         .select('*')
@@ -87,10 +138,7 @@ class TransferenciasBancariasController {
         }
       });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Error verificando firma'
-      });
+      res.status(500).json({ success: false, message: 'Error verificando firma' });
     }
   }
 }

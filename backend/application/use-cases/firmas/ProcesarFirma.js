@@ -20,7 +20,6 @@ class ProcesarFirma{
     }
     
     async execute(firma_id, {firma_data, tipo_firma}, usuario){
-        console.log('Procesando firma word para:', firma_id);
         if(!firma_data || !tipo_firma){
             return {
                 success: false,
@@ -136,13 +135,7 @@ class ProcesarFirma{
             await this.marcarFirmaCompleta(firma_id, firmaActual);
         }
         
-        console.log('Firma acumulativa procesada exitosamente:', {
-            firma_id,
-            tipo_firma,
-            integridad_completa: esIntegridadValida,
-            nuevo_estado: nuevoEstado
-        });
-        
+
         return {
             success: true,
             message: esIntegridadValida ? 'CONTRATO COMPLETAMENTE FIRMADO - Integridad válida' : 'Firma procesada exitosamente',
@@ -163,7 +156,6 @@ class ProcesarFirma{
     
     async procesarFirmaSolicitante(firmaId, firma){
         try{
-            console.log('Procesando firma del solicitante:', firmaId);
             // USAR EL CASO DE USO EN LUGAR DE this.notificacionService
             if (this.notificarFirmaSolicitanteCompletada) {
                 await this.notificarFirmaSolicitanteCompletada.execute(firma.contrato_id);
@@ -175,7 +167,6 @@ class ProcesarFirma{
     
     async procesarFirmaOperador(firmaId, firma){
         try{
-            console.log('Procesando firma del operador:', firmaId);
             const firmaActual = await this.firmaDigitalRepository.obtenerPorId(firmaId);
             
             if(firmaActual.fecha_firma_solicitante && firmaActual.fecha_firma_operador){
@@ -193,7 +184,6 @@ class ProcesarFirma{
     
     async marcarFirmaCompleta(firmaId, firma){
         try{
-            console.log('Marcando firma como completa:', firmaId);
             await this.firmaDigitalRepository.actualizar(firmaId,{
                 estado: 'firmado_completo',
                 fecha_firma_completa: new Date().toISOString(),
@@ -205,7 +195,6 @@ class ProcesarFirma{
                 await this.notificarFirmaCompletada.execute(firma.contrato_id, firma.solicitud_id);
             }
             
-            console.log('Contrato completamente firmado:', firma.contrato_id);
         } catch (error){
             console.log('Error marcando firma como completa:', error);
         }

@@ -12,7 +12,7 @@ export interface ContratoOperador {
   updated_at?: string;
   numero_solicitud: string;
   solicitante_nombre: string;
-  firma_digital?: FirmaDigital;
+  firma_digital?: FirmaDigital | null;
   tiene_documento_firmado?: boolean;
   url_documento_firmado?: string  | null;
   firma_id?: string  | null;
@@ -31,4 +31,5 @@ export type ContratoAPI = {
   firma_id?: string | null;
   created_at?: string | null;
   updated_at?: string;
+  firma_digital?: FirmaDigital | null;
 };

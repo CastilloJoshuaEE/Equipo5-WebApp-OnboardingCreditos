@@ -4,7 +4,6 @@ class ObtenerComprobantesTransferencia{
         this.supabase = supabase;
     }
     async execute(solicitud_id, usuario){
-        console.log(`Obteniendo comprobantes para solicitud: ${solicitud_id}`);
         let query = this.supabase
             .from('transferencias_bancarias')
             .select(`

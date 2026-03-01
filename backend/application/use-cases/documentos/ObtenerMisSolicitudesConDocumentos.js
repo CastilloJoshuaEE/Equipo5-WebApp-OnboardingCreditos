@@ -8,8 +8,6 @@ class ObtenerMisSolicitudesConDocumentos {
     const usuario_id = usuario.id;
     const usuario_rol = usuario.rol;
 
-    console.log(`Obteniendo solicitudes con documentos para: ${usuario_id} (${usuario_rol})`);
-
     let solicitudes;
 
     if (usuario_rol === 'solicitante') {
@@ -114,7 +112,6 @@ class ObtenerMisSolicitudesConDocumentos {
       };
     }
 
-    console.log(`. Encontradas ${solicitudes?.length || 0} solicitudes con documentos`);
 
     return {
       success: true,

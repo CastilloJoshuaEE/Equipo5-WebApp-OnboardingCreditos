@@ -22,15 +22,12 @@ const generarTokenConfirmacion = (userId, email) => {
 // Función principal para enviar email de confirmación
 const enviarEmailConfirmacion = async (email, nombre, userId) => {
   try {
-    console.log(`. [CONFIRMACIÓN] Preparando email de confirmación para: ${email}`);
     
     const tokenConfirmacion = generarTokenConfirmacion(userId, email);
     
     const frontendUrl = getFrontendUrl();
     const enlaceConfirmacion = `${frontendUrl}/api/auth/confirmar?token=${tokenConfirmacion}&email=${encodeURIComponent(email)}`;
-    
-    console.log(`. [CONFIRMACIÓN] Enlace de confirmación generado: ${enlaceConfirmacion}`);
-    
+        
     const resultado = await brevoAPIService.enviarEmailConfirmacion(email, nombre, enlaceConfirmacion);
     
     if (resultado.success) {

@@ -62,7 +62,6 @@ const cargarContenidoReal = useCallback(async () => {        try {
                 return;
             }
 
-            console.log('. Cargando información de firma para:', firmaId);
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
             
             const response = await fetch(`${API_URL}/firmas/info-firma-word/${firmaId}`, {
@@ -347,12 +346,6 @@ const handleGuardarDocumento = async () => {
             hashDocumento: infoFirma?.hash_original
         };
 
-        console.log('. Enviando firma acumulativa al servidor...', {
-            tipo_firma: tipoFirma,
-            tiene_firma_data: !!firma_data,
-            firmas_count: firmas.length
-        });
-
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         
         const response = await fetch(`${API_URL}/firmas/procesar-firma-word/${firmaId}`, {
@@ -368,7 +361,6 @@ const handleGuardarDocumento = async () => {
             })
         });
 
-        console.log(' Respuesta del servidor:', response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -385,7 +377,6 @@ const handleGuardarDocumento = async () => {
         }
 
         const result = await response.json();
-        console.log('. Resultado de firma acumulativa:', result);
         
         if (result.success) {
             // . MANEJAR RESPUESTA .
@@ -598,7 +589,7 @@ const handleGuardarDocumento = async () => {
                             color="success"
                             disabled={cargando}
                         >
-                            {cargando ? 'Guardando...' : 'Guardar Documento'}
+                            {cargando ? 'Guardando...' : 'Guardar Documento con firma'}
                         </Button>
                     )}
                 </Toolbar>

@@ -11,7 +11,6 @@ class DiditService {
   // Crear sesión de verificación KYC
   async createVerificationSession(userData, workflowId = 'kyc_basic') {
     try {
-      console.log('. Creando sesión de verificación Didit para:', userData.email);
       
       const response = await axios.post(`${this.baseURL}/session/`, {
         workflow_id: workflowId,
@@ -33,7 +32,6 @@ class DiditService {
         }
       });
 
-      console.log('. Sesión Didit creada:', response.data.session_id);
       return {
         success: true,
         sessionId: response.data.session_id,
@@ -50,11 +48,9 @@ class DiditService {
 
 async verifyIdentity(archivoBuffer) {
   try {
-    console.log('. Iniciando verificación de identidad con Didit...');
     
     // SIMULACIÓN EN MODO DESARROLLO
     if (process.env.NODE_ENV === 'development') {
-      console.log('. .  MODO DESARROLLO: Simulando verificación Didit');
       
       return {
         success: true,
@@ -90,7 +86,6 @@ async verifyIdentity(archivoBuffer) {
     formData.append('perform_document_liveness', 'true');
     formData.append('vendor_data', 'identity_verification_pyme');
 
-    console.log('. Enviando documento a Didit...');
     
     const response = await axios.post(`${this.baseURL}/id-verification/`, formData, {
       headers: {
@@ -103,7 +98,6 @@ async verifyIdentity(archivoBuffer) {
       maxBodyLength: Infinity
     });
 
-    console.log('. Respuesta de Didit recibida');
     
     const responseData = response.data;
     

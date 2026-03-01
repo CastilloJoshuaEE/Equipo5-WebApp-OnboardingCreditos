@@ -83,7 +83,6 @@ documentos: documentos.map(doc => ({
     };
     
     localStorage.setItem(`solicitud_borrador_${session.user.id}`, JSON.stringify(formData));
-    console.log('Borrador guardado en localStorage');
   }, [watch, documentos, session]);
 
   // Usar debounce para guardar automáticamente
@@ -117,7 +116,6 @@ setValue('plazo_meses', data.plazo_meses ?? 0);
           setValue('moneda', data.moneda || 'ARS');
           setValue('proposito', data.proposito || '');
           
-          console.log('Borrador cargado desde localStorage');
         } else {
           // Borrar borrador viejo
           localStorage.removeItem(`solicitud_borrador_${session.user.id}`);
@@ -131,7 +129,6 @@ setValue('plazo_meses', data.plazo_meses ?? 0);
   // Función para eliminar documento
   const eliminarDocumento = (documentoId: string) => {
     setDocumentos(prev => prev.filter(doc => doc.id !== documentoId));
-    console.log('Documento eliminado:', documentoId);
   };
   
 const TIPOS_ARCHIVO_PERMITIDOS = {
@@ -241,7 +238,6 @@ const handleDocumentoChange = (event: React.ChangeEvent<HTMLInputElement>, tipo:
     
     // Limpiar localStorage
     localStorage.removeItem('solicitud_borrador');
-    console.log('Formulario limpiado para usuario:', session?.user?.id);
   };
 
 
@@ -267,7 +263,7 @@ const renderListaDocumentos = () => (
             <ListItemText
               primary={documento.file.name}
               secondary={
-                // CORRECCIÓN: Usar Fragment en lugar de Box
+                //  Usar Fragment en lugar de Box
                 <React.Fragment>
                   <Typography variant="caption" display="block">
                     Tipo: {obtenerNombreTipo(documento.tipo)}
@@ -389,12 +385,10 @@ const limpiarBorrador = () => {
   if (session?.user?.id) {
     const borradorKey = `solicitud_borrador_${session.user.id}`;
     localStorage.removeItem(borradorKey);
-    console.log('. Borrador eliminado del localStorage:', borradorKey);
   }
   
   // También limpiar la clave genérica por si acaso
   localStorage.removeItem('solicitud_borrador');
-  console.log('. Borrador genérico eliminado del localStorage');
 };
 const obtenerTipoDocumento = (documento: DocumentoConTipo): string => {
   // El tipo ya está definido en el objeto documento

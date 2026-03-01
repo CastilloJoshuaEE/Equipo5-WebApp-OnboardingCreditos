@@ -30,7 +30,6 @@ class ValidarDocumento{
             comentarios,
             validado_en: new Date().toISOString()
         });
-        console.log(`Documento ${documento_id} ${estado} por operador`);
         return {
             success: true,
             message: `Documento ${estado} exitosamente`,

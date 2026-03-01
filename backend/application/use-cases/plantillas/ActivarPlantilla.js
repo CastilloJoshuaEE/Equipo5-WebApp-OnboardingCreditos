@@ -7,7 +7,6 @@ class ActivarPlantilla {
   }
 
   async execute(id, usuario, req) {
-    console.log('Activando plantilla ID:', id);
 
     const plantilla = await this.plantillaDocumentoRepository.obtenerPorId(id);
     if (!plantilla) {

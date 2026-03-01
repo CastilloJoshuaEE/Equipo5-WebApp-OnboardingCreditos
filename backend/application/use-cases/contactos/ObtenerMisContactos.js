@@ -18,10 +18,8 @@ class ObtenerMisContactos{
                 message: 'Solo los operadores pueden acceder a esta función'
             };
         }
-        console.log('Iniciando consulta de contactos para operador:', usuario.email);
         // Obtener contactos con información de solicitantes
         const contactosProcesados = await this.contactoBancarioRepository.obtenerConSolicitantes();
-        console.log(`Contactos procesados exitosamente: ${contactosProcesados.length} registros`);
         return {
             success:true,
             data: contactosProcesados

@@ -20,9 +20,7 @@ class SupabaseDocumentoRepository extends DocumentoRepository {
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             };
-            
-            console.log('Insertando documento con ID:', dataToInsert.id);
-            
+                        
             const { data, error } = await this.supabaseAdmin
                 .from('documentos')
                 .insert([dataToInsert])

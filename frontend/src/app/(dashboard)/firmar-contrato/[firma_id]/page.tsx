@@ -47,9 +47,7 @@ const firma_id = params?.firma_id as string;
   useEffect(() => {
     const checkSession = async () => {
       try {
-        console.log('. Verificando sesión...');
         const sessionData = await getSession();
-        console.log('. Datos de sesión:', sessionData);
         
         if (sessionData) {
           setSession(sessionData);
@@ -73,9 +71,6 @@ const cargarInfoFirma = useCallback(async () => {
     setLoading(true);
     setError('');
 
-    console.log('. Cargando información de firma para:', firma_id);
-    console.log('. Token disponible:', !!session?.accessToken);
-
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
     const response = await fetch(`${API_URL}/firmas/info-firma-word/${firma_id}`, {
@@ -85,7 +80,6 @@ const cargarInfoFirma = useCallback(async () => {
       }
     });
 
-    console.log(' Response status:', response.status);
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -101,7 +95,6 @@ const cargarInfoFirma = useCallback(async () => {
     }
 
     const result = await response.json();
-    console.log('. Información cargada exitosamente:', result.success);
 
     if (result.success) {
       setInfoFirma(result.data);
@@ -185,8 +178,6 @@ const handleFirmarDocumento = async (documentoFirmado: DocumentoFirmado) => {
         
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-        console.log('. Enviando firma acumulativa...', { tipoFirma, firma_id });
-
         // . USAR EL ENDPOINT
         const response = await fetch(`${API_URL}/firmas/procesar-firma-word/${firma_id}`, {
             method: 'POST',
@@ -201,7 +192,6 @@ const handleFirmarDocumento = async (documentoFirmado: DocumentoFirmado) => {
         });
 
         const result = await response.json();
-        console.log('. Resultado de firma acumulativa:', result);
 
         if (result.success) {
             setFirmaCompletada(true);
@@ -328,9 +318,6 @@ const response = await fetch(`${API_URL}/firmas/descargar/${firmaId}`, {
   if (error && !infoFirma) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Button onClick={handleLogin} variant="contained">
-          Ir al Login
-        </Button>
       </Container>
     );
   }
@@ -345,19 +332,7 @@ const response = await fetch(`${API_URL}/firmas/descargar/${firmaId}`, {
 
   return (
     <Container maxWidth="xl" sx={{ mt: 2, mb: 4, height: '90vh' }}>
-      {error && (
-        <Alert 
-          severity="error" 
-          sx={{ mb: 2 }}
-          action={
-            <Button color="inherit" size="small" onClick={handleRetry}>
-              Reintentar
-            </Button>
-          }
-        >
-          {error}
-        </Alert>
-      )}
+
 
       {/* Encabezado */}
       <Box sx={{ mb: 2 }}>

@@ -2,6 +2,7 @@
 const FirmaDigital = require('../../../domain/entities/FirmaDigital');
 const GenerarContratoParaSolicitud = require('../contratos/GenerarContratoParaSolicitud');
 const crypto = require('crypto');
+const CrearNotificacionesFirma = require('../notificaciones/CrearNotificacionesFirma');
 
 class IniciarProcesoFirma{
     constructor(
@@ -9,16 +10,17 @@ class IniciarProcesoFirma{
         contratoRepository,
         wordService,
         notificacionService,
-        supabaseAdmin
+        supabaseAdmin,
+        crearNotificacionesFirmaUseCase
     ){
         this.firmaDigitalRepository = firmaDigitalRepository;
         this.contratoRepository = contratoRepository;
         this.wordService = wordService;
         this.notificacionService = notificacionService;
         this.supabaseAdmin = supabaseAdmin;
+        this.crearNotificacionesFirmaUseCase = crearNotificacionesFirmaUseCase;
     }
     async execute(solicitud_id, usuario, {forzar_reinicio}){
-        console.log('Iniciando proceso de firma para solicitud:', solicitud_id);
         // 1. Verificar que la solicitud existe y está aprobada
         const { data: solicitud, error: solError} = await this.supabaseAdmin
             .from('solicitudes_credito')
@@ -52,11 +54,9 @@ class IniciarProcesoFirma{
             contratoExistente = await this.contratoRepository.obtenerPorSolicitud(solicitud_id);
 
         }catch(error){
-            console.log('Error verificando contrato existente, asumiendo que no existe:', error.message);
             contratoExistente =null;
         }
         if(!contratoExistente){
-    console.log('No existe contrato, generando uno nuevo...');
     try{
         const generarContratoUseCase = new GenerarContratoParaSolicitud(
             this.contratoRepository,
@@ -73,7 +73,6 @@ class IniciarProcesoFirma{
         
         // USAR el contrato devuelto por execute() en lugar de hacer otra consulta
         contratoFinal = contratoGenerado;
-        console.log('Contrato generado exitosamente:', contratoFinal.id);
         
     } catch (error){
         console.error('Error generando contrato:', error);
@@ -85,7 +84,6 @@ class IniciarProcesoFirma{
     }
 }
  else {
-    console.log('Contrato existente encontrado, actualizando:', contratoExistente.id);
     try {
         // Usar el repositorio directamente en lugar de supabaseAdmin
         const contratoActualizado = await this.contratoRepository.actualizar(contratoExistente.id, {
@@ -96,7 +94,6 @@ class IniciarProcesoFirma{
         });
         
         contratoFinal = contratoActualizado;
-        console.log('Contrato existente actualizado:', contratoFinal.id);
         
     } catch(error) {
         console.error('Error actualizando contrato existente:', error);
@@ -109,7 +106,6 @@ class IniciarProcesoFirma{
 }
         // 3. Verificar que el contrato tiene documento
         if(!contratoFinal.ruta_documento){
-            console.log('Contrato sin documento, generando word');
             try{
                 const generarContratoUseCase = new GenerarContratoParaSolicitud(
                     this.contratoRepository,
@@ -138,7 +134,6 @@ class IniciarProcesoFirma{
             
         }
         // 4. Verificar que el documento existe en storage
-console.log('Verificando documento en storage:', contratoFinal.ruta_documento);
 
 let fileData;
 const { data: downloadData, error: fileError } = await this.supabaseAdmin.storage
@@ -148,7 +143,6 @@ const { data: downloadData, error: fileError } = await this.supabaseAdmin.storag
 if (fileError) {
     console.error('Documento no encontrado en storage:', fileError);
     try {
-        console.log('Regenerando documento...');
         const generarContratoUseCase = new GenerarContratoParaSolicitud(
             this.contratoRepository,
             this.wordService,
@@ -169,7 +163,6 @@ if (fileError) {
         
         // Asignar el nuevo fileData
         fileData = newFileData;
-        console.log('Documento regenerado exitosamente');
         
     } catch (regenerateError) {
         console.error('Error regenerando documento:', regenerateError);
@@ -184,18 +177,15 @@ if (fileError) {
     fileData = downloadData;
 }
 
-console.log('Documento verificado exitosamente');
 
 // 5. Verificar si ya existe proceso de firma
 const firmaExistente = await this.firmaDigitalRepository.verificarFirmaActiva(solicitud_id);
 if(firmaExistente){
-    console.log('Ya existe proceso de firma:', firmaExistente);
-    console.log('Reemplazando firma existente con nueva firma...');
+
     await this.firmaDigitalRepository.actualizar(firmaExistente.id,{
         estado:'reemplazado',
         updated_at: new Date().toISOString()
     });
-    console.log('Firma anterior marcada como reemplazada:', firmaExistente.id);
 }
 
         // 6. Procesar el documento para firma
@@ -227,7 +217,6 @@ if(firmaExistente){
             operador
         );
         if(!firmaResult.success){
-            console.log('Fallback a firma individual para solicitante');
             const firmaIndividualResult = await this.crearSolicitudFirmaIndividual(
                 contratoFinal.id,
                 solicitante,
@@ -241,20 +230,23 @@ if(firmaExistente){
         }
         // 8. Registrar en base de datos
         const firmaEntity = new FirmaDigital({
-            contrato_id: contratoFinal.id,
-            solicitud_id: solicitud_id,
-            signature_request_id: firmaResult.signatureRequestId,
-            ruta_documento: uploadResult.ruta,
-            hash_documento_original: hashOriginal,
-            estado: 'enviado',
-            url_firma_solicitante: firmaResult.urlsFirma?.solicitante,
-            url_firma_operador: firmaResult.urlsFirma?.operador,
-            fecha_envio: new Date().toISOString(),
-            fecha_expiracion: new Date(Date.now()+7*24*60*60*1000).toISOString(),
-            intentos_envio: 1
-        });
-        const firma = await this.firmaDigitalRepository.crear(firmaEntity.toJSON());
-        // 9. Actualizar contrato
+    contrato_id: contratoFinal.id,
+    solicitud_id: solicitud_id,
+    signature_request_id: firmaResult.signatureRequestId,
+    ruta_documento: uploadResult.ruta,  // ← Esto DEBERÍA guardar la ruta
+    url_documento_firmado: uploadResult.ruta, // ← También guardar en url_documento_firmado
+    hash_documento_original: hashOriginal,
+    estado: 'enviado',
+    url_firma_solicitante: firmaResult.urlsFirma?.solicitante,
+    url_firma_operador: firmaResult.urlsFirma?.operador,
+    fecha_envio: new Date().toISOString(),
+    fecha_expiracion: new Date(Date.now()+7*24*60*60*1000).toISOString(),
+    intentos_envio: 1
+});
+
+const firma = await this.firmaDigitalRepository.crear(firmaEntity.toJSON());
+
+// 9. Actualizar contrato
         await this.supabaseAdmin
             .from('contratos')
             .update({
@@ -277,13 +269,12 @@ if(firmaExistente){
             created_at: new Date().toISOString()
         });
         // 11. Crear notificaciones
-        await this.notificacionService.crearNotificacionFirma(
+        await this.crearNotificacionesFirmaUseCase.execute(
             solicitante.id,
             operador.id,
             solicitud_id,
             firma
         );
-        console.log('Proceso de firma digital iniciado exitosamente:', firma.id);
         return {
             success: true,
             message: 'Proceso de firma digital iniciado exitosamente',
@@ -314,7 +305,6 @@ if(firmaExistente){
     }
   async crearSolicitudFirmaMultiple(contratoId, solicitante, operador) {
     try {
-      console.log('. Creando solicitud de firma múltiple INTERNA para documento ID:', contratoId);
 
       const crypto = require('crypto');
       const signatureRequestId = crypto.randomUUID();
@@ -322,10 +312,6 @@ if(firmaExistente){
       const urlFirmaSolicitante = `/firmar-contrato/${signatureRequestId}?tipo=solicitante`;
       const urlFirmaOperador = `/firmar-contrato/${signatureRequestId}?tipo=operador`;
 
-      console.log('. Solicitud de firma múltiple interna creada:', {
-        signatureRequestId,
-        contratoId
-      });
 
       return {
         success: true,
@@ -354,13 +340,9 @@ if(firmaExistente){
 
     async crearSolicitudFirmaIndividual(contratoId, destinatario, tipoFirmante='solicitante'){
         try{
-            console.log('Creando solicitud de firma individual interna:', {contratoId, tipoFirmante});
             const signatureRequestId = crypto.randomUUID();
             const urlFirma = `/firmar-contrato/${signatureRequestId}?tipo=${tipoFirmante}`;
-            console.log('Solicitud de firma individual interna creada:',{
-                signatureRequestId,
-                contratoId
-            });
+
             return {
                 success: true,
                 signatureRequestId: signatureRequestId,

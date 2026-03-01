@@ -87,14 +87,12 @@ export default function DecisionStep({
     // Verificar si la solicitud ya fue revisada (aprobada o rechazada)
     const verificarEstadoSolicitud = () => {
         if (solicitud?.estado) {
-            console.log('. Verificando estado de solicitud:', solicitud.estado);
             setEstadoActual(solicitud.estado);
             
             // Si el estado es 'aprobado' o 'rechazado', deshabilitar botones
             const estadosFinales = ['aprobado', 'rechazado'];
             const yaRevisada = estadosFinales.includes(solicitud.estado);
             
-            console.log('Estado actual:', solicitud.estado, '¿Ya revisada?:', yaRevisada);
             
             setSolicitudYaRevisada(yaRevisada);
         } else {
@@ -165,8 +163,6 @@ export default function DecisionStep({
                 throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
             }
 
-            // Actualizar estado local INMEDIATAMENTE
-            console.log(' Solicitud aprobada, actualizando estado local...');
             setSolicitudYaRevisada(true);
             setEstadoActual('aprobado');
 
@@ -211,8 +207,6 @@ export default function DecisionStep({
                 throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
             }
 
-            // Actualizar estado local INMEDIATAMENTE
-            console.log('. Solicitud rechazada, actualizando estado local...');
             setSolicitudYaRevisada(true);
             setEstadoActual('rechazado');
 

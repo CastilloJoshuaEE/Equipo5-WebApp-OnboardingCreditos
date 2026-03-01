@@ -1,4 +1,5 @@
 // backend/application/use-cases/solicitudes/AprobarSolicitud.js
+
 const Solicitud = require('../../../domain/entities/Solicitud');
 
 class AprobarSolicitud {
@@ -43,19 +44,17 @@ class AprobarSolicitud {
     }
 
     try {
-      const contrato = await this.generarContratoUseCase.generarContratoParaSolicitud(solicitud_id);
+      const contrato = await this.generarContratoUseCase.execute(solicitud_id);
 
+      // Pasar solo los IDs, no el objeto completo
       await this.notificacionService.notificarAprobacionSolicitud(
+        solicitud_id,  
         solicitud.solicitante_id,
-        solicitud_id,
-        {
-          numero_contrato: contrato.numero_contrato,
-          monto_aprobado: solicitud.monto,
-          comentarios: comentarios
-        }
+        usuario.id
       );
+
     } catch (error) {
-      console.error('Error generando contrato:', error);
+      console.error('Error generando contrato o notificaciones:', error);
     }
 
     return {

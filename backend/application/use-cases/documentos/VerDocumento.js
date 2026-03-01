@@ -1,11 +1,11 @@
 // backend/application/use-cases/documentos/VerDocumento.js
+
 class VerDocumento {
   constructor(supabase) {
     this.supabase = supabase;
   }
 
   async execute(tipo, id, usuario) {
-    console.log(`Vista previa de documento: ${tipo} - ${id}`);
 
     let rutaDocumento;
     let nombreDocumento;
@@ -32,6 +32,8 @@ class VerDocumento {
       }
 
       const solicitud = contrato.solicitudes_credito;
+      
+      //   Los operadores pueden ver TODOS los contratos
       if (usuario.rol === 'solicitante' && solicitud.solicitante_id !== usuario.id) {
         return {
           success: false,
@@ -39,6 +41,7 @@ class VerDocumento {
           message: 'No tienes permisos para ver este documento'
         };
       }
+      // Para operadores, permitir acceso sin restricción
 
       rutaDocumento = contrato.ruta_documento;
       nombreDocumento = `contrato-${contrato.numero_contrato}`;
@@ -64,6 +67,8 @@ class VerDocumento {
       }
 
       const solicitud = transferencia.solicitudes_credito;
+      
+      //   Los operadores pueden ver TODOS los comprobantes
       if (usuario.rol === 'solicitante' && solicitud.solicitante_id !== usuario.id) {
         return {
           success: false,
@@ -71,6 +76,7 @@ class VerDocumento {
           message: 'No tienes permisos para ver este documento'
         };
       }
+      // Para operadores, permitir acceso sin restricción
 
       rutaDocumento = transferencia.ruta_comprobante;
       nombreDocumento = `comprobante-${transferencia.numero_comprobante}`;

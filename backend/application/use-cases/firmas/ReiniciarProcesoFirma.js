@@ -5,7 +5,6 @@ class ReiniciarProcesoFirma {
   }
 
   async execute(solicitud_id, { forzar_reinicio }) {
-    console.log('. Reiniciando proceso de firma para:', solicitud_id);
 
     // Buscar firma existente
     const firmaExistente = await this.firmaDigitalRepository.verificarFirmaActiva(solicitud_id);
@@ -16,7 +15,6 @@ class ReiniciarProcesoFirma {
         updated_at: new Date().toISOString()
       });
 
-      console.log('. Proceso de firma anterior marcado como expirado:', firmaExistente.id);
     }
 
     return {

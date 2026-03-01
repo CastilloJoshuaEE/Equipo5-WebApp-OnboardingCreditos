@@ -7,11 +7,7 @@ class CrearComentario{
         this.supabase = supabase;
     }
     async execute({solicitud_id, comentario, tipo}, usuario){
-        console.log(`Creando comentario para solicitud:${solicitud_id}`,{
-            usuario_id: usuario.id,
-            tipo,
-            comentario: comentario.substring(0,100) + '...'
-        });
+
         // Validaciones
         if(!solicitud_id || !comentario){
             return{
@@ -56,7 +52,6 @@ class CrearComentario{
             if(solicitud){
                 await this._crearNotificacionComentario(solicitud, nuevoComentario, usuario);
             }
-            console.log(`Comentario creado exitosamente: ${nuevoComentario.id}`);
             return{
                 success: true,
                 status: 201,

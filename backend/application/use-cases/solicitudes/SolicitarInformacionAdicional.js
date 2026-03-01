@@ -17,8 +17,6 @@ class SolicitarInformacionAdicional {
       };
     }
 
-    console.log(`Solicitando información adicional para: ${solicitud_id}`);
-
     const solicitud = await this.solicitudRepository.cambiarEstado(
       solicitud_id, 
       Solicitud.ESTADOS.PENDIENTE_INFO,
@@ -36,7 +34,6 @@ class SolicitarInformacionAdicional {
 
     await this.solicitudInformacionRepository.create(solicitudInfoEntity.toJSON());
 
-    console.log(`Información adicional solicitada para solicitud ${solicitud_id}`);
 
     return {
       success: true,

@@ -3,9 +3,7 @@
 const brevoAPIService = require('./emailBrevoAPIService');
 
 const enviarEmailRecuperacionCuenta = async (email, nombre, userId) => {
-  try {
-    console.log(`[RECUPERACIÓN] Preparando email de recuperación para: ${email}`);
-    
+  try {    
     const tokenRecuperacion = generarTokenRecuperacion(userId, email);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const enlaceRecuperacion = `${frontendUrl}/restablecer-cuenta?token=${tokenRecuperacion}&email=${encodeURIComponent(email)}`;    
@@ -38,7 +36,6 @@ const enviarEmailRecuperacionCuenta = async (email, nombre, userId) => {
 // Función específica para reactivación
 const enviarEmailReactivacionCuenta = async (email, nombre, userId) => {
   try {
-    console.log(`[REACTIVACIÓN] Preparando email de reactivación para: ${email}`);
     
     const tokenReactivacion = generarTokenRecuperacion(userId, email);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -69,9 +66,7 @@ const enviarEmailReactivacionCuenta = async (email, nombre, userId) => {
 const generarTokenRecuperacion = (userId, email) => {
   const timestamp = Date.now();
   const tokenData = `${userId}:${email}:${timestamp}:recuperacion`;
-  console.log('. Generando token con datos:', tokenData);
   const token = Buffer.from(tokenData).toString('base64');
-  console.log('. Token generado (base64):', token);
   return token;
 };
 

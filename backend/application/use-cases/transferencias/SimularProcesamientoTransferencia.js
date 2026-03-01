@@ -1,8 +1,10 @@
 // backend/application/use-cases/transferencias/SimularProcesamientoTransferencia.js
+const GenerarComprobantePDF = require('./GenerarComprobantePDF'); // ← IMPORTAR
+
 class SimularProcesamientoTransferencia {
-  constructor(transferenciaRepository, notificacionService, supabase) {
+  constructor(transferenciaRepository, notificacionEmailService, supabase) {
     this.transferenciaRepository = transferenciaRepository;
-    this.notificacionService = notificacionService;
+    this.notificacionEmailService = notificacionEmailService;
     this.supabase = supabase;
   }
 
@@ -12,18 +14,40 @@ class SimularProcesamientoTransferencia {
 
       await new Promise(resolve => setTimeout(resolve, 3000));
 
-      const transferencia = await this.transferenciaRepository.actualizarEstado(
-        transferenciaId,
-        'completada',
-        { fecha_completada: new Date().toISOString() }
-      );
+      // Obtener la transferencia actualizada
+      const transferencia = await this.transferenciaRepository.obtenerPorId(transferenciaId);
 
       if (transferencia) {
+        //  GENERAR PDF ANTES DE MARCAR COMO COMPLETADA
         try {
-          await this.enviarNotificacionesCompletas(transferencia);
-          console.log('Notificaciones y emails enviados exitosamente');
-        } catch (notifError) {
-          console.error('Error en notificaciones (continuando proceso):', notifError);
+          const generadorPDF = new GenerarComprobantePDF(this.transferenciaRepository, this.supabase);
+          const pdfBuffer = await generadorPDF.execute(transferencia);
+          
+          // Actualizar el objeto transferencia con la nueva ruta
+          const transferenciaActualizada = await this.transferenciaRepository.obtenerPorId(transferenciaId);
+          
+          // Ahora marcar como completada
+          const transferenciaCompletada = await this.transferenciaRepository.actualizarEstado(
+            transferenciaId,
+            'completada',
+            { fecha_completada: new Date().toISOString() }
+          );
+          
+          // Usar la transferencia con la ruta del comprobante
+          const transferenciaParaNotificaciones = transferenciaActualizada || transferenciaCompletada;
+          
+          await this.enviarNotificacionesCompletas(transferenciaParaNotificaciones);
+          console.log(' Notificaciones y emails enviados exitosamente');
+          
+        } catch (pdfError) {
+          console.error(' Error generando PDF:', pdfError);
+          // Aún así marcar como completada pero sin PDF
+          const transferenciaCompletada = await this.transferenciaRepository.actualizarEstado(
+            transferenciaId,
+            'completada',
+            { fecha_completada: new Date().toISOString() }
+          );
+          await this.enviarNotificacionesCompletas(transferenciaCompletada);
         }
       }
 
@@ -36,12 +60,10 @@ class SimularProcesamientoTransferencia {
   }
 
   async enviarNotificacionesCompletas(transferencia) {
-    console.log('Iniciando envío de notificaciones completas para transferencia:', transferencia.id);
 
     await this.crearNotificacionesInternas(transferencia);
     await this.enviarEmailsConComprobante(transferencia);
 
-    console.log('Notificaciones completas enviadas exitosamente');
   }
 
   async crearNotificacionesInternas(transferencia) {
@@ -72,10 +94,6 @@ class SimularProcesamientoTransferencia {
 
     const numeroComprobante = transferenciaCompleta.numero_comprobante || 'N/A';
 
-    console.log('Creando notificaciones internas para:', {
-      solicitante_id: solicitud.solicitante_id,
-      operador_id: solicitud.operador_id
-    });
 
     const notificaciones = [
       {
@@ -116,11 +134,9 @@ class SimularProcesamientoTransferencia {
     ];
 
     await this.transferenciaRepository.crearNotificaciones(notificaciones);
-    console.log('Notificaciones internas creadas exitosamente');
   }
 
   async enviarEmailsConComprobante(transferencia) {
-    console.log('Preparando envío de emails con comprobante...');
 
     const { data: transferenciaCompleta, error } = await this.supabase
       .from('transferencias_bancarias')
@@ -161,19 +177,17 @@ class SimularProcesamientoTransferencia {
         if (!downloadError && fileData) {
           const arrayBuffer = await fileData.arrayBuffer();
           comprobanteBuffer = Buffer.from(arrayBuffer);
-          console.log('Comprobante PDF obtenido para envío');
         }
       } catch (pdfError) {
-        console.warn('No se pudo obtener el comprobante PDF:', pdfError.message);
+        console.warn(' No se pudo obtener el comprobante PDF:', pdfError.message);
       }
     }
 
     const emailsEnviados = [];
 
     if (solicitante && solicitante.email) {
-      console.log('Enviando email a solicitante:', solicitante.email);
       try {
-        const resultado = await this.notificacionService.enviarEmailComprobanteSolicitante(
+        const resultado = await this.notificacionEmailService.enviarEmailComprobanteSolicitante(
           solicitante.email,
           solicitante.nombre_completo,
           transferenciaCompleta,
@@ -181,14 +195,13 @@ class SimularProcesamientoTransferencia {
         );
         emailsEnviados.push({ tipo: 'solicitante', email: solicitante.email, resultado });
       } catch (error) {
-        console.error('Error enviando email al solicitante:', error);
+        console.error(' Error enviando email al solicitante:', error);
       }
     }
 
     if (operador && operador.email) {
-      console.log('Enviando email a operador:', operador.email);
       try {
-        const resultado = await this.notificacionService.enviarEmailConfirmacionOperador(
+        const resultado = await this.notificacionEmailService.enviarEmailConfirmacionOperador(
           operador.email,
           operador.nombre_completo,
           transferenciaCompleta,
@@ -196,11 +209,10 @@ class SimularProcesamientoTransferencia {
         );
         emailsEnviados.push({ tipo: 'operador', email: operador.email, resultado });
       } catch (error) {
-        console.error('Error enviando email al operador:', error);
+        console.error(' Error enviando email al operador:', error);
       }
     }
 
-    console.log('Emails con comprobante procesados:', emailsEnviados.length);
     return emailsEnviados;
   }
 }

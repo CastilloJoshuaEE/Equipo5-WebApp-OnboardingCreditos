@@ -43,7 +43,7 @@ class ProcesarMensaje {
             let interaccionGuardada = null;
             if (usuario) {
                 try {
-                    // CORRECCIÓN: Asegurar que no enviamos id null
+                    //  Asegurar que no enviamos id null
                     const datosParaGuardar = interaccion.toJSON();
                     
                     interaccionGuardada = await this.chatbotRepository.crearInteraccion(datosParaGuardar);

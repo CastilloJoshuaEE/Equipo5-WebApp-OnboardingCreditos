@@ -16,7 +16,6 @@ class BrevoAPIService {
         }
       });
       
-      console.log('. Conexión con Brevo API establecida correctamente');
       return true;
     } catch (error) {
       console.error('. Error conectando a Brevo API:', error.response?.data || error.message);
@@ -32,7 +31,6 @@ class BrevoAPIService {
   // Enviar email transaccional
   async enviarEmail(destinatario, asunto, contenidoHTML, contenidoTexto = '', nombreRemitente = null) {
     try {
-      console.log(`. [BREVO API] Enviando email a: ${destinatario}`);
 
       const emailData = {
         sender: {
@@ -59,10 +57,6 @@ class BrevoAPIService {
         },
         timeout: 30000
       });
-
-      console.log('. Email enviado exitosamente via Brevo API');
-      console.log('. ID del mensaje:', response.data.messageId);
-
       return {
         success: true,
         messageId: response.data.messageId,
@@ -88,9 +82,7 @@ class BrevoAPIService {
  */
 
 async enviarEmailConAdjuntos(destinatario, asunto, contenidoHTML, adjuntos = []) {
-    try {
-        console.log(`. [BREVO API] Enviando email con adjuntos a:`, destinatario);
-        
+    try {        
         // Formatear destinatario correctamente
         let toFormat;
         if (typeof destinatario === 'string') {
@@ -106,7 +98,6 @@ async enviarEmailConAdjuntos(destinatario, asunto, contenidoHTML, adjuntos = [])
             };
         }
 
-        console.log(`. Número de adjuntos: ${adjuntos.length}`);
 
         // PREPARAR ADJUNTOS EN FORMATO CORRECTO PARA BREVO
         const adjuntosFormateados = adjuntos.map(adjunto => {
@@ -132,8 +123,6 @@ async enviarEmailConAdjuntos(destinatario, asunto, contenidoHTML, adjuntos = [])
                 };
             }
         }).filter(Boolean);
-
-        console.log('. Adjuntos formateados:', adjuntosFormateados.length);
 
         const emailData = {
             sender: {
@@ -161,10 +150,6 @@ async enviarEmailConAdjuntos(destinatario, asunto, contenidoHTML, adjuntos = [])
             },
             timeout: 30000
         });
-
-        console.log('. Email con adjuntos enviado exitosamente via Brevo API');
-        console.log('. ID del mensaje:', response.data.messageId);
-
         return {
             success: true,
             messageId: response.data.messageId,
@@ -210,8 +195,6 @@ async enviarEmailComprobanteTransferencia(destinatario, nombre, datosTransferenc
         name: `comprobante-${datosTransferencia.numero_comprobante}.pdf`,
         content: archivoComprobante.toString('base64')
     }];
-
-    console.log('. Enviando comprobante a:', destinatarioFormateado);
 
     // Llamar al método principal con el destinatario ya formateado
     return await this.enviarEmailConAdjuntos(destinatarioFormateado, asunto, contenidoHTML, adjuntos);

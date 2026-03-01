@@ -10,7 +10,6 @@ class GenerarComprobantePDF {
   async execute(transferencia) {
     return new Promise((resolve, reject) => {
       try {
-        console.log('Generando comprobante PDF para transferencia:', transferencia.id);
 
         const doc = new PDFDocument();
         const chunks = [];
@@ -24,7 +23,6 @@ class GenerarComprobantePDF {
             const nombreArchivo = `comprobante-${numeroComprobante}.pdf`;
             const rutaStorage = `comprobantes-transferencias/${nombreArchivo}`;
 
-            console.log('Subiendo comprobante a storage:', rutaStorage);
 
             const { error: uploadError } = await this.supabase.storage
               .from('kyc-documents')
@@ -41,7 +39,6 @@ class GenerarComprobantePDF {
 
             await this.transferenciaRepository.actualizarRutaComprobante(transferencia.id, rutaStorage);
 
-            console.log('Comprobante PDF generado y guardado exitosamente:', rutaStorage);
             resolve(pdfBuffer);
 
           } catch (error) {

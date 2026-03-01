@@ -357,9 +357,8 @@ const iniciarServidor = async () => {
     const contratoRepository = new SupabaseContratoRepository(supabaseClient, supabaseAdmin);
     const firmaDigitalRepository = new SupabaseFirmaDigitalRepository(supabaseClient);
     const verificacionKYCRepository = new SupabaseVerificacionKYCRepository(supabaseClient);
-    const transferenciaRepository = new SupabaseTransferenciaBancariaRepository(supabaseClient);
+    const transferenciaRepository = new SupabaseTransferenciaBancariaRepository(supabaseClient, supabaseAdmin);
     const solicitudInformacionRepository = new SupabaseSolicitudInformacionRepository(supabaseClient);
-
     // INSTANCIAR SERVICIOS
     const authService = new AuthService(supabaseClient, supabaseAdmin);
     const notificacionEmailService = new NotificacionEmailService(EmailService);
@@ -387,7 +386,6 @@ const verificarEstadoCuenta = new VerificarEstadoCuentaUseCase(usuarioRepository
 const obtenerConfiguracionCuenta = new ObtenerConfiguracionCuentaUseCase(usuarioRepository);
 const eliminarCuenta = new EliminarCuentaUseCase(usuarioRepository, authService, supabaseClient);
 const gestionUsuarios = new GestionUsuariosUseCase(usuarioRepository);
-
     // INSTANCIAR USE CASES - OPERADOR
     const obtenerDashboard = new ObtenerDashboardUseCase(solicitudRepository);
     const iniciarRevisionSolicitud = new IniciarRevisionSolicitudUseCase(solicitudRepository, BCRAService, supabaseClient);
@@ -475,8 +473,9 @@ const notificarFirmaCompletada = new NotificarFirmaCompletada(
     notificacionRepository, 
     supabaseClient
 );
-    // INSTANCIAR USE CASES - FIRMAS DIGITALES
-    const iniciarProcesoFirma = new IniciarProcesoFirmaUseCase(firmaDigitalRepository, contratoRepository, WordService, NotificacionService, supabaseAdmin);
+const crearNotificacionesFirma = new (require("./application/use-cases/notificaciones/CrearNotificacionesFirma"))(notificacionRepository);
+// INSTANCIAR USE CASES - FIRMAS DIGITALES
+    const iniciarProcesoFirma = new IniciarProcesoFirmaUseCase(firmaDigitalRepository, contratoRepository, WordService, NotificacionService, supabaseAdmin, crearNotificacionesFirma );
     const obtenerInfoFirma = new ObtenerInfoFirmaUseCase(firmaDigitalRepository, supabaseClient);
 const procesarFirma = new ProcesarFirmaUseCase(
     firmaDigitalRepository, 
@@ -531,7 +530,7 @@ const procesarFirma = new ProcesarFirmaUseCase(
     const obtenerMisTransferencias = new ObtenerMisTransferenciasUseCase(transferenciaRepository);
     const forzarActualizacionEstado = new ForzarActualizacionEstadoUseCase(transferenciaRepository, supabaseClient);
     const obtenerEstadisticasTransferencias = new ObtenerEstadisticasTransferenciasUseCase(transferenciaRepository);
-    const simularProcesamientoTransferencia = new SimularProcesamientoTransferenciaUseCase(transferenciaRepository, null, notificacionEmailService, supabaseClient);
+    const simularProcesamientoTransferencia = new SimularProcesamientoTransferenciaUseCase(transferenciaRepository, notificacionEmailService, supabaseClient);
     const generarComprobantePDF = new GenerarComprobantePDFUseCase(transferenciaRepository, supabaseClient);
 
     // INSTANCIAR CONTROLLERS
@@ -700,53 +699,6 @@ const usuarioController = new UsuarioController(
       asignarOperadorAutomatico,
       eliminarSolicitud
     );
-
-    const inspectController = (name, controller) => {
-      console.log(`\nController: ${name}`);
-      try {
-        // Verificar si es una clase con métodos estáticos
-        if (controller && typeof controller === 'function' && controller.prototype) {
-          console.log(` ${name} es una clase con métodos estáticos`);
-          const staticMethods = Object.getOwnPropertyNames(controller)
-            .filter(p => p !== 'prototype' && p !== 'length' && p !== 'name' && typeof controller[p] === 'function');
-          staticMethods.forEach(m => console.log(` ${name}.${m} (estático)`));
-          return;
-        }
-        
-        const props = Object.getOwnPropertyNames(Object.getPrototypeOf(controller));
-        props.forEach((p) => {
-          if (p === "constructor") return;
-          const type = typeof controller[p];
-          if (type !== "function") {
-            console.error(` ${name}.${p} NO es función ->`, type);
-          } else {
-            console.log(` ${name}.${p}`);
-          }
-        });
-      } catch (error) {
-        console.log(` ${name} es una clase con métodos estáticos (no se inspecciona)`);
-      }
-    };
-
-    const controllers = {
-      authController,
-      usuarioController,
-      operadorController,
-      chatbotController,
-      comentariosController,
-      contactosBancariosController,
-      contratoController,
-      documentoController,
-      firmaDigitalController,
-      notificacionesController,
-      webhooksController,
-      verificacionKYCController,
-      plantillasDocumentoController,
-      reactivacionController,
-      transferenciasBancariasController,
-      solicitudesController
-    };
-
 
     // INSTANCIAR MIDDLEWARE
     const authMiddleware = new AuthMiddleware();
@@ -929,9 +881,7 @@ const usuarioController = new UsuarioController(
 
     const server = app.listen(PORT, () => {
       console.log(`\n¡Servidor ejecutándose correctamente!`);
-      console.log(`Puerto: ${PORT}`);
       console.log(`URL: http://localhost:${PORT}`);
-      console.log(`Documentación API: http://localhost:${PORT}/api-docs`);
       console.log(`\nEndpoints disponibles:`);
       console.log(`   Health:    GET  http://localhost:${PORT}/api/health`);
       console.log(`   API Docs:  GET  http://localhost:${PORT}/api-docs`);

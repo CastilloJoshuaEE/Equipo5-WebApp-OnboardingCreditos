@@ -6,7 +6,6 @@ class ObtenerTodosLosDocumentos {
   }
 
   async execute(usuario) {
-    console.log('. Obteniendo todos los documentos para operador:', usuario.id);
 
     if (usuario.rol !== 'operador') {
       return {
@@ -133,8 +132,6 @@ class ObtenerTodosLosDocumentos {
         contacto_bancario: transferencia.contactos_bancarios
       }))
     };
-
-    console.log(`. Documentos cargados: ${documentosFormateados.contratos.length} contratos, ${documentosFormateados.transferencias.length} transferencias`);
 
     return {
       success: true,

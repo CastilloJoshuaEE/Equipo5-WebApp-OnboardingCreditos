@@ -27,7 +27,8 @@ export type ContratoDocumento = {
   estado?: string;
   created_at?: string;
   monto_aprobado?: number;
-
+  numero_solicitud?: string;
+  moneda?: string;
   solicitud_numero?: string;
   monto_solicitud?: number;
   moneda_solicitud?: string;
