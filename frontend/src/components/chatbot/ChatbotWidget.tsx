@@ -10,26 +10,33 @@ import {
   Avatar,
   CircularProgress,
   Card,
-  CardContent
+  CardContent,
+  Backdrop
 } from '@mui/material';
+import { useMemo } from 'react';
 import { 
   Send, 
   SmartToy, 
-  Close,
-  HelpOutline
+  Close
 } from '@mui/icons-material';
 import { getSession, useSession } from 'next-auth/react';
+import type { Session } from 'next-auth';
 import './chabot-styles.css';
 import { Mensaje } from '@/features/chatbot/mensaje.types';
+import { useBackendHealth } from '@/shared/hooks/useBackendHealth';
 
 export default function ChatbotWidget() {
   const [abierto, setAbierto] = useState(false);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [mensajeInput, setMensajeInput] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [session, setSession] = useState<any>(null);
+  const [verificandoBackend, setVerificandoBackend] = useState(false);
+  const [session, setSession] = useState<Session | null>(null)
   const [sessionLoading, setSessionLoading] = useState(true);
   const mensajesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Usar el hook de health check
+  const { waitForBackend, isReady, isChecking } = useBackendHealth();
 
   // Usar useSession para obtener la sesión de manera reactiva
   const { data: sessionData, status } = useSession();
@@ -40,7 +47,6 @@ export default function ChatbotWidget() {
       setSessionLoading(true);
       try {
         const userSession = await getSession();
-        console.log('🔄 Chatbot - Sesión cargada:', userSession ? `Usuario: ${userSession.user?.name}` : 'No hay sesión');
         setSession(userSession);
       } catch (error) {
         console.error('Error cargando sesión en chatbot:', error);
@@ -55,10 +61,8 @@ export default function ChatbotWidget() {
   // Escuchar cambios en la sesión de useSession
   useEffect(() => {
     if (status === 'authenticated') {
-      console.log('. Chatbot - Sesión autenticada detectada:', sessionData?.user?.name);
       setSession(sessionData);
     } else if (status === 'unauthenticated') {
-      console.log('🚪 Chatbot - Sesión no autenticada');
       setSession(null);
     }
   }, [sessionData, status]);
@@ -66,14 +70,12 @@ export default function ChatbotWidget() {
   // Escuchar eventos de storage para detectar cambios de sesión
   useEffect(() => {
     const handleStorageChange = async () => {
-      console.log('📦 Chatbot - Cambio en storage detectado, recargando sesión...');
       const userSession = await getSession();
       setSession(userSession);
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('👀 Chatbot - Página visible, verificando sesión...');
         getSession().then(userSession => {
           setSession(userSession);
         });
@@ -90,20 +92,20 @@ export default function ChatbotWidget() {
     };
   }, []);
 
-  const mensajeInicial: Mensaje = {
+  const mensajeInicial: Mensaje = useMemo(()=>( {
     id: '1',
     texto: session 
       ? `¡Hola ${session.user?.name}! Soy tu asistente virtual de Nexia. ¿En qué puedo ayudarte con tu solicitud de crédito?` 
       : '¡Hola! Soy tu asistente virtual de Nexia. ¿En qué puedo ayudarte con tu solicitud de crédito?',
     esUsuario: false,
     timestamp: new Date()
-  };
+  }),[session]);
 
   useEffect(() => {
     if (abierto && mensajes.length === 0 && !sessionLoading) {
       setMensajes([mensajeInicial]);
     }
-  }, [abierto, sessionLoading]);
+  }, [abierto, sessionLoading, mensajes.length, mensajeInicial]);
 
   useEffect(() => {
     scrollToBottom();
@@ -113,8 +115,41 @@ export default function ChatbotWidget() {
     mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Función mejorada para abrir el chat con verificación de backend
+  const handleOpenChat = async () => {
+    setVerificandoBackend(true);
+    
+    try {
+      // Esperar a que el backend esté listo (máximo 10 intentos ~25 segundos)
+      const backendReady = await waitForBackend(10);
+      
+      if (backendReady) {
+        setAbierto(true);
+        // Actualizar sesión al abrir
+        const userSession = await getSession();
+        setSession(userSession);
+      } else {
+        // Mostrar mensaje de error si el backend no responde
+        alert('No se pudo conectar con el servidor. Por favor, intenta más tarde.');
+      }
+    } catch (error) {
+      console.error('Error al abrir chat:', error);
+      alert('Error al conectar con el servidor');
+    } finally {
+      setVerificandoBackend(false);
+    }
+  };
+
+  // Función mejorada para enviar mensaje con verificación de backend
   const enviarMensaje = async () => {
     if (!mensajeInput.trim() || cargando) return;
+
+    // Verificar que el backend sigue activo antes de enviar
+    const backendActivo = await waitForBackend(1);
+    if (!backendActivo) {
+      alert('Conexión con el servidor perdida. Por favor, intenta de nuevo.');
+      return;
+    }
 
     const nuevoMensajeUsuario: Mensaje = {
       id: Date.now().toString(),
@@ -146,11 +181,6 @@ export default function ChatbotWidget() {
         ? `${API_BASE}/chatbot/mensaje-autenticado`
         : `${API_BASE}/chatbot/mensaje`;
 
-      console.log('💬 Chatbot - Enviando mensaje:', {
-        endpoint,
-        autenticado: !!currentSession?.accessToken,
-        usuario: currentSession?.user?.name
-      });
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -162,11 +192,9 @@ export default function ChatbotWidget() {
         }),
       });
 
-      console.log('📨 Chatbot - Respuesta del servidor:', response.status);
 
       if (!response.ok) {
         if (response.status === 401 && currentSession?.accessToken) {
-          console.log('🔄 Chatbot - Token inválido, intentando con endpoint público...');
           const publicResponse = await fetch(`${API_BASE}/chatbot/mensaje`, {
             method: 'POST',
             headers: {
@@ -205,8 +233,8 @@ export default function ChatbotWidget() {
       } else {
         throw new Error(data.message || 'Error en la respuesta del servidor');
       }
-    } catch (error: any) {
-      console.error('❌ Chatbot - Error enviando mensaje:', error);
+    } catch (error: unknown) {
+      console.error('. Chatbot - Error enviando mensaje:', error);
       const mensajeError: Mensaje = {
         id: (Date.now() + 1).toString(),
         texto: 'Lo siento, ha ocurrido un error. Por favor intenta nuevamente.',
@@ -228,7 +256,6 @@ export default function ChatbotWidget() {
 
   // Función para forzar actualización de sesión
   const actualizarSesion = async () => {
-    console.log('🔄 Chatbot - Forzando actualización de sesión...');
     const nuevaSesion = await getSession();
     setSession(nuevaSesion);
   };
@@ -238,21 +265,42 @@ export default function ChatbotWidget() {
       {/* Botón flotante */}
       {!abierto && (
         <IconButton
-          onClick={() => {
-            setAbierto(true);
-            actualizarSesion(); // Actualizar sesión al abrir
-          }}
+          onClick={handleOpenChat}
           className="floating-chat-button"
+          disabled={verificandoBackend}
           sx={{
             '& .MuiSvgIcon-root': {
               color: 'white !important',
               fontSize: '28px'
+            },
+            '&.Mui-disabled': {
+              opacity: 0.7,
+              cursor: 'not-allowed'
             }
           }}
         >
           <SmartToy />
         </IconButton>
       )}
+
+      {/* Backdrop de carga mientras se verifica el backend */}
+      <Backdrop
+        sx={{ 
+          color: '#fff', 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          flexDirection: 'column',
+          gap: 2
+        }}
+        open={verificandoBackend}
+      >
+        <CircularProgress color="inherit" size={60} />
+        <Typography variant="h6">
+          Verificando conexión con el servidor...
+        </Typography>
+        <Typography variant="body2">
+          Esto puede tomar unos segundos
+        </Typography>
+      </Backdrop>
 
       {/* Chatbox - Renderizado condicional en lugar de Collapse */}
       {abierto && (
@@ -280,7 +328,6 @@ export default function ChatbotWidget() {
                 </Box>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                
                 <IconButton 
                   size="small" 
                   onClick={() => setAbierto(false)}

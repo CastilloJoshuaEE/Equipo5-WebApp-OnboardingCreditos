@@ -31,8 +31,7 @@ export const usePerfil = (): UsePerfilReturn => {
         
         // Para compatibilidad, también lo establecemos como perfil
         // Esto soluciona el error de tipos
-        setPerfil(response.data as any);
-      } else {
+setPerfil(response.data as unknown as PerfilCompleto);      } else {
         setError('Error al cargar el perfil');
       }
     } catch (err) {
@@ -54,7 +53,7 @@ export const usePerfil = (): UsePerfilReturn => {
       if (response.success) {
         // Actualizar ambos estados para mantener consistencia
         setPerfilBasico(response.data);
-        setPerfil(response.data as any);
+setPerfil(response.data as unknown as PerfilCompleto);
         return true;
       } else {
         setError('Error al actualizar el perfil');
@@ -78,31 +77,28 @@ export const usePerfil = (): UsePerfilReturn => {
     }
 
     // Validación de teléfono
-    if (datos.telefono) {
-      const telefonoLimpio = datos.telefono.replace(/[\s\-\(\)\.]/g, '');
-      const telefonoRegex = /^(\+?\d{1,4})?[\s\-]?\(?(\d{1,4})?\)?[\s\-]?(\d{3,4})[\s\-]?(\d{3,4})$/;
-      if (!telefonoRegex.test(datos.telefono)) {
-        errors.telefono = 'Formato de teléfono inválido';
-      }
-    }
+if (datos.telefono) {
+  const telefonoLimpio = datos.telefono.replace(/[\s\-\(\)\.]/g, '');
+  const telefonoRegex = /^(\+?\d{1,4})?[\s\-]?\(?(\d{1,4})?\)?[\s\-]?(\d{3,4})[\s\-]?(\d{3,4})$/;
 
-    // Validaciones específicas para solicitantes
-    // Usar type assertion para acceder a propiedades de solicitante
-    const datosConTipo = datos as any;
-    
-    if (datosConTipo.nombre_empresa && datosConTipo.nombre_empresa.trim().length < 2) {
+  if (!telefonoRegex.test(telefonoLimpio)) {
+    errors.telefono = 'Formato de teléfono inválido';
+  }
+}
+
+    if (datos.nombre_empresa && datos.nombre_empresa.trim().length < 2) {
       errors.nombre_empresa = 'El nombre de empresa debe tener al menos 2 caracteres';
     }
 
-    if (datosConTipo.cuit && !/^\d{2}-\d{8}-\d{1}$/.test(datosConTipo.cuit)) {
+    if (datos.cuit && !/^\d{2}-\d{8}-\d{1}$/.test(datos.cuit)) {
       errors.cuit = 'Formato de CUIT inválido. Use: 30-12345678-9';
     }
 
-    if (datosConTipo.representante_legal && datosConTipo.representante_legal.trim().length < 2) {
+    if (datos.representante_legal && datos.representante_legal.trim().length < 2) {
       errors.representante_legal = 'El representante legal debe tener al menos 2 caracteres';
     }
 
-    if (datosConTipo.domicilio && datosConTipo.domicilio.trim().length < 5) {
+    if (datos.domicilio && datos.domicilio.trim().length < 5) {
       errors.domicilio = 'El domicilio debe tener al menos 5 caracteres';
     }
 

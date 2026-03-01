@@ -7,7 +7,6 @@ import { ResumenStepProps } from '@/components/ui/decisionStepProps';
 export default function ResumenStep({ solicitud }: ResumenStepProps) {
     // Función . para acceder a los datos anidados
 const getContactoInfo = (solicitud: SolicitudOperador) => {
-    console.log('. Datos completos del solicitante:', solicitud.solicitantes);
     
     // Si viene de la nueva estructura del backend
     if (solicitud.solicitante_info) {
@@ -29,7 +28,6 @@ const getContactoInfo = (solicitud: SolicitudOperador) => {
     }
     
     const usuario = solicitud.solicitantes.usuarios;
-    console.log('👤 Datos de usuario:', usuario);
     
     return {
         nombre: usuario?.nombre_completo || 'No disponible',

@@ -1,8 +1,9 @@
 // frontend/src/components/documentos/GestionDocumentos.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { getSession } from 'next-auth/react';
+import { ChipProps } from '@mui/material';
 import {
   Box,
   Typography,
@@ -26,13 +27,36 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Snackbar
+  Snackbar,
+  useMediaQuery,
+  useTheme,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Divider
 } from '@mui/material';
-import { Download, Visibility, CloudUpload, Delete, Edit } from '@mui/icons-material';
+import { 
+  Download, 
+  Visibility, 
+  CloudUpload, 
+  Edit,
+  ExpandMore,
+  Description,
+  CheckCircle,
+  Warning,
+  Cancel,
+  FilePresent,
+  Delete,
+  Refresh
+} from '@mui/icons-material';
 import { DocumentoData } from '@/features/documentos/documento.types';
 import { GestionDocumentosProps } from '@/features/documentos/documento.types';
 
 export default function GestionDocumentos({ solicitudId }: GestionDocumentosProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+  
   const [documentos, setDocumentos] = useState<DocumentoData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -40,26 +64,24 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
   const [dialogOpen, setDialogOpen] = useState(false);
   const [documentoAEliminar, setDocumentoAEliminar] = useState<DocumentoData | null>(null);
   const [subiendoArchivo, setSubiendoArchivo] = useState<string | null>(null);
+  const [expandedSection, setExpandedSection] = useState<string | false>('subir');
 
-  useEffect(() => {
-    cargarDocumentos();
-  }, [solicitudId]);
-
-  const cargarDocumentos = async () => {
+  const cargarDocumentos = useCallback(async () => {
     try {
       setLoading(true);
       const session = await getSession();
-      
+
       if (!session?.accessToken) {
         throw new Error('No estás autenticado');
       }
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
       const response = await fetch(`${API_URL}/solicitudes/${solicitudId}/documentos`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.accessToken}`,
+          Authorization: `Bearer ${session.accessToken}`,
         },
         credentials: 'include',
       });
@@ -70,13 +92,22 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
 
       const result = await response.json();
       setDocumentos(result.data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error cargando documentos:', error);
-      setError(error.message || 'Error al cargar los documentos');
+
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Error al cargar los documentos');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [solicitudId]);
+
+  useEffect(() => {
+    cargarDocumentos();
+  }, [cargarDocumentos]);
 
   const handleSubirDocumento = async (tipo: string, archivo: File) => {
     try {
@@ -109,9 +140,12 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
 
       setSuccess('Documento subido exitosamente');
       await cargarDocumentos();
-    } catch (error: any) {
-      console.error('Error subiendo documento:', error);
-      setError(error.message || 'Error al subir documento');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Ocurrió un error');
+      }
     } finally {
       setSubiendoArchivo(null);
     }
@@ -147,9 +181,12 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
 
       setSuccess('Documento actualizado exitosamente');
       await cargarDocumentos();
-    } catch (error: any) {
-      console.error('Error actualizando documento:', error);
-      setError(error.message || 'Error al actualizar documento');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Ocurrió un error');
+      }
     } finally {
       setSubiendoArchivo(null);
     }
@@ -181,9 +218,12 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
       setDialogOpen(false);
       setDocumentoAEliminar(null);
       await cargarDocumentos();
-    } catch (error: any) {
-      console.error('Error eliminando documento:', error);
-      setError(error.message || 'Error al eliminar documento');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Ocurrió un error');
+      }
     }
   };
 
@@ -234,12 +274,23 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
   };
 
   const getEstadoColor = (estado: string) => {
-    const colores: { [key: string]: any } = {
+    const colores: Record<string, ChipProps['color']> = {
       'pendiente': 'warning',
       'validado': 'success',
       'rechazado': 'error'
     };
     return colores[estado] || 'default';
+  };
+
+  const getEstadoIcon = (estado: string) => {
+    switch(estado) {
+      case 'validado':
+        return <CheckCircle fontSize="small" color="success" />;
+      case 'rechazado':
+        return <Cancel fontSize="small" color="error" />;
+      default:
+        return <Warning fontSize="small" color="warning" />;
+    }
   };
 
   const getTipoDocumentoLabel = (tipo: string) => {
@@ -262,6 +313,25 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    if (isMobile) {
+      return date.toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+    return date.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const DocumentoInput = ({ tipo, documentoExistente }: { tipo: string, documentoExistente?: DocumentoData }) => {
     const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -273,7 +343,6 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
         } else {
           handleSubirDocumento(tipo, file);
         }
-        // Reset input
         if (inputRef.current) {
           inputRef.current.value = '';
         }
@@ -281,40 +350,130 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
     };
 
     return (
-      <Box sx={{ mb: 2 }}>
+      <Box>
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf"
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
           onChange={handleFileChange}
           style={{ display: 'none' }}
-          id={`file-input-${tipo}`}
+          id={`file-input-${tipo}-${solicitudId}`}
         />
-        <label htmlFor={`file-input-${tipo}`}>
+        <label htmlFor={`file-input-${tipo}-${solicitudId}`} style={{ width: '100%' }}>
           <Button
             variant={documentoExistente ? "outlined" : "contained"}
             component="span"
             disabled={subiendoArchivo === tipo}
-            startIcon={<CloudUpload />}
+            startIcon={subiendoArchivo === tipo ? <CircularProgress size={20} /> : <CloudUpload />}
             fullWidth
+            size={isMobile ? "small" : "medium"}
+            sx={{
+              py: isMobile ? 1 : 1.5,
+              fontSize: isMobile ? '0.75rem' : '0.875rem'
+            }}
           >
-            {subiendoArchivo === tipo ? (
-              <CircularProgress size={20} />
-            ) : documentoExistente ? (
-              `Actualizar ${getTipoDocumentoLabel(tipo)}`
-            ) : (
-              `Subir ${getTipoDocumentoLabel(tipo)}`
-            )}
+            {subiendoArchivo === tipo ? 'Subiendo...' : documentoExistente ? 'Actualizar' : 'Subir'}
           </Button>
         </label>
+        {documentoExistente && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, textAlign: 'center' }}>
+            {getTipoDocumentoLabel(tipo)} actual
+          </Typography>
+        )}
       </Box>
     );
   };
 
+  const DocumentoCardMobile = ({ documento }: { documento: DocumentoData }) => (
+    <Paper 
+      elevation={1} 
+      sx={{ 
+        p: 2, 
+        mb: 2,
+        borderLeft: 6,
+        borderColor: documento.estado === 'validado' ? 'success.main' : 
+                     documento.estado === 'rechazado' ? 'error.main' : 'warning.main'
+      }}
+    >
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Description color="primary" />
+          <Typography variant="subtitle2" fontWeight="bold">
+            {getTipoDocumentoLabel(documento.tipo)}
+          </Typography>
+        </Box>
+        <Chip 
+          label={documento.estado}
+          color={getEstadoColor(documento.estado)}
+          size="small"
+          icon={getEstadoIcon(documento.estado)}
+        />
+      </Box>
+
+      <Typography variant="body2" noWrap sx={{ mb: 1 }}>
+        {documento.nombre_archivo}
+      </Typography>
+
+      <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+        <Typography variant="caption" color="text.secondary">
+          Tamaño: {formatFileSize(documento.tamanio_bytes)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Subido: {formatDate(documento.created_at)}
+        </Typography>
+      </Box>
+
+      {documento.comentarios && (
+        <Alert severity="info" sx={{ my: 1, py: 0 }}>
+          <Typography variant="caption">{documento.comentarios}</Typography>
+        </Alert>
+      )}
+
+      <Divider sx={{ my: 1.5 }} />
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-around', gap: 1 }}>
+        <Tooltip title="Ver documento">
+          <IconButton size="small" color="primary" onClick={() => verDocumento(documento)}>
+            <Visibility fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Descargar">
+          <IconButton size="small" color="secondary" onClick={() => descargarDocumento(documento)}>
+            <Download fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Actualizar">
+          <IconButton
+            size="small"
+            color="info"
+            onClick={() => {
+              const input = document.getElementById(`file-input-${documento.tipo}-${solicitudId}`) as HTMLInputElement;
+              if (input) input.click();
+            }}
+          >
+            <Edit fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Eliminar">
+          <IconButton
+            size="small"
+            color="error"
+            onClick={() => {
+              setDocumentoAEliminar(documento);
+              setDialogOpen(true);
+            }}
+          >
+            <Delete fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+    </Paper>
+  );
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" py={4}>
-        <CircularProgress />
+        <CircularProgress size={isMobile ? 30 : 40} />
         <Typography variant="body2" sx={{ ml: 2 }}>
           Cargando documentos...
         </Typography>
@@ -348,39 +507,63 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
 
       {/* Sección de Subida de Documentos */}
       <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Subir Documentos
-          </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Sube los documentos requeridos para tu solicitud de crédito
-          </Typography>
+        <CardContent sx={{ p: isMobile ? 2 : 3 }}>
+          <Accordion 
+            expanded={expandedSection === 'subir'} 
+            onChange={() => setExpandedSection(expandedSection === 'subir' ? false : 'subir')}
+            sx={{ boxShadow: 'none' }}
+          >
+            <AccordionSummary expandIcon={<ExpandMore />}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CloudUpload color="primary" />
+                <Typography variant={isMobile ? "subtitle1" : "h6"}>
+                  Subir Documentos
+                </Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+                Sube los documentos requeridos para tu solicitud de crédito
+              </Typography>
 
-          <Grid container spacing={2}>
-            {['dni', 'cuit', 'comprobante_domicilio', 'balance_contable', 'declaracion_impuestos'].map((tipo) => {
-              const documentoExistente = documentos.find(doc => doc.tipo === tipo);
-              return (
-                <Grid size={{ xs: 12, md: 6 }} key={tipo}>
-                  <DocumentoInput 
-                    tipo={tipo} 
-                    documentoExistente={documentoExistente}
-                  />
-                </Grid>
-              );
-            })}
-          </Grid>
+              <Grid container spacing={isMobile ? 1 : 2}>
+                {['dni', 'cuit', 'comprobante_domicilio', 'balance_contable', 'declaracion_impuestos'].map((tipo) => {
+                  const documentoExistente = documentos.find(doc => doc.tipo === tipo);
+                  return (
+                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={tipo}>
+                      <DocumentoInput 
+                        tipo={tipo} 
+                        documentoExistente={documentoExistente}
+                      />
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
         </CardContent>
       </Card>
 
       {/* Lista de Documentos Subidos */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h6">
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between', 
+          alignItems: isMobile ? 'stretch' : 'center',
+          gap: isMobile ? 1 : 0,
+          mb: 2 
+        }}
+      >
+        <Typography variant={isMobile ? "subtitle1" : "h6"}>
           Documentos Subidos ({documentos.length})
         </Typography>
         <Button
           variant="outlined"
-          startIcon={<CloudUpload />}
+          startIcon={<Refresh />}
           onClick={cargarDocumentos}
+          size={isMobile ? "small" : "medium"}
+          fullWidth={isMobile}
         >
           Actualizar Lista
         </Button>
@@ -391,168 +574,162 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
           No hay documentos subidos para esta solicitud.
         </Alert>
       ) : (
-       <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 3 }}>
-  <Table>
-    <TableHead>
-      <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-        <TableCell><strong>Tipo</strong></TableCell>
-        <TableCell><strong>Nombre del Archivo</strong></TableCell>
-        <TableCell><strong>Tamaño</strong></TableCell>
-        <TableCell><strong>Estado</strong></TableCell>
-        <TableCell><strong>Fecha de Subida</strong></TableCell>
-        <TableCell><strong>Fecha de Actualización</strong></TableCell>
-        <TableCell><strong>Comentarios</strong></TableCell>
-        <TableCell align="center"><strong>Acciones</strong></TableCell>
-      </TableRow>
-    </TableHead>
-
-    <TableBody>
-      {documentos.map((documento) => (
-        <TableRow 
-          key={documento.id}
-          hover
-          sx={{ 
-            '&:nth-of-type(odd)': { backgroundColor: '#fafafa' },
-            transition: 'background-color 0.2s ease-in-out'
-          }}
-        >
-          <TableCell>
-            <Typography variant="body2" fontWeight={500}>
-              {getTipoDocumentoLabel(documento.tipo)}
-            </Typography>
-          </TableCell>
-
-          <TableCell>
-            <Tooltip title={documento.nombre_archivo}>
-              <Typography 
-                variant="body2" 
-                noWrap 
-                sx={{ maxWidth: 220, textOverflow: 'ellipsis', overflow: 'hidden' }}
-              >
-                {documento.nombre_archivo}
-              </Typography>
-            </Tooltip>
-          </TableCell>
-
-          <TableCell>
-            <Typography variant="body2">
-              {formatFileSize(documento.tamanio_bytes)}
-            </Typography>
-          </TableCell>
-
-          <TableCell>
-            <Chip 
-              label={documento.estado}
-              color={getEstadoColor(documento.estado)}
-              size="small"
-              sx={{ fontWeight: 'bold' }}
-            />
-          </TableCell>
-
-          <TableCell>
-            <Typography variant="body2">
-              {new Date(documento.created_at).toLocaleDateString('es-ES')}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {new Date(documento.created_at).toLocaleTimeString('es-ES')}
-            </Typography>
-          </TableCell>
-
-          <TableCell>
-            <Typography variant="body2">
-              {documento.updated_at 
-                ? new Date(documento.updated_at).toLocaleDateString('es-ES')
-                : '—'}
-            </Typography>
-            {documento.updated_at && (
-              <Typography variant="caption" color="text.secondary">
-                {new Date(documento.updated_at).toLocaleTimeString('es-ES')}
-              </Typography>
-            )}
-          </TableCell>
-
-          <TableCell>
-            <Tooltip title={documento.comentarios || 'Sin comentarios'}>
-              <Typography
-                variant="body2"
-                sx={{
-                  maxWidth: 200,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  cursor: documento.comentarios ? 'pointer' : 'default',
-                }}
-              >
-                {documento.comentarios || '—'}
-              </Typography>
-            </Tooltip>
-          </TableCell>
-
-          <TableCell align="center">
-            <Box display="flex" justifyContent="center" gap={1}>
-              <Tooltip title="Ver documento">
-                <IconButton
-                  size="small"
-                  color="primary"
-                  onClick={() => verDocumento(documento)}
-                >
-                  <Visibility fontSize="small" />
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title="Descargar documento">
-                <IconButton
-                  size="small"
-                  color="secondary"
-                  onClick={() => descargarDocumento(documento)}
-                >
-                  <Download fontSize="small" />
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title="Actualizar documento">
-                <IconButton
-                  size="small"
-                  color="info"
-                  onClick={() => {
-                    const input = document.getElementById(`file-input-${documento.tipo}`) as HTMLInputElement;
-                    if (input) input.click();
-                  }}
-                >
-                  <Edit fontSize="small" />
-                </IconButton>
-              </Tooltip>
+        <>
+          {isMobile ? (
+            // Vista móvil: Cards
+            <Box>
+              {documentos.map((documento) => (
+                <DocumentoCardMobile key={documento.id} documento={documento} />
+              ))}
             </Box>
-          </TableCell>
-        </TableRow>
-      ))}
-    </TableBody>
-  </Table>
-</TableContainer>
+          ) : (
+            // Vista desktop: Tabla
+            <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 3, overflowX: 'auto' }}>
+              <Table size={isTablet ? "small" : "medium"}>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                    <TableCell><strong>Tipo</strong></TableCell>
+                    <TableCell><strong>Archivo</strong></TableCell>
+                    <TableCell><strong>Tamaño</strong></TableCell>
+                    <TableCell><strong>Estado</strong></TableCell>
+                    <TableCell><strong>Fecha</strong></TableCell>
+                    <TableCell><strong>Comentarios</strong></TableCell>
+                    <TableCell align="center"><strong>Acciones</strong></TableCell>
+                  </TableRow>
+                </TableHead>
 
+                <TableBody>
+                  {documentos.map((documento) => (
+                    <TableRow 
+                      key={documento.id}
+                      hover
+                      sx={{ 
+                        '&:nth-of-type(odd)': { backgroundColor: '#fafafa' }
+                      }}
+                    >
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={500}>
+                          {getTipoDocumentoLabel(documento.tipo)}
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell>
+                        <Tooltip title={documento.nombre_archivo}>
+                          <Typography 
+                            variant="body2" 
+                            noWrap 
+                            sx={{ maxWidth: 200, textOverflow: 'ellipsis', overflow: 'hidden' }}
+                          >
+                            {documento.nombre_archivo}
+                          </Typography>
+                        </Tooltip>
+                      </TableCell>
+
+                      <TableCell>
+                        <Typography variant="body2">
+                          {formatFileSize(documento.tamanio_bytes)}
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell>
+                        <Chip 
+                          label={documento.estado}
+                          color={getEstadoColor(documento.estado)}
+                          size="small"
+                          icon={getEstadoIcon(documento.estado)}
+                        />
+                      </TableCell>
+
+                      <TableCell>
+                        <Typography variant="body2">
+                          {formatDate(documento.created_at)}
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell>
+                        <Tooltip title={documento.comentarios || 'Sin comentarios'}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              maxWidth: 150,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {documento.comentarios || '—'}
+                          </Typography>
+                        </Tooltip>
+                      </TableCell>
+
+                      <TableCell align="center">
+                        <Box display="flex" justifyContent="center" gap={0.5}>
+                          <Tooltip title="Ver">
+                            <IconButton size="small" color="primary" onClick={() => verDocumento(documento)}>
+                              <Visibility fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Descargar">
+                            <IconButton size="small" color="secondary" onClick={() => descargarDocumento(documento)}>
+                              <Download fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Actualizar">
+                            <IconButton
+                              size="small"
+                              color="info"
+                              onClick={() => {
+                                const input = document.getElementById(`file-input-${documento.tipo}-${solicitudId}`) as HTMLInputElement;
+                                if (input) input.click();
+                              }}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </>
       )}
 
       {/* Dialog de Confirmación para Eliminar */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
-        <DialogTitle>
+      <Dialog 
+        open={dialogOpen} 
+        onClose={() => setDialogOpen(false)}
+        fullScreen={isMobile}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ pb: 1 }}>
           Confirmar Eliminación
         </DialogTitle>
         <DialogContent>
           <Typography>
-            ¿Estás seguro de que deseas eliminar el documento "{documentoAEliminar?.nombre_archivo}"?
+            ¿Estás seguro de que deseas eliminar el documento{' '}
+            <strong>&quot;{documentoAEliminar?.nombre_archivo}&quot;</strong>?
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             Esta acción no se puede deshacer.
           </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>
+        <DialogActions sx={{ p: 2, flexDirection: isMobile ? 'column' : 'row', gap: 1 }}>
+          <Button 
+            onClick={() => setDialogOpen(false)}
+            fullWidth={isMobile}
+            variant="outlined"
+          >
             Cancelar
           </Button>
           <Button 
             onClick={() => documentoAEliminar && handleEliminarDocumento(documentoAEliminar)}
             color="error"
             variant="contained"
+            fullWidth={isMobile}
           >
             Eliminar
           </Button>
@@ -561,7 +738,7 @@ export default function GestionDocumentos({ solicitudId }: GestionDocumentosProp
 
       {documentos.length > 0 && (
         <Box mt={2}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
             * Puedes actualizar cualquier documento subiendo un nuevo archivo del mismo tipo
           </Typography>
         </Box>

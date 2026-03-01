@@ -237,22 +237,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 />
               </Box>
 
-              <Box display="flex" alignItems="center" gap={{ xs: 1, sm: 2 }}>
-                <Button
-                  color="inherit"
-                  startIcon={<Person />}
-                  onClick={handleVerPerfil}
-                  sx={{
-                    textTransform: 'none',
-                    '&:hover': { backgroundColor: 'action.hover' },
-                    display: { xs: 'none', sm: 'flex' } // Ocultar texto en móvil muy pequeño
-                  }}
-                >
-                  Mi perfil
-                </Button>
-
-                <NotificacionesBell />
-              </Box>
+              
             </Toolbar>
           </AppBar>
 

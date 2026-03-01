@@ -13,7 +13,7 @@ CREATE TABLE solicitudes_credito (
     
     -- ===== DATOS DEL CRÉDITO =====
     monto DECIMAL(15,2) NOT NULL CHECK (monto > 0),                            -- Monto solicitado
-    moneda VARCHAR(3) DEFAULT 'ARS' CHECK (moneda IN ('ARS', 'USD')),          -- Peso argentino o USD
+    moneda VARCHAR(3) DEFAULT 'ARS' CHECK (moneda IN ('ARS', 'USD')),          -- Peso argentino 
     plazo_meses INTEGER NOT NULL CHECK (plazo_meses > 0),                      -- Plazo de pago en meses
     proposito TEXT NOT NULL,                                                   -- Para qué necesita el crédito
     
@@ -41,7 +41,8 @@ CHECK (estado IN (
   'borrador', 'enviado', 'en_revision', 'pendiente_info', 
   'pendiente_firmas', 'aprobado', 'rechazado', 'cerrada'
 ));
-
+ALTER TABLE solicitudes_credito 
+ADD COLUMN tasa_interes DECIMAL(5,2) NULL;
 CREATE INDEX idx_solicitudes_solicitante ON solicitudes_credito(solicitante_id);
 CREATE INDEX idx_solicitudes_estado ON solicitudes_credito(estado);
 CREATE INDEX idx_solicitudes_fecha ON solicitudes_credito(created_at DESC);

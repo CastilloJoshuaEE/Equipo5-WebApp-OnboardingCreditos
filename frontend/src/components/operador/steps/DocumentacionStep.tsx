@@ -1,7 +1,9 @@
 // frontend/src/components/operador/steps/DocumentacionStep.tsx
 'use client';
 import { DocumentosService } from '@/services/documentos/documentos.service';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { ChipProps } from '@mui/material';
+import { ReactNode } from 'react';
 import { getSession } from 'next-auth/react';
 import {
     Box,
@@ -22,9 +24,7 @@ import {
     Checkbox,
     TextField,
     FormGroup,
-    Divider,
-    Tooltip,
-    IconButton
+    Divider
 } from '@mui/material';
 import { 
     CloudDownload, 
@@ -104,10 +104,7 @@ const CRITERIOS_DOCUMENTOS = {
 export default function DocumentacionStep({
     documentos,
     scoring,
-    onValidarDocumento,
     onEvaluarDocumento,
-    onDescargarDocumento,
-    onVerDocumento,
     loading = false,
     solicitudId
 }: DocumentacionStepProps) {
@@ -118,8 +115,7 @@ export default function DocumentacionStep({
     const [evaluacionCargando, setEvaluacionCargando] = useState(false);
 
     const getEstadoColor = (estado: string) => {
-        const colores: { [key: string]: any } = {
-            'validado': 'success',
+const colores: Record<string, ChipProps['color']> = {            'validado': 'success',
             'pendiente': 'warning',
             'rechazado': 'error',
             'faltante': 'default'
@@ -128,7 +124,7 @@ export default function DocumentacionStep({
     };
 
     const getEstadoIcon = (estado: string) => {
-        const icons: { [key: string]: any } = {
+const icons: Record<string, ReactNode> = {
             'validado': <CheckCircle />,
             'pendiente': <Pending />,
             'rechazado': <Cancel />,
@@ -157,8 +153,6 @@ export default function DocumentacionStep({
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    // Abrir modal de evaluación
-// En DocumentacionStep.tsx - mejorar handleAbrirEvaluacion
 const handleAbrirEvaluacion = async (documento: Documento) => {
     setDocumentoEvaluando(documento);
     setChecklist({});
@@ -172,10 +166,7 @@ const handleAbrirEvaluacion = async (documento: Documento) => {
         if (historial && historial.length > 0) {
             // Tomar la última evaluación registrada
             const ultimaEvaluacion = historial[0];
-            
-            console.log('. Última evaluación encontrada:', ultimaEvaluacion);
-                        console.log('. Criterios recibidos:', ultimaEvaluacion.criterios);
-            console.log('. Tipo de criterios:', typeof ultimaEvaluacion.criterios);
+
             // Mapear criterios al checklist - manejar diferentes estructuras
             if (ultimaEvaluacion.criterios && typeof ultimaEvaluacion.criterios === 'object') {
                 const criteriosMapeados: {[key: string]: boolean} = {};
@@ -189,7 +180,6 @@ const handleAbrirEvaluacion = async (documento: Documento) => {
                     criteriosMapeados[criterio.id] = valor === true;
                 });
                 
-                console.log('. Criterios mapeados al checklist:', criteriosMapeados);
                 setChecklist(criteriosMapeados);
             } else {
                 console.warn('. No se encontraron criterios válidos en la evaluación');
@@ -245,14 +235,6 @@ const handleEnviarEvaluacion = async () => {
         }
 
         const comentarioFinal = `Evaluación: ${criteriosAprobados}/${totalCriterios} criterios aprobados (${porcentajeAprobado.toFixed(0)}%). ${comentarios ? `Comentarios: ${comentarios}` : ''}`;
-
-        console.log('📤 Enviando evaluación al backend:', {
-            documentoId: documentoEvaluando.id,
-            criterios: checklist,
-            comentarios: comentarioFinal,
-            estado: estadoFinal,
-            porcentajeAprobado
-        });
 
         // Usar la función de evaluación
         if (onEvaluarDocumento) {
@@ -322,7 +304,6 @@ const handleEnviarEvaluacion = async () => {
                 link.click();
                 document.body.removeChild(link);
                 window.URL.revokeObjectURL(url);
-                console.log('. Documento descargado exitosamente');
             } else {
                 const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
                 const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
@@ -337,7 +318,6 @@ const handleEnviarEvaluacion = async () => {
     };
 
     const handleVerDocumento = (documento: Documento) => {
-        console.log('👀 Abriendo documento:', documento.nombre_archivo);
         const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
         window.open(supabaseUrl, '_blank');
@@ -450,7 +430,7 @@ const handleEnviarEvaluacion = async () => {
                                         <strong>Tamaño:</strong> {formatFileSize(documento.tamanio_bytes)}
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        <strong>Subido:</strong> {new Date(documento.created_at).toLocaleDateString()}
+                                        <strong>Subido:</strong> {new Date(documento.created_at?? '' ).toLocaleDateString()}
                                     </Typography>
                                     
                                     {documento.comentarios && (

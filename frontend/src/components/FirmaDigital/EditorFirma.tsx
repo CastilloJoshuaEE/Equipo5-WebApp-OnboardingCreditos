@@ -27,11 +27,13 @@ import {
     Save,
     Clear,
     FormatColorText,
-    Brush,
-    Image
+    Brush
 } from '@mui/icons-material';
+import NextImage from "next/image";
+import { Firma } from '../ui/firma';
+import { Image as ImageIcon } from "@mui/icons-material";
 import { TabPanelProps } from '@/components/ui/tab';
-
+import { TipoFirmaData } from '@/features/firma_digital/firmaDigital.types';
 import { EditorFirmaProps } from '../ui/firma';
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other }) => {
     return (
@@ -61,7 +63,7 @@ const EditorFirma: React.FC<EditorFirmaProps> = ({ open, onClose, onFirmaGuardad
     const [history, setHistory] = useState<ImageData[]>([]);
     const [historyStep, setHistoryStep] = useState(-1);
 
-    const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
         setTabValue(newValue);
     };
 
@@ -156,7 +158,7 @@ const EditorFirma: React.FC<EditorFirmaProps> = ({ open, onClose, onFirmaGuardad
     }, []);
 
     const handleGuardarFirma = () => {
-    let firmaData: any = {
+    const firmaData: TipoFirmaData = {
         tipoFirma: tabValue === 0 ? 'texto' : tabValue === 1 ? 'dibujo' : 'imagen',
         fechaCreacion: new Date().toISOString()
     };
@@ -172,12 +174,30 @@ const EditorFirma: React.FC<EditorFirmaProps> = ({ open, onClose, onFirmaGuardad
     }
 
     // Asegurar estructura completa antes de enviarla
-    const firmaCompleta = {
-        ...firmaData,
-        tipoFirma: firmaData.tipoFirma || 'texto',
-        firmaTexto: firmaData.firmaTexto || '',
-        ubicacion: firmaData.ubicacion || 'Ubicación no disponible'
-    };
+const firmaCompleta: Firma = {
+    id: crypto.randomUUID(),
+
+    tipoFirma: firmaData.tipoFirma,
+
+    firmaTexto: firmaData.firmaTexto,
+    firmaImagen: firmaData.firmaImagen,
+    estilo: firmaData.estilo,
+
+    posicion: {
+        x: 100,
+        y: 100,
+        pagina: 1
+    },
+
+    tamaño: {
+        width: 150,
+        height: 50
+    },
+
+    fecha: new Date().toISOString(),
+    isDragging: false
+};
+
 
     onFirmaGuardada(firmaCompleta);
     onClose();
@@ -290,7 +310,7 @@ const EditorFirma: React.FC<EditorFirmaProps> = ({ open, onClose, onFirmaGuardad
                                 <Typography variant="body2">Grosor:</Typography>
                                 <Slider
                                     value={grosorPincel}
-                                    onChange={(e, newValue) => setGrosorPincel(newValue as number)}
+                                    onChange={(_, newValue) => setGrosorPincel(newValue as number)}
                                     min={1}
                                     max={10}
                                     sx={{ width: 100 }}
@@ -366,15 +386,17 @@ const EditorFirma: React.FC<EditorFirmaProps> = ({ open, onClose, onFirmaGuardad
                                 <Typography variant="subtitle2" gutterBottom>
                                     Vista previa de firma guardada:
                                 </Typography>
-                                <img 
-                                    src={firmaDibujada} 
-                                    alt="Firma dibujada" 
-                                    style={{ 
-                                        maxWidth: '100%', 
-                                        maxHeight: 100,
-                                        border: '1px solid #ccc'
-                                    }} 
-                                />
+<NextImage
+  src={firmaDibujada}
+  alt="Firma dibujada"
+  width={300}
+  height={100}
+  style={{
+    maxWidth: "100%",
+    maxHeight: 100,
+    border: "1px solid #ccc"
+  }}
+/>
                             </Grid>
                         )}
                     </Grid>
@@ -392,7 +414,7 @@ const EditorFirma: React.FC<EditorFirmaProps> = ({ open, onClose, onFirmaGuardad
                             <Button 
                                 variant="contained" 
                                 component="span"
-                                startIcon={<Image />}
+                                startIcon={<ImageIcon />}
                             >
                                 Seleccionar Imagen de Firma
                             </Button>

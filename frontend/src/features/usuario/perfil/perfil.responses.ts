@@ -15,7 +15,7 @@ export interface PerfilPublicoData {
   telefono: string;
   rol: string;
   cuenta_activa: boolean;
-  created_at: string;
+  created_at?: string;
   datos_empresa?: {
     nombre_empresa: string;
     cuit: string;

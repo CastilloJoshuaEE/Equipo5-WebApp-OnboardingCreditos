@@ -1,22 +1,42 @@
 // frontend/src/components/home/Navbar/Navbar.tsx
 "use client";
-
+import { useState } from "react";
 import Image from "next/image";
 import styles from "./Navbar.module.css";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { UserRole } from "@/features/auth/auth.types";
+import { useBackendHealth } from "@/shared/hooks/useBackendHealth";
+import LoadingOverlay from "@/components/ui/LoadingOverlay";
 export default function Navbar() {
   const router = useRouter();
+  const [showLoading, setShowLoading] = useState(false);
   const { data: session, status } = useSession();
+  const { waitForBackend } = useBackendHealth();
 
-  const handleLogin = () => {
-    router.push("/login");
+  const handleNavigation = async (path: string) => {
+    setShowLoading(true);
+    
+    try {
+      const backendReady = await waitForBackend(15);
+      
+      if (backendReady) {
+        setTimeout(() => {
+          router.push(path);
+        }, 500);
+      } else {
+        alert('No se pudo conectar con el servidor. Por favor, intenta de nuevo.');
+        setShowLoading(false);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al conectar con el servidor');
+      setShowLoading(false);
+    }
   };
 
-  const handleSolicitarCredito = () => {
-    router.push('/register');
-  };
+  const handleLogin = () => handleNavigation("/login");
+  const handleSolicitarCredito = () => handleNavigation("/register");
 
   const handleDashboard = () => {
     if (session?.user?.rol === UserRole.SOLICITANTE) {
@@ -46,18 +66,10 @@ export default function Navbar() {
         <div className={styles.navUnion}>
           <nav>
             <ul>
-              <li>
-                <a href="#services">Servicios</a>
-              </li>
-              <li>
-                <a href="#benefits">Beneficios</a>
-              </li>
-              <li>
-                <a href="#advantages">Ventajas</a>
-              </li>
-              <li>
-                <a href="#contacts">Contacto</a>
-              </li>
+              <li><a href="#services">Servicios</a></li>
+              <li><a href="#benefits">Beneficios</a></li>
+              <li><a href="#advantages">Ventajas</a></li>
+              <li><a href="#contacts">Contacto</a></li>
             </ul>
           </nav>
           <div className={styles.navButtons}>
@@ -95,6 +107,9 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      {/* Loading Overlay */}
+      <LoadingOverlay show={showLoading} />
     </header>
   );
 }

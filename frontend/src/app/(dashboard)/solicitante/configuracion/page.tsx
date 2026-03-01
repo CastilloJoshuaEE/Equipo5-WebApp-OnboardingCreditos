@@ -10,17 +10,15 @@ import {
   Alert,
   Divider
 } from '@mui/material';
-import { useSession } from 'next-auth/react';
 import DesactivarCuentaModal from '@/components/usuario/DesactivarCuentaModal';
 import EmailRecuperacionForm from '@/components/usuario/EmailRecuperacionForm';
 
 export default function ConfiguracionPage() {
-  const { data: session } = useSession();
   const [modalOpen, setModalOpen] = useState(false);
   const [message, setMessage] = useState('');
 
   const handleDesactivarCuenta = async (password: string, motivo?: string) => {
-    const response = await fetch('/api/usuario/desactivar-cuenta', {
+    const response = await fetch('/usuarios/desactivar-cuenta', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

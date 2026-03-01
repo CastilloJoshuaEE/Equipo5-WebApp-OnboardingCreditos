@@ -1,8 +1,6 @@
 // frontend/src/app/(dashboard)/operador/page.tsx
 'use client';
-import { useRouter, useParams } from 'next/navigation';
-import { signOut } from 'next-auth/react';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getSession } from 'next-auth/react';
 import { useToast } from '@/components/ui/use-toast';
 import BotonIniciarFirma from '@/components/BotonIniciarFirma';
@@ -14,532 +12,80 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Chip,
-  Button,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Grid,
-  LinearProgress,
-  IconButton,
-  Drawer,
-  useMediaQuery,
-  useTheme
+  Box, Typography, Card, CardContent, Chip, Button,
+  TextField, FormControl, InputLabel, Select, MenuItem,
+  Grid, LinearProgress, IconButton, Drawer,
+  useMediaQuery, useTheme, Alert, Snackbar
 } from '@mui/material';
 import './operador-styles.css';
-import { SolicitudOperador} from '@/features/solicitudes/solicitud.types';
+import { SolicitudOperador } from '@/features/solicitudes/solicitud.types';
 import { HabilitacionTransferencia } from '@/features/transferencias/transferencia.types';
 import { TransferenciaBancaria } from '@/features/transferencias/transferencia.types';
 import { RevisionData } from '@/features/operador/revision.types';
 import { Contrato } from '@/features/contratos/contrato.types';
 import RevisionModal from '@/components/operador/RevisionModal';
-export default function OperadorDashboard() {
-  const router = useRouter();
-  const params = useParams();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [filtrosOpen, setFiltrosOpen] = useState(false);
-const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date());
-  const [actualizando, setActualizando] = useState(false);
-  const [procesandoForzar, setProcesandoForzar] = useState<{[key:string]: boolean}>({});
-  const [solicitudes, setSolicitudes] = useState<SolicitudOperador[]>([]);
-  const [habilitaciones, setHabilitaciones] = useState<{[key: string]: HabilitacionTransferencia}>({});
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [filtros, setFiltros] = useState({
-    estado: '',
-    nivel_riesgo: '',
-    fecha_desde: '',
-    fecha_hasta: '',
-    numero_solicitud: '',
-    dni: ''
-  });
-  
-  // Estados para las métricas
-  const [metricas, setMetricas] = useState({
-    totalSolicitudes: 0,
-    aprobadas: 0,
-    enRevision: 0,
-    montoDesembolsado: 0,
-    listasParaTransferencia: 0
-  });
+import { FirmaExistente } from '@/features/firma_digital/firmaDigital.types';
 
-  const solicitudId = params?.id as string;
-  const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<RevisionData | null>(null);
-  const [modalRevision, setModalRevision] = useState(false);
-  const [revisionData, setRevisionData] = useState<RevisionData | null>(null);
-  const [cargandoTransferencia, setCargandoTransferencia] = useState(false);
+interface FiltrosState {
+  estado: string;
+  nivel_riesgo: string;
+  fecha_desde: string;
+  fecha_hasta: string;
+  numero_solicitud: string;
+  dni: string;
+}
 
-  const calcularMetricas = (solicitudesData: SolicitudOperador[]) => {
-    const totalSolicitudes = solicitudesData.length;
-    const aprobadas = solicitudesData.filter(s => s.estado === 'aprobado').length;
-    const enRevision = solicitudesData.filter(s => 
-      s.estado === 'en_revision' || s.estado === 'pendiente_info'
-    ).length;
-    
-    const montoDesembolsado = solicitudesData.reduce((total, solicitud) => {
-      if (solicitud.transferencias_bancarias && solicitud.transferencias_bancarias.length > 0) {
-        const transferenciaCompletada = solicitud.transferencias_bancarias
-          .find((t: TransferenciaBancaria) => t.estado === 'completada');
-        if (transferenciaCompletada) {
-          return total + (parseFloat(transferenciaCompletada.monto.toString()) || 0);
-        }
-      }
-      return total;
-    }, 0);
+interface FiltrosContentProps {
+  pendingFiltros: FiltrosState;
+  setPendingFiltros: React.Dispatch<React.SetStateAction<FiltrosState>>;
+  handleAplicarFiltros: () => void;
+  handleLimpiarFiltros: () => void;
+  verificarTodasLasFirmas: () => Promise<void>;
+  actualizando: boolean;
+  isMobile: boolean;
+}
 
-    const listasParaTransferencia = solicitudesData.filter(solicitud => {
-      const tieneContratoFirmado = solicitud.contratos && 
-        solicitud.contratos.some((c: Contrato) => c.estado === 'firmado_completo');
-      const tieneTransferenciaCompletada = solicitud.transferencias_bancarias &&
-        solicitud.transferencias_bancarias.some((t: TransferenciaBancaria) => t.estado === 'completada');
-      
-      return solicitud.estado === 'aprobado' && 
-             tieneContratoFirmado && 
-             !tieneTransferenciaCompletada;
-    }).length;
-
-    setMetricas({
-      totalSolicitudes,
-      aprobadas,
-      enRevision,
-      montoDesembolsado,
-      listasParaTransferencia
-    });
-  };
-
-  useEffect(() => {
-    if (solicitudes.length > 0) {
-      calcularMetricas(solicitudes);
-    } else {
-      setMetricas({
-        totalSolicitudes: 0,
-        aprobadas: 0,
-        enRevision: 0,
-        montoDesembolsado: 0,
-        listasParaTransferencia: 0
-      });
-    }
-  }, [solicitudes]);
-
-  // Función para refrescar datos después de validar
-  const handleDocumentoActualizado = async () => {
-    console.log('Refrescando datos después de validación...');
-    await cargarDashboard();
-    
-    if (solicitudSeleccionada) {
-      await handleIniciarRevision(solicitudSeleccionada.solicitud.id);
-    }
-  };
-
-  const getNombreContacto = (solicitud: SolicitudOperador) => {
-    if (!solicitud?.solicitantes?.usuarios) {
-      return 'Sin contacto';
-    }
-
-    const usuario = Array.isArray(solicitud.solicitantes.usuarios) 
-      ? solicitud.solicitantes.usuarios[0] 
-      : solicitud.solicitantes.usuarios;
-    
-    return usuario?.nombre_completo || 'Sin contacto';
-  };
-
-  useEffect(() => {
-    cargarDashboard();
-  }, []);
-
-  const handleLogout = async () => {
-    await signOut({ 
-      callbackUrl: '/login',
-      redirect: true 
-    });
-  };
-
-  const verificarTodasLasFirmas = async () => {
-    const session = await getSession();
-    if (!session?.accessToken) {
-      toast({
-        title: "Error de autenticación",
-        description: "No se pudo verificar la sesión",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    const firmasVerificadas: {[key: string]: any} = {};
-
-    try {
-      for (const solicitud of solicitudes) {
-        if (solicitud.estado === 'aprobado') {
-          try {
-            const response = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
-              headers: {
-                'Authorization': `Bearer ${session.accessToken}`,
-                'Content-Type': 'application/json',
-              },
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-              firmasVerificadas[solicitud.id] = data.data;
-            }
-          } catch (error) {
-            console.error(`Error verificando firma ${solicitud.id}:`, error);
-          }
-        }
-      }
-
-      const firmasCompletas = Object.values(firmasVerificadas).filter(
-        (f: any) => f.firma_existente?.estado === 'firmado_completo'
-      ).length;
-      
-      const firmasPendientes = Object.values(firmasVerificadas).filter(
-        (f: any) => f.firma_existente && f.firma_existente.estado !== 'firmado_completo'
-      ).length;
-
-      toast({
-        title: "Verificación de firmas completada",
-        description: `Firmas completas: ${firmasCompletas}, Pendientes: ${firmasPendientes}`,
-        variant: "default",
-      });
-
-    } catch (error) {
-      console.error('Error verificando firmas:', error);
-      toast({
-        title: "Error",
-        description: "Error verificando firmas digitales",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const verificarHabilitaciones = async () => {
-    const nuevasHabilitaciones: {[key: string]: HabilitacionTransferencia} = {};
-    const session = await getSession();
-
-    if (!session?.accessToken) {
-      console.error('No hay token de acceso para verificar habilitaciones');
-      return;
-    }
-
-    for (const solicitud of solicitudes) {
-      if (solicitud.estado === 'aprobado') {
-        try {
-          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-          
-          const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitud.id}`, {
-            headers: {
-              'Authorization': `Bearer ${session.accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            nuevasHabilitaciones[solicitud.id] = data.data;
-          } else if (response.status === 403) {
-            continue;
-          }
-        } catch (error) {
-          console.error('Error verificando habilitación:', error);
-        }
-      }
-    }
-    
-    setHabilitaciones(nuevasHabilitaciones);
-  };
-
-  const handleForzarVerificacion = async () => {
-    const session = await getSession();
-    if (!session?.accessToken) {
-      toast({
-        title: "Error de autenticación",
-        description: "No se pudo verificar la sesión",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    const nuevosProcesos: { [key: string]: boolean } = {};
-    const nuevasHabilitaciones: { [key: string]: HabilitacionTransferencia } = {};
-    const nuevasFirmas: { [key: string]: any } = {};
-
-    try {
-      for (const solicitud of solicitudes) {
-        if (solicitud.estado === 'aprobado') {
-          nuevosProcesos[solicitud.id] = true;
-          setProcesandoForzar({ ...nuevosProcesos });
-
-          try {
-            let procesoFirmaExiste = false;
-            
-            const firmaResponse = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
-              headers: {
-                'Authorization': `Bearer ${session.accessToken}`,
-                'Content-Type': 'application/json',
-              },
-            });
-
-            if (firmaResponse.ok) {
-              const firmaData = await firmaResponse.json();
-              procesoFirmaExiste = firmaData.data.existe;
-              nuevasFirmas[solicitud.id] = firmaData.data;
-              
-              if (!procesoFirmaExiste) {
-                const iniciarFirmaResponse = await fetch(`${API_URL}/firmas/iniciar-proceso/${solicitud.id}`, {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${session.accessToken}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ forzar_reinicio: true })
-                });
-                
-                if (iniciarFirmaResponse.ok) {
-                  const nuevaVerificacion = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
-                    headers: {
-                      'Authorization': `Bearer ${session.accessToken}`,
-                      'Content-Type': 'application/json',
-                    },
-                  });
-                  if (nuevaVerificacion.ok) {
-                    const nuevaData = await nuevaVerificacion.json();
-                    nuevasFirmas[solicitud.id] = nuevaData.data;
-                  }
-                }
-              }
-            }
-
-            const res = await fetch(`${API_URL}/transferencias/forzar-actualizacion/${solicitud.id}`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.accessToken}`,
-                'Content-Type': 'application/json',
-              },
-            });
-
-            if (!res.ok) {
-              const errorData = await res.json().catch(() => ({}));
-              const errorMessage = errorData.message || `Error ${res.status}`;
-              toast({
-                title: "Error",
-                description: `Error en solicitud ${solicitud.numero_solicitud}: ${errorMessage}`,
-                variant: "destructive",
-              });
-              continue;
-            }
-
-            const data = await res.json();
-            nuevasHabilitaciones[solicitud.id] = data.data;
-
-            toast({
-              title: "Verificación forzada",
-              description: `Solicitud ${solicitud.numero_solicitud} actualizada correctamente.`,
-              variant: "default",
-            });
-
-          } catch (error) {
-            console.error(`Error forzando verificación de ${solicitud.id}:`, error);
-          } finally {
-            nuevosProcesos[solicitud.id] = false;
-            setProcesandoForzar({ ...nuevosProcesos });
-          }
-        }
-      }
-
-      setHabilitaciones(prev => ({
-        ...prev,
-        ...nuevasHabilitaciones,
-      }));
-
-    } catch (error) {
-      console.error('Error general en handleForzarVerificacion:', error);
-      toast({
-        title: "Error de conexión",
-        description: "No se pudo conectar con el servidor",
-        variant: "destructive",
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (solicitudes.length > 0) {
-      verificarHabilitaciones();
-    }
-  }, [solicitudes]);
-  useEffect(() => {
-    const transferenciaCompletada = sessionStorage.getItem('transferencia_completada');
-    const solicitudId = sessionStorage.getItem('solicitud_transferencia');
-    
-    if (transferenciaCompletada === 'true' && solicitudId) {
-      console.log('Detectada transferencia completada, actualizando datos...');
-      cargarDashboard(true);
-      verificarHabilitaciones();
-      
-      // Limpiar el flag
-      sessionStorage.removeItem('transferencia_completada');
-      sessionStorage.removeItem('solicitud_transferencia');
-    }
-  }, []);
-  const handleTransferir = (solicitudId: string) => {
-    setCargandoTransferencia(true);
-    
-    // Guardar en sessionStorage para que la página de transferencia lo detecte
-    sessionStorage.setItem('transferencia_pendiente', 'true');
-    sessionStorage.setItem('solicitud_transferencia', solicitudId);
-    
-    setTimeout(() => {
-      window.location.href = `/operador/transferencias/nueva?solicitud_id=${solicitudId}`;
-    }, 800);
-  };
-
-   const cargarDashboard = async (forzar = false) => {
-    if (forzar) {
-      setActualizando(true);
-    }
-    
-    try {
-      const session = await getSession();
-      if (!session?.accessToken) {
-        console.error('No hay token de acceso');
-        return;
-      }
-
-      const params = new URLSearchParams();
-      Object.entries(filtros).forEach(([key, value]) => {
-        if (value) params.append(key, value);
-      });
-
-
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${API_URL}/operador/dashboard?${params}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.accessToken}`,
-          'Content-Type': 'application/json'        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSolicitudes(data.data.solicitudes || []);
-        setUltimaActualizacion(new Date());
-        
-        if (forzar) {
-          toast({
-            title: "Datos actualizados",
-            description: "La información se ha actualizado correctamente",
-            variant: "default",
-          });
-        }
-      } else {
-        const errorText = await response.text();
-        console.error('Error cargando dashboard:', response.status, errorText);
-      }
-    } catch (error) {
-      console.error('Error cargando dashboard:', error);
-      if (forzar) {
-        toast({
-          title: "Error",
-          description: "No se pudieron actualizar los datos",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setLoading(false);
-      setActualizando(false);
-    }
-  };
-  const handleIniciarRevision = async (solicitudId: string) => {
-    try {
-      const session = await getSession();
-      if (!session?.accessToken) return;
-
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      
-      const response = await fetch(`${API_URL}/operador/solicitudes/${solicitudId}/revision`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.accessToken}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSolicitudSeleccionada(data.data);
-        setModalRevision(true);
-      } else {
-        console.error('Error en respuesta:', response.status);
-      }
-    } catch (error) {
-      console.error('Error iniciando revisión:', error);
-    }
-  };
-
-  const getEstadoColor = (estado: string) => {
-    const colores: any = {
-      'en_revision': 'warning',
-      'pendiente_info': 'info',
-      'aprobado': 'success',
-      'rechazado': 'error'
-    };
-    return colores[estado] || 'default';
-  };
-
-  const getRiesgoColor = (riesgo: string) => {
-    const colores: any = {
-      'bajo': 'success',
-      'medio': 'warning',
-      'alto': 'error'
-    };
-    return colores[riesgo] || 'default';
-  };
-
-  const formatearMonto = (monto: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(monto);
-  };
-
-  const FiltrosContent = () => (
+function FiltrosContent({
+  pendingFiltros,
+  setPendingFiltros,
+  handleAplicarFiltros,
+  handleLimpiarFiltros,
+  verificarTodasLasFirmas,
+  actualizando,
+  isMobile,
+}: FiltrosContentProps) {
+  return (
     <Box className="filters-content">
       <Typography variant="h6" gutterBottom sx={{ display: { xs: 'none', md: 'block' } }}>
         Filtros y búsqueda
       </Typography>
-      
+
       <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 6}}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <FormControl fullWidth size="small">
             <InputLabel>Estado</InputLabel>
             <Select
-              value={filtros.estado}
-              onChange={(e) => setFiltros({...filtros, estado: e.target.value})}
+              value={pendingFiltros.estado}
+              onChange={(e) => setPendingFiltros(prev => ({ ...prev, estado: e.target.value }))}
               label="Estado"
             >
               <MenuItem value="">Todos los estados</MenuItem>
+              <MenuItem value="borrador">Borrador</MenuItem>
+              <MenuItem value="enviado">Enviado</MenuItem>
               <MenuItem value="en_revision">En revisión</MenuItem>
+              <MenuItem value="pendiente_info">Pendiente info</MenuItem>
               <MenuItem value="aprobado">Aprobado</MenuItem>
               <MenuItem value="rechazado">Rechazado</MenuItem>
             </Select>
           </FormControl>
         </Grid>
-        <Grid size={{ xs: 12, md: 6}}>
+
+        <Grid size={{ xs: 12, md: 6 }}>
           <FormControl fullWidth size="small">
             <InputLabel>Nivel Riesgo</InputLabel>
             <Select
-              value={filtros.nivel_riesgo}
-              onChange={(e) => setFiltros({...filtros, nivel_riesgo: e.target.value})}
+              value={pendingFiltros.nivel_riesgo}
+              onChange={(e) => setPendingFiltros(prev => ({ ...prev, nivel_riesgo: e.target.value }))}
               label="Nivel Riesgo"
             >
               <MenuItem value="">Todos</MenuItem>
@@ -549,75 +95,60 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
             </Select>
           </FormControl>
         </Grid>
-        <Grid size={{ xs: 12, md: 6}}>
+
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
-            fullWidth
-            type="date"
-            size="small"
-            label="Desde"
-            value={filtros.fecha_desde}
-            onChange={(e) => setFiltros({...filtros, fecha_desde: e.target.value})}
+            fullWidth type="date" size="small" label="Desde"
+            value={pendingFiltros.fecha_desde}
+            onChange={(e) => setPendingFiltros(prev => ({ ...prev, fecha_desde: e.target.value }))}
             InputLabelProps={{ shrink: true }}
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 6}}>
+
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
-            fullWidth
-            type="date"
-            size="small"
-            label="Hasta"
-            value={filtros.fecha_hasta}
-            onChange={(e) => setFiltros({...filtros, fecha_hasta: e.target.value})}
+            fullWidth type="date" size="small" label="Hasta"
+            value={pendingFiltros.fecha_hasta}
+            onChange={(e) => setPendingFiltros(prev => ({ ...prev, fecha_hasta: e.target.value }))}
             InputLabelProps={{ shrink: true }}
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 3}}>
+
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
-            fullWidth
-            size="small"
+            fullWidth size="small"
             label="Número Solicitud"
             placeholder="Buscar por número"
-            value={filtros.numero_solicitud}
-            onChange={(e) => setFiltros({...filtros, numero_solicitud: e.target.value})}
+            value={pendingFiltros.numero_solicitud}
+            onChange={(e) => setPendingFiltros(prev => ({ ...prev, numero_solicitud: e.target.value }))}
           />
         </Grid>
+
       </Grid>
 
-      <Box className="action-buttons" sx={{ mt: 2 }}>
-        <Button 
+      <Box className="action-buttons" sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Button
           onClick={verificarTodasLasFirmas}
-          variant="outlined"
-          color="primary"
-          size={isMobile ? "small" : "medium"}
+          variant="outlined" color="primary"
+          size={isMobile ? 'small' : 'medium'}
           fullWidth={isMobile}
         >
           Verificar Firmas
         </Button>
-        <Button 
-          variant="contained" 
-          className="btn-primary"
-  onClick={() => cargarDashboard()}
-            size={isMobile ? "small" : "medium"}
+        <Button
+          variant="contained" className="btn-primary"
+          onClick={handleAplicarFiltros}
+          size={isMobile ? 'small' : 'medium'}
           fullWidth={isMobile}
           startIcon={<RefreshIcon />}
+          disabled={actualizando}
         >
-          Aplicar
+          {actualizando ? 'Actualizando...' : 'Aplicar'}
         </Button>
-        <Button 
-          variant="outlined" 
-          className="btn-secondary"
-          onClick={() => {
-            setFiltros({
-              estado: '',
-              nivel_riesgo: '',
-              fecha_desde: '',
-              fecha_hasta: '',
-              numero_solicitud: '',
-              dni: ''
-            });
-            cargarDashboard();
-          }}
-          size={isMobile ? "small" : "medium"}
+        <Button
+          variant="outlined" className="btn-secondary"
+          onClick={handleLimpiarFiltros}
+          size={isMobile ? 'small' : 'medium'}
           fullWidth={isMobile}
         >
           Limpiar
@@ -625,6 +156,232 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
       </Box>
     </Box>
   );
+}
+// ─────────────────────────────────────────────────────────────
+
+const filtrosIniciales: FiltrosState = {
+  estado: '', nivel_riesgo: '', fecha_desde: '',
+  fecha_hasta: '', numero_solicitud: '', dni: ''
+};
+
+export default function OperadorDashboard() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { toast } = useToast();
+
+  const [filtrosOpen, setFiltrosOpen] = useState(false);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date());
+  const [actualizando, setActualizando] = useState(false);
+  const [solicitudes, setSolicitudes] = useState<SolicitudOperador[]>([]);
+  const [habilitaciones, setHabilitaciones] = useState<{ [key: string]: HabilitacionTransferencia }>({});
+  const [loading, setLoading] = useState(true);
+
+  // filtrosActivos: los que se envían al backend (solo cambian al hacer clic en Aplicar)
+  // pendingFiltros: los que el usuario está editando en el formulario
+  const [filtrosActivos, setFiltrosActivos] = useState<FiltrosState>(filtrosIniciales);
+  const [pendingFiltros, setPendingFiltros] = useState<FiltrosState>(filtrosIniciales);
+
+  const initialLoadDone = useRef(false);
+
+  const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<RevisionData | null>(null);
+  const [modalRevision, setModalRevision] = useState(false);
+  const [cargandoTransferencia, setCargandoTransferencia] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info'>('info');
+
+  const metricas = useMemo(() => {
+    if (!solicitudes.length) {
+      return { totalSolicitudes: 0, aprobadas: 0, enRevision: 0, montoDesembolsado: 0, listasParaTransferencia: 0 };
+    }
+    const totalSolicitudes = solicitudes.length;
+    const aprobadas = solicitudes.filter(s => s.estado === 'aprobado').length;
+    const enRevision = solicitudes.filter(s =>
+      s.estado === 'en_revision' || s.estado === 'pendiente_info'
+    ).length;
+    const montoDesembolsado = solicitudes.reduce((total, solicitud) => {
+      const t = solicitud.transferencias_bancarias?.find((t: TransferenciaBancaria) => t.estado === 'completada');
+      return t ? total + (parseFloat(t.monto.toString()) || 0) : total;
+    }, 0);
+    const listasParaTransferencia = solicitudes.filter(solicitud => {
+      const contratosArray = Array.isArray(solicitud.contratos)
+  ? solicitud.contratos
+  : solicitud.contratos
+  ? [solicitud.contratos]
+  : [];
+
+const tieneContratoFirmado = contratosArray.some(
+  (c: Contrato) => c.estado === 'firmado_completo'
+);
+      const tieneTransferenciaCompletada = solicitud.transferencias_bancarias?.some((t: TransferenciaBancaria) => t.estado === 'completada');
+      return solicitud.estado === 'aprobado' && tieneContratoFirmado && !tieneTransferenciaCompletada;
+    }).length;
+    return { totalSolicitudes, aprobadas, enRevision, montoDesembolsado, listasParaTransferencia };
+  }, [solicitudes]);
+
+  const mostrarNotificacion = useCallback((titulo: string, descripcion: string, severity: 'success' | 'error' | 'info') => {
+    toast({ title: titulo, description: descripcion, variant: severity === 'error' ? 'destructive' : 'default' });
+    setSnackbarSeverity(severity);
+    setSnackbarMessage(descripcion);
+    setSnackbarOpen(true);
+  }, [toast]);
+
+  const verificarHabilitaciones = useCallback(async (solicitudesActuales: SolicitudOperador[]) => {
+    const session = await getSession();
+    if (!session?.accessToken) return;
+    const nuevasHabilitaciones: { [key: string]: HabilitacionTransferencia } = {};
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    for (const solicitud of solicitudesActuales) {
+      if (solicitud.estado === 'aprobado') {
+        try {
+          const response = await fetch(`${API_URL}/transferencias/habilitacion/${solicitud.id}`, {
+            headers: { 'Authorization': `Bearer ${session.accessToken}`, 'Content-Type': 'application/json' }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            nuevasHabilitaciones[solicitud.id] = data.data;
+          }
+        } catch (error) {
+          console.error('Error verificando habilitación:', error);
+        }
+      }
+    }
+    setHabilitaciones(nuevasHabilitaciones);
+  }, []);
+
+  // Recibe los filtros como parámetro para poder llamarla con los filtros recién actualizados
+  const cargarDashboard = useCallback(async (filtros: FiltrosState, mostrarToast = false) => {
+    if (mostrarToast) setActualizando(true);
+    try {
+      const session = await getSession();
+      if (!session?.accessToken) return;
+      const params = new URLSearchParams();
+      Object.entries(filtros).forEach(([key, value]) => { if (value) params.append(key, value); });
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/operador/dashboard?${params}`, {
+        headers: { 'Authorization': `Bearer ${session.accessToken}`, 'Content-Type': 'application/json' }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const nuevasSolicitudes = data.data.solicitudes || [];
+        setSolicitudes(nuevasSolicitudes);
+        setUltimaActualizacion(new Date());
+        await verificarHabilitaciones(nuevasSolicitudes);
+        if (mostrarToast) mostrarNotificacion('Datos actualizados', 'La información se ha actualizado correctamente', 'success');
+      }
+    } catch (error) {
+      console.error('Error cargando dashboard:', error);
+      if (mostrarToast) mostrarNotificacion('Error', 'No se pudieron actualizar los datos', 'error');
+    } finally {
+      setLoading(false);
+      setActualizando(false);
+    }
+  }, [verificarHabilitaciones, mostrarNotificacion]);
+
+  // Solo carga al montar — no depende de filtrosActivos para evitar re-ejecuciones
+  useEffect(() => {
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      cargarDashboard(filtrosIniciales, false);
+    }
+  }, [cargarDashboard]);
+
+  useEffect(() => {
+    const check = async () => {
+      if (sessionStorage.getItem('transferencia_completada') === 'true') {
+        await cargarDashboard(filtrosActivos, true);
+        sessionStorage.removeItem('transferencia_completada');
+        sessionStorage.removeItem('solicitud_transferencia');
+      }
+    };
+    check();
+  }, [cargarDashboard, filtrosActivos]);
+
+  // Al hacer clic en Aplicar: primero actualiza filtrosActivos, luego carga con esos valores
+  const handleAplicarFiltros = useCallback(() => {
+    setFiltrosActivos(pendingFiltros);
+    cargarDashboard(pendingFiltros, true);  // usa pendingFiltros directamente
+    if (isMobile) setFiltrosOpen(false);
+  }, [pendingFiltros, cargarDashboard, isMobile]);
+
+  const handleLimpiarFiltros = useCallback(() => {
+    setPendingFiltros(filtrosIniciales);
+    setFiltrosActivos(filtrosIniciales);
+    cargarDashboard(filtrosIniciales, true);
+  }, [cargarDashboard]);
+
+  const verificarTodasLasFirmas = useCallback(async () => {
+    const session = await getSession();
+    if (!session?.accessToken) { mostrarNotificacion('Error', 'No se pudo verificar la sesión', 'error'); return; }
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const firmasVerificadas: Record<string, FirmaExistente> = {};
+    for (const solicitud of solicitudes) {
+      if (solicitud.estado === 'aprobado') {
+        try {
+          const res = await fetch(`${API_URL}/firmas/verificar-existente/${solicitud.id}`, {
+            headers: { 'Authorization': `Bearer ${session.accessToken}` }
+          });
+          if (res.ok) { const d = await res.json(); firmasVerificadas[solicitud.id] = d.data; }
+        } catch (e) { console.error(e); }
+      }
+    }
+    const completas = Object.values(firmasVerificadas).filter((f: FirmaExistente) => f.firma_existente?.estado === 'firmado_completo').length;
+    const pendientes = Object.values(firmasVerificadas).filter((f: FirmaExistente) => f.firma_existente && f.firma_existente.estado !== 'firmado_completo').length;
+    mostrarNotificacion('Verificación completada', `Completas: ${completas}, Pendientes: ${pendientes}`, 'success');
+  }, [solicitudes, mostrarNotificacion]);
+
+  const handleDocumentoActualizado = useCallback(async () => {
+    await cargarDashboard(filtrosActivos, false);
+    if (solicitudSeleccionada) await handleIniciarRevision(solicitudSeleccionada.solicitud.id);
+  }, [solicitudSeleccionada, filtrosActivos, cargarDashboard]);
+
+  const handleIniciarRevision = async (solicitudId: string) => {
+    try {
+      const session = await getSession();
+      if (!session?.accessToken) return;
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/operador/solicitudes/${solicitudId}/revision`, {
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.accessToken}` }
+      });
+      if (response.ok) { const data = await response.json(); setSolicitudSeleccionada(data.data); setModalRevision(true); }
+    } catch (error) { console.error('Error iniciando revisión:', error); }
+  };
+
+  const getNombreContacto = (solicitud: SolicitudOperador) => {
+    if (!solicitud?.solicitantes?.usuarios) return 'Sin contacto';
+    const usuario = Array.isArray(solicitud.solicitantes.usuarios)
+      ? solicitud.solicitantes.usuarios[0]
+      : solicitud.solicitantes.usuarios;
+    return usuario?.nombre_completo || 'Sin contacto';
+  };
+
+  const getEstadoColor = (estado: string): "default" | "success" | "warning" | "error" | "info" => {
+    const colores: Record<string, "default" | "success" | "warning" | "error" | "info"> = {
+      en_revision: 'warning', pendiente_info: 'info', aprobado: 'success', rechazado: 'error', enviado: 'info', borrador: 'default'
+    };
+    return colores[estado] || 'default';
+  };
+
+  const getRiesgoColor = (riesgo: string): "default" | "success" | "warning" | "error" | "info" => {
+    const colores: Record<string, "default" | "success" | "warning" | "error" | "info"> = { bajo: 'success', medio: 'warning', alto: 'error' };
+    return colores[riesgo] || 'default';
+  };
+
+  const formatearMonto = (monto: number) =>
+    new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(monto);
+
+  const handleTransferir = (solicitudId: string) => {
+    setCargandoTransferencia(true);
+    sessionStorage.setItem('transferencia_pendiente', 'true');
+    sessionStorage.setItem('solicitud_transferencia', solicitudId);
+    setTimeout(() => { window.location.href = `/operador/transferencias/nueva?solicitud_id=${solicitudId}`; }, 800);
+  };
+
+  const filtrosProps: FiltrosContentProps = {
+    pendingFiltros, setPendingFiltros,
+    handleAplicarFiltros, handleLimpiarFiltros,
+    verificarTodasLasFirmas, actualizando, isMobile
+  };
 
   return (
     <Box className="operador-dashboard">
@@ -633,17 +390,17 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
           <Box>
             <Typography variant="h4" className="page-title" sx={{ fontSize: { xs: '1.5rem', md: '2rem' } }}>
-              Dashboard
+              Dashboard Operador
             </Typography>
             <Typography className="page-subtitle" sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }}>
               Bienvenido, gestión de solicitudes de crédito
             </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Última actualización: {ultimaActualizacion.toLocaleTimeString()}
+            </Typography>
           </Box>
           {isMobile && (
-            <IconButton 
-              onClick={() => setFiltrosOpen(true)}
-              className="filter-button-mobile"
-            >
+            <IconButton onClick={() => setFiltrosOpen(true)} className="filter-button-mobile">
               <FilterListIcon />
             </IconButton>
           )}
@@ -652,92 +409,42 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
 
       {/* Métricas */}
       <Grid container spacing={2} className="metrics-grid">
-        <Grid size={{ xs: 6, md: 3}}>
-          <Card className="metric-card">
-            <CardContent className="metric-card-content">
-              <Box className="metric-header">
-                <span>Total</span>
-                <DescriptionIcon className="metric-icon" />
-              </Box>
-              <Typography variant="h4" className="metric-value">
-                {metricas.totalSolicitudes}
-              </Typography>
-              <Typography className="metric-subtext">Solicitudes registradas</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 6, md: 3}}>
-          <Card className="metric-card">
-            <CardContent className="metric-card-content">
-              <Box className="metric-header">
-                <span>Aprobadas</span>
-                <CheckCircleIcon className="metric-icon success" />
-              </Box>
-              <Typography variant="h4" className="metric-value success">
-                {metricas.aprobadas}
-              </Typography>
-              <Typography className="metric-subtext">Créditos aprobados</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 6, md: 3}}>
-          <Card className="metric-card">
-            <CardContent className="metric-card-content">
-              <Box className="metric-header">
-                <span>En revisión</span>
-                <ScheduleIcon className="metric-icon warning" />
-              </Box>
-              <Typography variant="h4" className="metric-value warning">
-                {metricas.enRevision}
-              </Typography>
-              <Typography className="metric-subtext">Pendientes de evaluar</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 6, md: 3}}>
-          <Card className="metric-card">
-            <CardContent className="metric-card-content">
-              <Box className="metric-header">
-                <span>Desembolsado</span>
-                <AttachMoneyIcon className="metric-icon" />
-              </Box>
-              <Typography variant="h4" className="metric-value">
-                {formatearMonto(metricas.montoDesembolsado)}
-              </Typography>
-              <Typography className="metric-subtext">Capital transferido</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        {[
+          { label: 'Total', value: metricas.totalSolicitudes, sub: 'Solicitudes registradas', icon: <DescriptionIcon className="metric-icon" />, cls: '' },
+          { label: 'Aprobadas', value: metricas.aprobadas, sub: 'Créditos aprobados', icon: <CheckCircleIcon className="metric-icon success" />, cls: ' success' },
+          { label: 'En revisión', value: metricas.enRevision, sub: 'Pendientes de evaluar', icon: <ScheduleIcon className="metric-icon warning" />, cls: ' warning' },
+          { label: 'Desembolsado', value: formatearMonto(metricas.montoDesembolsado), sub: 'Capital transferido', icon: <AttachMoneyIcon className="metric-icon" />, cls: '' },
+        ].map(({ label, value, sub, icon, cls }) => (
+          <Grid key={label} size={{ xs: 6, md: 3 }}>
+            <Card className="metric-card">
+              <CardContent className="metric-card-content">
+                <Box className="metric-header"><span>{label}</span>{icon}</Box>
+                <Typography variant="h4" className={`metric-value${cls}`}>{value}</Typography>
+                <Typography className="metric-subtext">{sub}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
 
-      {/* Filtros - Desktop */}
+      {/* Filtros Desktop */}
       {!isMobile && (
         <Card className="content-box filters-box">
-          <FiltrosContent />
+          <FiltrosContent {...filtrosProps} />
         </Card>
       )}
 
-      {/* Filtros - Mobile Drawer */}
+      {/* Filtros Mobile Drawer */}
       {isMobile && (
         <Drawer
-          anchor="right"
-          open={filtrosOpen}
-          onClose={() => setFiltrosOpen(false)}
-          sx={{
-            '& .MuiDrawer-paper': {
-              width: '85vw',
-              maxWidth: 400,
-              p: 2
-            }
-          }}
+          anchor="right" open={filtrosOpen} onClose={() => setFiltrosOpen(false)}
+          sx={{ '& .MuiDrawer-paper': { width: '85vw', maxWidth: 400, p: 2 } }}
         >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">Filtros</Typography>
-            <IconButton onClick={() => setFiltrosOpen(false)}>
-              <span>✕</span>
-            </IconButton>
+            <IconButton onClick={() => setFiltrosOpen(false)}>✕</IconButton>
           </Box>
-          <FiltrosContent />
+          <FiltrosContent {...filtrosProps} />
         </Drawer>
       )}
 
@@ -752,101 +459,40 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
               Gestiona y evalúa las solicitudes de crédito de las PYMES
             </Typography>
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
+          <Typography variant="body2" color="text.secondary">
             Total: {solicitudes.length} solicitudes
           </Typography>
         </Box>
-        
-        {loading ? (
-          <LinearProgress />
-        ) : (
+
+        {loading ? <LinearProgress /> : (
           <>
-            {/* Vista tabla para escritorio */}
-            <Box className="table-responsive" sx={{ display: { xs: 'none', md: 'block' } }}>
-              <table className="solicitudes-table">
+            {/* Tabla Desktop */}
+            <Box className="table-responsive" sx={{ display: { xs: 'none', md: 'block' }, overflowX: 'auto' }}>
+              <table className="solicitudes-table" style={{ minWidth: '1000px' }}>
                 <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Fecha</th>
-                    <th>Empresa</th>
-                    <th>Contacto</th>
-                    <th>Monto</th>
-                    <th>Estado</th>
-                    <th>Riesgo</th>
-                    <th>Acciones</th>
-                  </tr>
+                  <tr><th>ID</th><th>Fecha</th><th>Empresa</th><th>Contacto</th><th>Monto</th><th>Estado</th><th>Riesgo</th><th>Acciones</th></tr>
                 </thead>
                 <tbody>
                   {solicitudes.map((solicitud) => (
                     <tr key={solicitud.id}>
                       <td className="solicitud-id">{solicitud.numero_solicitud}</td>
-                      <td className="solicitud-fecha">
-                        {new Date(solicitud.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="solicitud-empresa">
-                        {solicitud.solicitantes?.nombre_empresa}
-                      </td>
-                      <td className="solicitud-contacto">
-                        {getNombreContacto(solicitud)}
-                      </td>
-                      <td className="solicitud-monto">
-                        ${solicitud.monto.toLocaleString()}
-                      </td>
-                      <td className="solicitud-estado">
-                        <Chip 
-                          label={solicitud.estado} 
-                          color={getEstadoColor(solicitud.estado)}
-                          size="small"
-                        />
-                      </td>
-                      <td className="solicitud-riesgo">
-                        <Chip 
-                          label={solicitud.nivel_riesgo}
-                          color={getRiesgoColor(solicitud.nivel_riesgo)}
-                          variant="outlined"
-                          size="small"
-                        />
-                      </td>
+                      <td className="solicitud-fecha">{solicitud.created_at ? new Date(solicitud.created_at).toLocaleDateString() : '-'}</td>
+                      <td className="solicitud-empresa">{solicitud.solicitantes?.nombre_empresa || 'N/A'}</td>
+                      <td className="solicitud-contacto">{getNombreContacto(solicitud)}</td>
+                      <td className="solicitud-monto">${solicitud.monto?.toLocaleString() || 0}</td>
+                      <td><Chip label={solicitud.estado} color={getEstadoColor(solicitud.estado)} size="small" /></td>
+                      <td><Chip label={solicitud.nivel_riesgo || 'no asignado'} color={getRiesgoColor(solicitud.nivel_riesgo || 'medio')} variant="outlined" size="small" /></td>
                       <td className="solicitud-acciones">
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          <Button
-                            startIcon={<VisibilityIcon />}
-                            onClick={() => handleIniciarRevision(solicitud.id)}
-                            size="small"
-                            variant="contained"
-                            className="btn-revisar"
-                          >
-                            Revisar
-                          </Button>
-                          <BotonIniciarFirma 
-                            solicitudId={solicitud.id} 
-                            onFirmaIniciada={(data) => {
-                              console.log('Firma digital iniciada:', data);
-                            }} 
-                          />
+                          <Button startIcon={<VisibilityIcon />} onClick={() => handleIniciarRevision(solicitud.id)} size="small" variant="contained" className="btn-revisar">Revisar</Button>
+                          <BotonIniciarFirma solicitudId={solicitud.id} onFirmaIniciada={(data) => console.log('Firma iniciada:', data)} />
                           {habilitaciones[solicitud.id]?.habilitado ? (
-                            <Button 
-                              onClick={() => handleTransferir(solicitud.id)}
-                              variant="contained"
-                              color="success"
-                              size="small"
-                              className="btn-transferir"
-                            >
-                              TRANSFERIR
-                            </Button>
+                            <Button onClick={() => handleTransferir(solicitud.id)} variant="contained" color="success" size="small" className="btn-transferir">TRANSFERIR</Button>
                           ) : (
-                            <Button 
-                              disabled 
-                              variant="outlined" 
-                              size="small"
-                              className="btn-pendiente"
-                              title={habilitaciones[solicitud.id]?.motivo || 'Esperando firmas'}
-                            >
-                              {habilitaciones[solicitud.id]?.tiene_firma_solicitante && !habilitaciones[solicitud.id]?.tiene_firma_operador 
-                                ? 'Falta firma operador' 
-                                : !habilitaciones[solicitud.id]?.tiene_firma_solicitante && habilitaciones[solicitud.id]?.tiene_firma_operador 
-                                ? 'Falta firma solicitante'
-                                : 'Pendiente'}
+                            <Button disabled variant="outlined" size="small" className="btn-pendiente" title={habilitaciones[solicitud.id]?.motivo || 'Esperando firmas'}>
+                              {habilitaciones[solicitud.id]?.tiene_firma_solicitante && !habilitaciones[solicitud.id]?.tiene_firma_operador ? 'Falta firma operador'
+                                : !habilitaciones[solicitud.id]?.tiene_firma_solicitante && habilitaciones[solicitud.id]?.tiene_firma_operador ? 'Falta firma solicitante'
+                                  : 'Pendiente'}
                             </Button>
                           )}
                         </Box>
@@ -857,91 +503,33 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
               </table>
             </Box>
 
-            {/* Vista cards para mobile */}
+            {/* Cards Mobile */}
             <Grid container spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
               {solicitudes.map((solicitud) => (
-                      <Grid size={{ xs: 12}} key={solicitud.id}>
+                <Grid size={{ xs: 12 }} key={solicitud.id}>
                   <Card variant="outlined" className="solicitud-card-mobile">
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 1 }}>
                         <Box sx={{ flex: 1 }}>
-                          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-                            {solicitud.numero_solicitud}
-                          </Typography>
-                          <Typography variant="subtitle1" color="primary" sx={{ fontSize: '0.9rem' }}>
-                            {solicitud.solicitantes?.nombre_empresa || 'Empresa no encontrada'}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                            Contacto: {getNombreContacto(solicitud)}
-                          </Typography>
+                          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>{solicitud.numero_solicitud}</Typography>
+                          <Typography variant="subtitle1" color="primary" sx={{ fontSize: '0.9rem' }}>{solicitud.solicitantes?.nombre_empresa || 'N/A'}</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>Contacto: {getNombreContacto(solicitud)}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
-                          <Chip 
-                            label={solicitud.estado} 
-                            color={getEstadoColor(solicitud.estado)}
-                            size="small"
-                            sx={{ height: 24, fontSize: '0.7rem' }}
-                          />
-                          <Chip 
-                            label={`Riesgo: ${solicitud.nivel_riesgo}`}
-                            color={getRiesgoColor(solicitud.nivel_riesgo)}
-                            variant="outlined"
-                            size="small"
-                            sx={{ height: 20, fontSize: '0.65rem' }}
-                          />
+                          <Chip label={solicitud.estado} color={getEstadoColor(solicitud.estado)} size="small" sx={{ height: 24, fontSize: '0.7rem' }} />
+                          <Chip label={`Riesgo: ${solicitud.nivel_riesgo || 'N/A'}`} color={getRiesgoColor(solicitud.nivel_riesgo || 'medio')} variant="outlined" size="small" sx={{ height: 20, fontSize: '0.65rem' }} />
                         </Box>
                       </Box>
-
-                      <Grid container spacing={1} alignItems="center" sx={{ mb: 2 }}>
-        <Grid size={{ xs: 6}}>
-                          <Typography variant="subtitle2" sx={{ fontSize: '0.75rem' }}>Monto</Typography>
-                          <Typography sx={{ fontSize: '0.9rem', fontWeight: 500 }}>
-                            ${solicitud.monto.toLocaleString()}
-                          </Typography>
-                        </Grid>
-        <Grid size={{ xs: 6}}>
-                          <Typography variant="subtitle2" sx={{ fontSize: '0.75rem' }}>Fecha</Typography>
-                          <Typography sx={{ fontSize: '0.9rem' }}>
-                            {new Date(solicitud.created_at).toLocaleDateString()}
-                          </Typography>
-                        </Grid>
+                      <Grid container spacing={1} sx={{ mb: 2 }}>
+                        <Grid size={{ xs: 6 }}><Typography variant="subtitle2" sx={{ fontSize: '0.75rem' }}>Monto</Typography><Typography sx={{ fontSize: '0.9rem', fontWeight: 500 }}>${solicitud.monto?.toLocaleString() || 0}</Typography></Grid>
+                        <Grid size={{ xs: 6 }}><Typography variant="subtitle2" sx={{ fontSize: '0.75rem' }}>Fecha</Typography><Typography sx={{ fontSize: '0.9rem' }}>{solicitud.created_at ? new Date(solicitud.created_at).toLocaleDateString() : '-'}</Typography></Grid>
                       </Grid>
-
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        <Button 
-                          variant="contained"
-                          onClick={() => handleIniciarRevision(solicitud.id)}
-                          size="small"
-                          sx={{ fontSize: '0.75rem', minWidth: 'auto', flex: 1 }}
-                        >
-                          Revisar
-                        </Button>
-                        <BotonIniciarFirma       
-                          solicitudId={solicitud.id} 
-                          onFirmaIniciada={(data) => {
-                            console.log('Firma digital iniciada:', data);
-                          }}
-                        />
-                        {habilitaciones[solicitud.id]?.habilitado ? (
-                          <Button 
-                            onClick={() => handleTransferir(solicitud.id)}
-                            variant="contained"
-                            color="success"
-                            size="small"
-                            sx={{ fontSize: '0.75rem', minWidth: 'auto', flex: 1 }}
-                          >
-                            Transferir
-                          </Button>
-                        ) : (
-                          <Button 
-                            disabled 
-                            variant="outlined" 
-                            size="small"
-                            sx={{ fontSize: '0.75rem', minWidth: 'auto', flex: 1 }}
-                          >
-                            Pendiente
-                          </Button>
-                        )}
+                        <Button variant="contained" onClick={() => handleIniciarRevision(solicitud.id)} size="small" sx={{ flex: 1 }}>Revisar</Button>
+                        <BotonIniciarFirma solicitudId={solicitud.id} onFirmaIniciada={(data) => console.log('Firma iniciada:', data)} />
+                        {habilitaciones[solicitud.id]?.habilitado
+                          ? <Button onClick={() => handleTransferir(solicitud.id)} variant="contained" color="success" size="small" sx={{ flex: 1 }}>Transferir</Button>
+                          : <Button disabled variant="outlined" size="small" sx={{ flex: 1 }}>Pendiente</Button>}
                       </Box>
                     </CardContent>
                   </Card>
@@ -953,32 +541,25 @@ const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date())
 
         {solicitudes.length === 0 && !loading && (
           <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="body1" color="text.secondary">
-              No se encontraron solicitudes con los filtros aplicados
-            </Typography>
+            <Typography variant="body1" color="text.secondary">No se encontraron solicitudes con los filtros aplicados</Typography>
           </Box>
         )}
       </Card>
 
-      {/* Modal de Revisión */}
       {solicitudSeleccionada && (
-        <RevisionModal 
-          open={modalRevision}
-          onClose={() => setModalRevision(false)}
-          data={solicitudSeleccionada}
-          onDocumentoActualizado={handleDocumentoActualizado}
-        />
+        <RevisionModal open={modalRevision} onClose={() => setModalRevision(false)} data={solicitudSeleccionada} onDocumentoActualizado={handleDocumentoActualizado} />
       )}
 
-      {/* Overlay de carga para transferencia */}
       {cargandoTransferencia && (
         <Box className="transferencia-overlay">
-          <Box className="spinner"></Box>
-          <Typography variant="h6" sx={{ fontWeight: 500 }}>
-            Procesando transferencia...
-          </Typography>
+          <Box className="spinner" />
+          <Typography variant="h6" sx={{ fontWeight: 500 }}>Procesando transferencia...</Typography>
         </Box>
       )}
+
+      <Snackbar open={snackbarOpen} autoHideDuration={4000} onClose={() => setSnackbarOpen(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity={snackbarSeverity} onClose={() => setSnackbarOpen(false)} sx={{ width: '100%' }}>{snackbarMessage}</Alert>
+      </Snackbar>
     </Box>
   );
 }

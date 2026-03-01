@@ -12,10 +12,6 @@ export function useToast() {
 
   const toast = (toastData: Toast) => {
     setToasts(prev => [...prev, toastData]);
-    // Simular el comportamiento de toast
-    console.log('Toast:', toastData);
-    
-    // En un entorno real, aquí integrarías con tu sistema de notificaciones
     if (toastData.variant === 'destructive') {
       console.error(toastData.title, toastData.description);
     } else {

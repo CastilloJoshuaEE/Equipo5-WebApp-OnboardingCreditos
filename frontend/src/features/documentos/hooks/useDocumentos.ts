@@ -1,7 +1,10 @@
 // frontend/src/features/documentos/hooks/useDocumentos.ts
 import { useState, useCallback } from 'react';
 import { DocumentosService } from '@/services/documentos/documentos.service';
-
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return 'Error inesperado';
+};
 export const useDocumentos = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -12,10 +15,11 @@ export const useDocumentos = () => {
     try {
       const data = await DocumentosService.obtenerDocumentosContrato(solicitudId);
       return data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al obtener documentos del contrato');
-      throw err;
-    } finally {
+    }catch (error: unknown) {
+  const message = getErrorMessage(error);
+  setError(message);
+  throw error;
+}finally {
       setLoading(false);
     }
   }, []);
@@ -26,10 +30,11 @@ export const useDocumentos = () => {
     try {
       const data = await DocumentosService.obtenerComprobantesTransferencia(solicitudId);
       return data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al obtener comprobantes');
-      throw err;
-    } finally {
+    } catch (error: unknown) {
+  const message = getErrorMessage(error);
+  setError(message);
+  throw error;
+}finally {
       setLoading(false);
     }
   }, []);
@@ -53,10 +58,11 @@ export const useDocumentos = () => {
       window.URL.revokeObjectURL(url);
       
       return true;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al descargar contrato');
-      throw err;
-    } finally {
+    } catch (error: unknown) {
+  const message = getErrorMessage(error);
+  setError(message);
+  throw error;
+} finally {
       setLoading(false);
     }
   }, []);
@@ -82,10 +88,11 @@ export const useDocumentos = () => {
       window.URL.revokeObjectURL(url);
       
       return true;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al descargar comprobante');
-      throw err;
-    } finally {
+    } catch (error: unknown) {
+  const message = getErrorMessage(error);
+  setError(message);
+  throw error;
+} finally {
       setLoading(false);
     }
   }, []);
@@ -96,10 +103,11 @@ export const useDocumentos = () => {
     try {
       const data = await DocumentosService.obtenerVistaPrevia(tipo, id);
       return data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al obtener vista previa');
-      throw err;
-    } finally {
+    }catch (error: unknown) {
+  const message = getErrorMessage(error);
+  setError(message);
+  throw error;
+}finally {
       setLoading(false);
     }
   }, []);
@@ -107,7 +115,7 @@ export const useDocumentos = () => {
   const verificarPermisos = useCallback(async (solicitudId: string) => {
     try {
       return await DocumentosService.verificarPermisosDocumento(solicitudId);
-    } catch (err) {
+    } catch {
       return false;
     }
   }, []);
@@ -117,10 +125,11 @@ export const useDocumentos = () => {
     try {
         const data = await DocumentosService.obtenerDocumentosStorage(solicitudId);
         return data;
-    } catch (err: any) {
-        setError(err.response?.data?.message || 'Error al obtener documentos del storage');
-        throw err;
-    } finally {
+    } catch (error: unknown) {
+  const message = getErrorMessage(error);
+  setError(message);
+  throw error;
+} finally {
         setLoading(false);
     }
 }, []);
@@ -130,10 +139,11 @@ export const useDocumentos = () => {
             setError(null);
             const data = await DocumentosService.obtenerMisSolicitudesConDocumentos();
             return data;
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar solicitudes con documentos');
-            throw err;
-        } finally {
+        } catch (error: unknown) {
+  const message = getErrorMessage(error);
+  setError(message);
+  throw error;
+}finally {
             setLoading(false);
         }
     };

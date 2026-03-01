@@ -55,7 +55,6 @@ const CRITERIOS_DECISION = {
 export default function DecisionStep({ 
     solicitud, 
     onClose, 
-    onComentarioEnviado, 
     onDecisionTomada,
     onDashboardActualizado,
 }: DecisionStepProps) {
@@ -69,10 +68,8 @@ export default function DecisionStep({
         numero_solicitud: '',
         dni: ''
     });
-    const [dialogoComentario, setDialogoComentario] = useState(false);
     const [dialogoDecision, setDialogoDecision] = useState(false);
     const [tipoDecision, setTipoDecision] = useState<'aprobacion' | 'rechazo' | null>(null);
-    const [comentario, setComentario] = useState('');
     const [motivoDecision, setMotivoDecision] = useState('');
     const [checklistDecision, setChecklistDecision] = useState<{[key: string]: boolean}>({});
     const [enviando, setEnviando] = useState(false);
@@ -90,14 +87,12 @@ export default function DecisionStep({
     // Verificar si la solicitud ya fue revisada (aprobada o rechazada)
     const verificarEstadoSolicitud = () => {
         if (solicitud?.estado) {
-            console.log('🔍 Verificando estado de solicitud:', solicitud.estado);
             setEstadoActual(solicitud.estado);
             
             // Si el estado es 'aprobado' o 'rechazado', deshabilitar botones
             const estadosFinales = ['aprobado', 'rechazado'];
             const yaRevisada = estadosFinales.includes(solicitud.estado);
             
-            console.log('📊 Estado actual:', solicitud.estado, '¿Ya revisada?:', yaRevisada);
             
             setSolicitudYaRevisada(yaRevisada);
         } else {
@@ -105,18 +100,7 @@ export default function DecisionStep({
         }
     };
 
-    // Calcular progreso de documentación
-    const calcularProgresoDocumentacion = () => {
-        if (!solicitud.documentos || solicitud.documentos.length === 0) return 0;
-        
-        const documentosValidados = solicitud.documentos.filter((doc: any) => 
-            doc.estado === 'validado'
-        ).length;
-        
-        return (documentosValidados / solicitud.documentos.length) * 100;
-    };
-
-    const progresoDocumentacion = calcularProgresoDocumentacion();
+   
 
     const cargarDashboard = async () => {
         try {
@@ -179,8 +163,6 @@ export default function DecisionStep({
                 throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
             }
 
-            // Actualizar estado local INMEDIATAMENTE
-            console.log('✅ Solicitud aprobada, actualizando estado local...');
             setSolicitudYaRevisada(true);
             setEstadoActual('aprobado');
 
@@ -225,8 +207,6 @@ export default function DecisionStep({
                 throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
             }
 
-            // Actualizar estado local INMEDIATAMENTE
-            console.log('❌ Solicitud rechazada, actualizando estado local...');
             setSolicitudYaRevisada(true);
             setEstadoActual('rechazado');
 
@@ -246,52 +226,7 @@ export default function DecisionStep({
         }
     };
 
-    // Manejar envío de comentario con token seguro
-    const handleEnviarComentario = async () => {
-        if (!comentario.trim()) return;
-
-        try {
-            setEnviando(true);
-            
-            const session = await getSession();
-            if (!session?.accessToken) {
-                throw new Error('No estás autenticado');
-            }
-
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-            const response = await fetch(`${API_URL}/comentarios`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.accessToken}`
-                },
-                body: JSON.stringify({
-                    solicitud_id: solicitud.id,
-                    comentario: comentario.trim(),
-                    tipo: 'operador_a_solicitante'
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Error al enviar comentario');
-            }
-
-            setMensaje('💬 Comentario enviado exitosamente');
-            setComentario('');
-            setDialogoComentario(false);
-            
-            if (onComentarioEnviado) {
-                onComentarioEnviado(comentario);
-            }
-            
-            setTimeout(() => setMensaje(''), 3000);
-        } catch (error) {
-            console.error('Error enviando comentario:', error);
-            setMensaje('. Error al enviar comentario');
-        } finally {
-            setEnviando(false);
-        }
-    };
+  
 
     // Abrir diálogo de decisión
     const handleAbrirDecision = (tipo: 'aprobacion' | 'rechazo') => {
@@ -322,7 +257,7 @@ export default function DecisionStep({
             [criterioId]: !prev[criterioId]
         }));
     };
-
+const scoringBajo = solicitud?.scoring && solicitud.scoring.puntaje_total < 60;
     // Confirmar decisión
     const handleConfirmarDecision = () => {
         // Verificar nuevamente antes de confirmar
@@ -407,7 +342,7 @@ export default function DecisionStep({
                 </Alert>
             )}
 
-            {solicitud.scoring?.puntaje_total < 60 && !solicitudYaRevisada && (
+            {scoringBajo && !solicitudYaRevisada && (
                 <Alert severity="error" sx={{ mb: 2 }}>
                     🔴 Scoring bajo detectado. Se recomienda revisión exhaustiva antes de aprobar.
                 </Alert>

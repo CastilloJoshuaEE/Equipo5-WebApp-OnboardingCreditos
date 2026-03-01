@@ -33,7 +33,7 @@ export default function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const formRef = useRef<HTMLDivElement>(null);
-  const [isRedirecting, setIsRedirecting] = useState(false); // 👈 nuevo estado para redirecciones
+  const [isRedirecting, setIsRedirecting] = useState(false); 
 
   const handleVolverInicio = () => {
     setIsRedirecting(true);
@@ -53,7 +53,7 @@ export default function RegisterForm() {
     trigger,
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { rol: undefined },
+    defaultValues: { rol: UserRole.SOLICITANTE  },
     mode: 'onBlur',
   });
 
@@ -94,7 +94,6 @@ const onSubmit = async (data: RegisterInput) => {
         setError('');
         setIsSubmitting(true);
         
-        console.log('Datos enviados al servidor:', data);
         
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         const response = await fetch(`${API_URL}/usuarios/registro`, {
@@ -106,7 +105,6 @@ const onSubmit = async (data: RegisterInput) => {
         });
 
         const responseData = await response.json();
-        console.log('Respuesta completa del servidor:', responseData);
 
         if (!response.ok) {
             // Mostrar errores específicos del backend
@@ -117,13 +115,11 @@ const onSubmit = async (data: RegisterInput) => {
             throw new Error(responseData.message || `Error ${response.status} en el registro`);
         }
 
-        console.log('Registro exitoso:', responseData);
         
         alert('Registro exitoso. Revisá tu email para confirmar tu cuenta.');
              setIsRedirecting(true);
 
-      setTimeout(() => router.push('/login'), 1000);
-        
+router.replace('/login');        
     } catch (error) {
         console.error('Error completo en registro:', error);
         setError(error instanceof Error ? error.message : 'Error al registrar usuario');
@@ -131,6 +127,8 @@ const onSubmit = async (data: RegisterInput) => {
         setIsSubmitting(false);
     }
 };
+const password = watch('password');
+
 const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
     lowercase: false,
@@ -141,15 +139,16 @@ const [passwordRequirements, setPasswordRequirements] = useState({
 
 // Efecto para validar contraseña en tiempo real
 useEffect(() => {
-    const password = watch('password') || '';
-    setPasswordRequirements({
-        length: password.length >= 8,
-        lowercase: /[a-z]/.test(password),
-        uppercase: /[A-Z]/.test(password),
-        number: /\d/.test(password),
-        special: /[@$!%*?&]/.test(password)
-    });
-}, [watch('password')]);
+  const value = password || '';
+
+  setPasswordRequirements({
+    length: value.length >= 8,
+    lowercase: /[a-z]/.test(value),
+    uppercase: /[A-Z]/.test(value),
+    number: /\d/.test(value),
+    special: /[@$!%*?&]/.test(value)
+  });
+}, [password]);
   const handleRedirect = (path: string) => {
     setIsRedirecting(true);
     setTimeout(() => router.push(path), 1000);
@@ -279,7 +278,6 @@ useEffect(() => {
             >
               <MenuItem value="" disabled>Seleccione un rol</MenuItem>
               <MenuItem value={UserRole.SOLICITANTE}>Solicitante PYME</MenuItem>
-              <MenuItem value={UserRole.OPERADOR}>Operador</MenuItem>
             </Select>
             {errors.rol && (
               <Typography color="error" variant="caption" sx={{ mt: 0.5, ml: 2 }}>

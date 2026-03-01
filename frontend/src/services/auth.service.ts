@@ -23,11 +23,11 @@ export const AuthService = {
   },
 
   getProfile: async () => {
-    return api.get<AuthUser>('/api/usuario/perfil');
+    return api.get<AuthUser>('/api/usuarioautenticado/perfil');
   },
 
   updateProfile: async (data: Partial<AuthUser>) => {
-    return api.put('/api/usuario/editar-perfil', data);
+    return api.put('/api/usuarioautenticado/editar-perfil', data);
   },
 
   logout: async () => {

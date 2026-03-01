@@ -5,15 +5,31 @@ export interface ContratoOperador {
   tipo: string;
   numero_contrato: string;
   estado: string;
-  ruta_documento: string;
+  ruta_documento: string | null;
   monto: number;
   moneda: string;
-  created_at: string;
-  updated_at: string;
+  created_at: string | null;
+  updated_at?: string;
   numero_solicitud: string;
   solicitante_nombre: string;
-  firma_digital?: FirmaDigital;
+  firma_digital?: FirmaDigital | null;
   tiene_documento_firmado?: boolean;
-  url_documento_firmado?: string;
-  firma_id?: string;
+  url_documento_firmado?: string  | null;
+  firma_id?: string  | null;
 }
+export type ContratoAPI = {
+  id: string;
+  numero_contrato?: string;
+  solicitante_nombre?: string;
+  numero_solicitud?: string;
+  estado?: string;
+  ruta_documento?: string | null;
+  monto?: number;
+  moneda?: string;
+  tiene_documento_firmado?: boolean;
+  url_documento_firmado?: string | null;
+  firma_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string;
+  firma_digital?: FirmaDigital | null;
+};

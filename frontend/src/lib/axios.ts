@@ -1,7 +1,8 @@
 // frontend/src/lib/axios.ts
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { getSession, signOut } from 'next-auth/react';
 import mitt from 'mitt';
+import { InternalAxiosRequestConfig } from 'axios';
 
 const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -90,11 +91,9 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
-
+const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     // Manejo de error 401 - No autorizado
     if (error.response?.status === 401) {
-      console.log('Error 401 - No autorizado');
       if (!originalRequest._retry) {
         originalRequest._retry = true;
         try {
@@ -121,11 +120,10 @@ axiosInstance.interceptors.response.use(
 
     // Manejo de error 403 - Acceso denegado
     if (error.response?.status === 403) {
-      console.log('Error 403 - Acceso denegado');
       sessionEmitter.emit('unauthorized');
     }
 
-    // 🚨 NUEVO: Manejar el error "Unexpected token 'T'" o "Too Many Requests"
+    //   Manejar el error "Unexpected token 'T'" o "Too Many Requests"
     if (
       error.message?.includes("Unexpected token 'T'") ||
       error.message?.includes("Too Many Requests")
@@ -142,9 +140,11 @@ export default axiosInstance;
 
 // Helpers de conveniencia para tus requests (del segundo código)
 export const api = {
-  get: (url: string, config?: any) => axiosInstance.get(url, config),
-  post: (url: string, data?: any, config?: any) => axiosInstance.post(url, data, config),
-  put: (url: string, data?: any, config?: any) => axiosInstance.put(url, data, config),
-  delete: (url: string, config?: any) => axiosInstance.delete(url, config),
-  patch: (url: string, data?: any, config?: any) => axiosInstance.patch(url, data, config),
+get: <T = unknown>(url: string, config?: AxiosRequestConfig) => axiosInstance.get<T>(url, config),
+post: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) => axiosInstance.post<T>(url, data, config),  
+put: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) => axiosInstance.put<T>(url, data, config),
+ 
+delete: <T = unknown>(url: string, config?: AxiosRequestConfig) => axiosInstance.delete<T>(url, config),
+
+patch: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) => axiosInstance.patch<T>(url, data, config),
 };

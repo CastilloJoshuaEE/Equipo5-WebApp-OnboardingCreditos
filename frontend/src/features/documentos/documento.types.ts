@@ -1,5 +1,5 @@
 // frontend/src/features/documentos/documento.types.ts
-
+import { ScoringDocumentos } from "../riesgo/scoring.types";
 export interface Documento {
   id: string;
   tipo: string;
@@ -7,16 +7,16 @@ export interface Documento {
   ruta_storage: string;
   tamanio_bytes: number;
   estado: string;
-  created_at: string;
+  created_at?: string;
   validado_en?: string;
   comentarios?: string;
-  informacion_extraida?: any;
+  informacion_extraida?: Record<string, unknown>;
 }
 export interface DocumentacionStepProps {
     documentos: Documento[];
-    scoring: any;
+    scoring:ScoringDocumentos;
     onValidarDocumento: (documentoId: string, estado: string, comentarios?: string) => void;
-    onEvaluarDocumento?: (documentoId: string, criterios: any, comentarios: string, estado?: string) => void;     onDescargarDocumento: (documento: Documento) => void;
+    onEvaluarDocumento?: (documentoId: string, criterios: Record<string, unknown>, comentarios: string, estado?: string) => void;     onDescargarDocumento: (documento: Documento) => void;
     onVerDocumento: (documento: Documento) => void;
     loading?: boolean;
     solicitudId?: string;
@@ -31,10 +31,10 @@ export interface DocumentoData {
   ruta_storage: string;
   tamanio_bytes: number;
   estado: string;
-  created_at: string;
+  created_at?: string;
   validado_en?: string;
   comentarios?: string;
-  informacion_extraida?: any;
+  informacion_extraida?: Record<string, unknown>;
   updated_at?: string;
 }
 export interface GestionDocumentosProps {
@@ -46,7 +46,7 @@ export interface Plantilla {
   nombre_archivo: string;
   ruta_storage: string;
   tamanio_bytes: number;
-  created_at: string;
+  created_at?: string;
 }
 export interface DocumentoConTipo {
   file: File;

@@ -61,7 +61,6 @@ export const authOptions: NextAuthOptions = {
 
           const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
           
-          console.log('. NextAuth llamando a backend...');
           const response = await fetch(`${API_URL}/usuarios/login`, {
             method: 'POST',
             headers: {
@@ -113,7 +112,6 @@ export const authOptions: NextAuthOptions = {
   ],
   pages: {
     signIn: '/login',
-    // .: 'signUp' no existe, usar 'newUser' en su lugar
     newUser: '/register',
     error: '/error',
   },

@@ -1,5 +1,5 @@
 // frontend/src/components/FirmaDigital/VisorWordFirma.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     Box,
     Paper,
@@ -26,8 +26,9 @@ import { VisorWordFirmaProps } from '../ui/visor_word';
 import { PosicionFirma } from '../ui/firma';
 import { Firma } from '../ui/firma';
 import { InfoFirmaData } from '@/features/firma_digital/firmaDigital.types';
+import { ProcesarDocumentoBase64 } from '@/features/contratos/contrato.types';
+import Image from 'next/image';
 const VisorWordFirma: React.FC<VisorWordFirmaProps> = ({ 
-    documento, 
     onFirmaCompletada,
     modoFirma = false,
     firmaId 
@@ -48,15 +49,9 @@ const VisorWordFirma: React.FC<VisorWordFirmaProps> = ({
     const isDragging = useRef(false);
     const contadorFirmas = useRef(0); // Contador para claves únicas
 
-    // Cargar contenido real del contrato
-    useEffect(() => {
-        if (firmaId) {
-            cargarContenidoReal();
-        }
-    }, [firmaId]);
 
-    const cargarContenidoReal = async () => {
-        try {
+
+const cargarContenidoReal = useCallback(async () => {        try {
             setCargando(true);
             setError('');
             
@@ -67,7 +62,6 @@ const VisorWordFirma: React.FC<VisorWordFirmaProps> = ({
                 return;
             }
 
-            console.log('. Cargando información de firma para:', firmaId);
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
             
             const response = await fetch(`${API_URL}/firmas/info-firma-word/${firmaId}`, {
@@ -103,15 +97,25 @@ const VisorWordFirma: React.FC<VisorWordFirmaProps> = ({
             } else {
                 setError(result.message || 'Error en la respuesta del servidor');
             }
-        } catch (error: any) {
-            console.error('. Error cargando información de firma:', error);
-            setError(error.message || 'Error de conexión');
-        } finally {
+        }  catch (error: unknown) {
+  const message =
+    error instanceof Error ? error.message : "Error desconocido";
+  console.error("Error cargando información de firma:", error);
+  setError(message);
+} finally {
             setCargando(false);
         }
-    };
-
-    const procesarDocumentoBase64 = (documentoBase64: string, datosReales: any) => {
+    }, [firmaId]);
+    // Cargar contenido real del contrato
+    useEffect(() => {
+        if (firmaId) {
+            cargarContenidoReal();
+        }
+    },[firmaId, cargarContenidoReal]);
+const procesarDocumentoBase64: ProcesarDocumentoBase64 = (
+  _documentoBase64,
+  datosReales
+) => {
         try {
             if (!datosReales) {
                 console.warn('. No hay datos reales disponibles, usando datos por defecto');
@@ -218,7 +222,7 @@ Fecha: ${new Date().toLocaleDateString()}
         setEditorFirmaAbierto(true);
     };
 
-    const handleFirmaGuardada = (firmaData: any) => {
+    const handleFirmaGuardada = (firmaData: Firma) => {
         if (!posicionFirma) return;
 
         // Generar ID único usando contador y timestamp
@@ -342,15 +346,8 @@ const handleGuardarDocumento = async () => {
             hashDocumento: infoFirma?.hash_original
         };
 
-        console.log('. Enviando firma acumulativa al servidor...', {
-            tipo_firma: tipoFirma,
-            tiene_firma_data: !!firma_data,
-            firmas_count: firmas.length
-        });
-
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         
-        // . LLAMAR AL NUEVO ENDPOINT MEJORADO
         const response = await fetch(`${API_URL}/firmas/procesar-firma-word/${firmaId}`, {
             method: 'POST',
             headers: {
@@ -364,7 +361,6 @@ const handleGuardarDocumento = async () => {
             })
         });
 
-        console.log('📡 Respuesta del servidor:', response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -381,7 +377,6 @@ const handleGuardarDocumento = async () => {
         }
 
         const result = await response.json();
-        console.log('. Resultado de firma acumulativa:', result);
         
         if (result.success) {
             // . MANEJAR RESPUESTA .
@@ -393,10 +388,12 @@ const handleGuardarDocumento = async () => {
         } else {
             throw new Error(result.message || 'Error en la respuesta del servidor');
         }
-    } catch (error: any) {
-        console.error('. Error guardando documento:', error);
-        setError(error.message || 'Error al guardar el documento');
-    } finally {
+    }  catch (error: unknown) {
+  const message =
+    error instanceof Error ? error.message : "Error desconocido";
+  console.error("Error guardando información de firma:", error);
+  setError(message);
+} finally {
         setCargando(false);
     }
 };
@@ -405,13 +402,7 @@ const handleGuardarDocumento = async () => {
     const disminuirZoom = () => setZoom(prev => Math.max(prev - 0.1, 0.5));
     const resetZoom = () => setZoom(1);
 
-    const limpiarTodasLasFirmas = () => {
-        setFirmas([]);
-        setFirmaSeleccionada(null);
-        contadorFirmas.current = 0; // Resetear contador
-    };
-
-    // COMPONENTE DE FIRMA ARRASTRABLE MEJORADO
+    // COMPONENTE DE FIRMA ARRASTRABLE 
     const FirmaArrastrable = ({ firma }: { firma: Firma }) => {
         const isSelected = firmaSeleccionada === firma.id;
 
@@ -502,16 +493,13 @@ const handleGuardarDocumento = async () => {
                             {firma.firmaTexto}
                         </Typography>
                     ) : firma.tipoFirma === 'dibujo' ? (
-                        <img 
-                            src={firma.firmaImagen} 
-                            alt="Firma" 
-                            style={{ 
-                                maxWidth: '100%', 
-                                maxHeight: '40px',
-                                display: 'block',
-                                margin: '0 auto'
-                            }} 
-                        />
+<Image
+  src={firma.firmaImagen || ""}
+  alt="Firma"
+  width={160}
+  height={60}
+  style={{ objectFit: "contain" }}
+/>
                     ) : null}
                     
                     <Typography 
@@ -601,7 +589,7 @@ const handleGuardarDocumento = async () => {
                             color="success"
                             disabled={cargando}
                         >
-                            {cargando ? 'Guardando...' : 'Guardar Documento'}
+                            {cargando ? 'Guardando...' : 'Guardar Documento con firma'}
                         </Button>
                     )}
                 </Toolbar>

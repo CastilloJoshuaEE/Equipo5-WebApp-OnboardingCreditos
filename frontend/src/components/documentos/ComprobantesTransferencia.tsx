@@ -1,5 +1,5 @@
 // frontend/src/components/documentos/ComprobantesTransferencia.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -45,19 +45,18 @@ export const ComprobantesTransferencia: React.FC<ComprobantesTransferenciaProps>
   const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
   const [urlVistaPrevia, setUrlVistaPrevia] = useState('');
 
-  useEffect(() => {
-    cargarComprobantes();
-  }, [solicitudId]);
 
-  const cargarComprobantes = async () => {
+  const cargarComprobantes = useCallback( async () => {
     try {
       const data = await obtenerComprobantes(solicitudId);
       setComprobantes(data);
     } catch (err) {
       console.error('Error cargando comprobantes:', err);
     }
-  };
-
+}, [solicitudId, obtenerComprobantes]);
+  useEffect(() => {
+    cargarComprobantes();
+  }, [solicitudId, cargarComprobantes]);
   const handleDescargarComprobante = async (transferencia: ComprobanteTransferencia) => {
     try {
       await descargarComprobante(

@@ -13,6 +13,14 @@ export interface EditarPerfilSolicitante extends EditarPerfilBase {
   domicilio?: string;
 }
 
-export type EditarPerfilInput =
-  | EditarPerfilBase
-  | EditarPerfilSolicitante;
+export interface EditarPerfilInput {
+  nombre_completo?: string;
+  telefono?: string;
+  direccion?: string;
+
+  // solo si es solicitante
+  nombre_empresa?: string;
+  cuit?: string;
+  representante_legal?: string;
+  domicilio?: string;
+}

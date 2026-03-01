@@ -39,7 +39,7 @@ export default function ScoringStep({ scoring }: ScoringStepProps) {
             </Typography>
 
             <Grid container spacing={2}>
-                {Object.entries(scoring?.desglose || {}).map(([tipo, info]: [string, any]) => (
+                {Object.entries(scoring.desglose).map(([tipo, info]) => (
                                         <Grid size={{ xs: 12, md: 6 }} key={tipo}>
                         <Card variant="outlined">
                             <CardContent>

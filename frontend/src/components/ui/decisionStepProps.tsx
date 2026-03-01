@@ -1,7 +1,7 @@
 // frontend/src/components/ui/decisionStepProps.tsx
 import { SolicitudOperador } from "@/features/solicitudes/solicitud.types";
 export interface DecisionStepProps {
-    solicitud: any;
+    solicitud: SolicitudOperador;
     onClose: () => void;
     onComentarioEnviado?: (comentario: string) => void;
     onDecisionTomada?: (decision: string, motivo?: string) => void;

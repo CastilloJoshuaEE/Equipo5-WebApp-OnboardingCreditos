@@ -16,7 +16,6 @@ import {
     CircularProgress,
     Typography
 } from '@mui/material';
-import { RevisionData } from '@/features/operador/revision.types';
 import ResumenStep from './steps/ResumenStep';
 import DocumentacionStep from './steps/DocumentacionStep';
 import BCRAStep from './steps/BCRAStep';
@@ -24,6 +23,7 @@ import ScoringStep from './steps/ScoringStep';
 import DecisionStep from './steps/DecisionStep';
 import { getSession } from 'next-auth/react';
 import { RevisionModalProps } from '@/features/operador/revision.types';
+import { Documento } from '@/features/documentos/documento.types';
 
 export default function RevisionModal({ open, onClose, data, onDocumentoActualizado }: RevisionModalProps) {
     const [pasoActivo, setPasoActivo] = useState(0);
@@ -59,7 +59,6 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
                 throw new Error('No hay sesión activa');
             }
 
-            console.log('. Validando documento en backend:', documentoId, estado);
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
             
@@ -82,7 +81,6 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
             }
 
             const result = await response.json();
-            console.log('. Documento validado exitosamente:', result);
 
             setSuccess(`Documento ${estado} exitosamente`);
             
@@ -91,16 +89,19 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
                 onDocumentoActualizado();
             }
 
-        } catch (error: any) {
-            console.error('. Error validando documento:', error);
-            setError(error.message || 'Error al validar documento');
+        } catch (error: unknown) {
+if (error instanceof Error) {
+  setError(error.message);
+} else {
+  setError('Error al validar documento');
+}
         } finally {
             setLoading(false);
         }
     };
 
-    // FUNCIÓN NUEVA: Para evaluación con criterios
- const handleEvaluarDocumento = async (documentoId: string, criterios: any, comentarios: string) => {
+    // FUNCIÓN: Para evaluación con criterios
+ const handleEvaluarDocumento = async (documentoId: string, criterios: Record<string, unknown>, comentarios: string) => {
     try {
         setLoading(true);
         setError('');
@@ -111,7 +112,6 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
             throw new Error('No hay sesión activa');
         }
 
-        console.log('. Evaluando documento con criterios:', documentoId, criterios, comentarios);
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         
@@ -120,8 +120,6 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
             criterios: criterios,
             comentarios: comentarios
         };
-
-        console.log('. Enviando evaluación:', endpoint, body);
 
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -138,7 +136,6 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
         }
 
         const result = await response.json();
-        console.log('. Documento evaluado exitosamente:', result);
 
         // Mostrar mensaje de éxito con detalles
         const criteriosAprobados = Object.values(criterios).filter(Boolean).length;
@@ -147,22 +144,25 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
         
         setSuccess(`. Documento evaluado: ${result.data.evaluacion.estado} (${porcentajeAprobado.toFixed(0)}% criterios aprobados)`);
         
-        // . CORRECCIÓN: Refrescar datos después de evaluación
+        // .  Refrescar datos después de evaluación
         if (onDocumentoActualizado) {
             setTimeout(() => {
                 onDocumentoActualizado();
             }, 1000);
         }
 
-    } catch (error: any) {
-        console.error('. Error evaluando documento:', error);
-        setError(error.message || 'Error al evaluar documento');
+    } catch (error: unknown) {
+if (error instanceof Error) {
+  setError(error.message);
+} else {
+  setError('Error al validar documento');
+}
     } finally {
         setLoading(false);
     }
 };
 
-    const handleDescargarDocumento = async (documento: any) => {
+    const handleDescargarDocumento = async (documento: Documento) => {
         try {
             setLoading(true);
             
@@ -186,19 +186,13 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
         }
     };
 
-    const handleVerDocumento = (documento: any) => {
+    const handleVerDocumento = (documento: Documento) => {
         // Abrir documento en nueva pestaña
         const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseUrl = `${baseUrl}/storage/v1/object/public/kyc-documents/${documento.ruta_storage}`;
         window.open(supabaseUrl, '_blank');
     };
 
-    // Función para refrescar datos
-    const handleRefrescarDatos = () => {
-        if (onDocumentoActualizado) {
-            onDocumentoActualizado();
-        }
-    };
 
     return (
         <Dialog 
@@ -261,7 +255,7 @@ export default function RevisionModal({ open, onClose, data, onDocumentoActualiz
                             documentos={data.documentos} 
                             scoring={data.scoring}
                             onValidarDocumento={handleValidarDocumento}
-                            onEvaluarDocumento={handleEvaluarDocumento} // Nueva prop
+                            onEvaluarDocumento={handleEvaluarDocumento} 
                             onDescargarDocumento={handleDescargarDocumento}
                             onVerDocumento={handleVerDocumento}
                             loading={loading}

@@ -40,8 +40,8 @@ export default function EliminarCuentaModal({
       setError('');
       await onConfirm(password);
       // El redireccionamiento se maneja en el componente padre
-    } catch (error: any) {
-      setError(error.message || 'Error al eliminar la cuenta');
+    } catch  {
+      setError('Error al eliminar la cuenta');
     } finally {
       setLoading(false);
     }

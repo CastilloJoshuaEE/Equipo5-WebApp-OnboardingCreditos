@@ -18,22 +18,22 @@ export interface TransferenciaBancaria {
   fecha_procesamiento?: string;
   fecha_completada?: string;
   ruta_comprobante?: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface HabilitacionTransferencia {
   habilitado: boolean;
   motivo?: string;
   fecha_firma_completa?: string;
-  transferencia_existente?: any;
+  transferencia_existente?: TransferenciaBancaria | null; 
   tiene_firma_solicitante?: boolean;
   tiene_firma_operador?: boolean;
 }
 export interface TransferenciaEstado {
   habilitado: boolean;
   existe_transferencia: boolean;
-  transferencia_existente?: any;
+  transferencia_existente?: TransferenciaBancaria | null; 
   estado_firma?: string;
   motivo?: string;
 }

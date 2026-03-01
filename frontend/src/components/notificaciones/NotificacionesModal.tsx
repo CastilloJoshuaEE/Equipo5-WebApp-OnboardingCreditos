@@ -166,7 +166,7 @@ export function NotificacionesModal({
                   
                   <Box display="flex" justifyContent="space-between" alignItems="center">
                     <Typography variant="caption" color="text.secondary">
-                      {formatearFecha(notificacion.created_at)}
+                      {formatearFecha(notificacion.created_at?? '')}
                     </Typography>
                     {notificacion.solicitud_id && (
                       <Button

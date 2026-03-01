@@ -9,8 +9,8 @@ export interface PerfilUsuario {
   dni: string;
   rol: RolUsuario;
   cuenta_activa: boolean;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
   direccion?: string;
   email_recuperacion?: string;
   fecha_desactivacion?: string;
@@ -31,8 +31,8 @@ export interface DatosOperador {
   id: string;
   nivel: 'analista' | 'supervisor';
   permisos: string[];
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface PerfilSolicitante extends PerfilUsuario {

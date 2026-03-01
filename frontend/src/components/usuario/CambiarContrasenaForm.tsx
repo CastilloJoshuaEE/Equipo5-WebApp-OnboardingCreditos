@@ -72,8 +72,8 @@ const CambiarContrasenaForm: React.FC<CambiarContrasenaFormProps> = ({
       } else {
         setError(result.message || 'Error al cambiar la contraseña');
       }
-    } catch (error: any) {
-      setError(error.message || 'Error al cambiar la contraseña');
+    } catch  {
+      setError('Error al cambiar la contraseña, no puede reutilizar contraseñas anteriores, al menos no las 3 últimas');
     } finally {
       setLoading(false);
     }

@@ -55,16 +55,20 @@ export default function DetalleSolicitudDocumentos() {
         setLoading(true);
         // Aquí podrías agregar lógica adicional de verificación de permisos
         setLoading(false);
-      } catch (err: any) {
-        setError(err.message || 'Error al cargar la solicitud');
-        setLoading(false);
+      } catch (error: unknown) {
+  if (error instanceof Error) {
+    setError(error.message || 'Error al cargar la solicitud');
+  } else {
+    setError('Error al cargar la solicitud');
+  }
+  setLoading(false);
       }
     };
 
     verificarPermisos();
   }, [solicitudId]);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 

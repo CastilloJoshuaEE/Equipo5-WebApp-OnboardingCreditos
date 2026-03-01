@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Box,
   Button,
-  TextField,
+  TextField, 
   Typography,
   Alert,
   Stepper,
@@ -33,12 +33,6 @@ import { solicitudCreditoSchema, type SolicitudCreditoInput } from '@/schemas/so
 import { SolicitudCreditoFormProps } from '../ui/listaSolicitudesProps';
 import { DocumentoConTipo } from '@/features/documentos/documento.types';
 const steps = ['Datos del Crédito', 'Documentación', 'Revisión'];
-type FormData = {
-  monto: number;
-  plazo_meses: number;
-  moneda: 'ARS' | 'USD';
-  proposito: string;
-};
 
 export default function SolicitudCreditoForm({ onSuccess }: SolicitudCreditoFormProps) {
   const [activeStep, setActiveStep] = useState(0);
@@ -47,27 +41,27 @@ export default function SolicitudCreditoForm({ onSuccess }: SolicitudCreditoForm
   const [documentos, setDocumentos] = useState<DocumentoConTipo[]>([]);
   const [solicitudId, setSolicitudId] = useState<string | null>(null);
   const { data: session } = useSession();
-  const [loadingOverlay, setLoadingOverlay] = useState(false); // 🟢 NUEVO
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    watch,
-    setValue
-  } = useForm<FormData>({
-    resolver: zodResolver(solicitudCreditoSchema) as any,
-    defaultValues: {
-      moneda: 'ARS',
-      monto: undefined as any,
-      plazo_meses: undefined as any,
-      proposito: ''
-    }
-  });
+  const [loadingOverlay, setLoadingOverlay] = useState(false); 
+const {
+  register,
+  handleSubmit,
+  formState: { errors, isSubmitting },
+  watch,
+  setValue
+} = useForm<SolicitudCreditoInput>({
+  resolver: zodResolver(solicitudCreditoSchema),
+  defaultValues: {
+    moneda: 'ARS',
+    proposito: ''
+  }
+});
 
   const monto = watch('monto');
   const plazoMeses = watch('plazo_meses');
-
+const montoValue = watch('monto');
+const plazoValue = watch('plazo_meses');
+const monedaValue = watch('moneda');
+const propositoValue = watch('proposito');
   // Guardar datos en localStorage
   const guardarBorrador = useCallback(() => {
 
@@ -89,7 +83,6 @@ documentos: documentos.map(doc => ({
     };
     
     localStorage.setItem(`solicitud_borrador_${session.user.id}`, JSON.stringify(formData));
-    console.log('Borrador guardado en localStorage');
   }, [watch, documentos, session]);
 
   // Usar debounce para guardar automáticamente
@@ -101,8 +94,7 @@ documentos: documentos.map(doc => ({
     }, 1000);
 
     return () => clearTimeout(debounceTimer);
-  }, [watch('monto'), watch('plazo_meses'), watch('moneda'), watch('proposito'), guardarBorrador, activeStep]);
-
+}, [montoValue, plazoValue, monedaValue, propositoValue, guardarBorrador, activeStep]);
   // Cargar borrador al montar el componente
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -119,12 +111,11 @@ documentos: documentos.map(doc => ({
         const diferenciaHoras = (ahora.getTime() - fechaBorrador.getTime()) / (1000 * 60 * 60);
         
         if (diferenciaHoras < 24) {
-          setValue('monto', data.monto || '');
-          setValue('plazo_meses', data.plazo_meses || '');
+setValue('monto', data.monto ?? 0);
+setValue('plazo_meses', data.plazo_meses ?? 0);
           setValue('moneda', data.moneda || 'ARS');
           setValue('proposito', data.proposito || '');
           
-          console.log('Borrador cargado desde localStorage');
         } else {
           // Borrar borrador viejo
           localStorage.removeItem(`solicitud_borrador_${session.user.id}`);
@@ -138,35 +129,81 @@ documentos: documentos.map(doc => ({
   // Función para eliminar documento
   const eliminarDocumento = (documentoId: string) => {
     setDocumentos(prev => prev.filter(doc => doc.id !== documentoId));
-    console.log('Documento eliminado:', documentoId);
   };
-   // Función para manejar la selección de archivos con tipo específico
-  const handleDocumentoChange = (event: React.ChangeEvent<HTMLInputElement>, tipo: string) => {
-    const files = event.target.files;
-    if (files && files[0]) {
-      const nuevoDocumento: DocumentoConTipo = {
-        file: files[0],
-        tipo: tipo,
-        id: `${tipo}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // ID único
-      };
-      
-      // Verificar si ya existe un documento del mismo tipo
-      const existeMismoTipo = documentos.some(doc => doc.tipo === tipo);
-      
-      if (existeMismoTipo) {
-        if (confirm(`Ya existe un documento de tipo ${obtenerNombreTipo(tipo)}. ¿Desea reemplazarlo?`)) {
-          // Reemplazar el documento existente del mismo tipo
-          setDocumentos(prev => prev.filter(doc => doc.tipo !== tipo).concat([nuevoDocumento]));
-        }
-      } else {
-        // Agregar nuevo documento
-        setDocumentos(prev => [...prev, nuevoDocumento]);
-      }
-      
-      // Limpiar el input file
+  
+const TIPOS_ARCHIVO_PERMITIDOS = {
+  'dni': ['.pdf', '.jpg', '.jpeg', '.png'],
+  'cuit': ['.pdf', '.jpg', '.jpeg', '.png'],
+  'comprobante_domicilio': ['.pdf', '.jpg', '.jpeg', '.png'],
+  'balance_contable': ['.pdf', '.xlsx', '.xls'],
+  'estado_financiero': ['.pdf', '.xlsx', '.xls'],
+  'declaracion_impuestos': ['.pdf', '.xlsx', '.xls']
+};
+
+const obtenerExtension = (filename: string): string => {
+  return filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+};
+
+const validarTipoArchivo = (file: File, tipo: string): boolean => {
+  const extension = obtenerExtension(file.name);
+  const tiposPermitidos = TIPOS_ARCHIVO_PERMITIDOS[tipo as keyof typeof TIPOS_ARCHIVO_PERMITIDOS] || [];
+  
+  // También verificar por MIME type
+  const mimeTypesPermitidos = {
+    'pdf': 'application/pdf',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'xls': 'application/vnd.ms-excel'
+  };
+
+  const mimePermitido = Object.entries(mimeTypesPermitidos).some(([ext, mime]) => 
+    tiposPermitidos.includes(`.${ext}`) && file.type === mime
+  );
+
+  return tiposPermitidos.includes(`.${extension}`) || mimePermitido;
+};
+
+// En handleDocumentoChange, agregar validación:
+const handleDocumentoChange = (event: React.ChangeEvent<HTMLInputElement>, tipo: string) => {
+  const files = event.target.files;
+  if (files && files[0]) {
+    const file = files[0];
+    
+    // Validar tipo de archivo
+    if (!validarTipoArchivo(file, tipo)) {
+      setError(`Tipo de archivo no válido para ${obtenerNombreTipo(tipo)}. Formatos permitidos: ${TIPOS_ARCHIVO_PERMITIDOS[tipo as keyof typeof TIPOS_ARCHIVO_PERMITIDOS]?.join(', ') || 'PDF, JPG, PNG'}`);
       event.target.value = '';
+      return;
     }
-  };
+
+    // Validar tamaño (10MB máximo)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('El archivo no puede superar los 10MB');
+      event.target.value = '';
+      return;
+    }
+
+    const nuevoDocumento: DocumentoConTipo = {
+      file: file,
+      tipo: tipo,
+      id: `${tipo}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    };
+    
+    const existeMismoTipo = documentos.some(doc => doc.tipo === tipo);
+    
+    if (existeMismoTipo) {
+      if (confirm(`Ya existe un documento de tipo ${obtenerNombreTipo(tipo)}. ¿Desea reemplazarlo?`)) {
+        setDocumentos(prev => prev.filter(doc => doc.tipo !== tipo).concat([nuevoDocumento]));
+      }
+    } else {
+      setDocumentos(prev => [...prev, nuevoDocumento]);
+    }
+    
+    event.target.value = '';
+  }
+};
     const obtenerNombreTipo = (tipo: string): string => {
     const tipos: { [key: string]: string } = {
       'dni': 'DNI',
@@ -201,18 +238,14 @@ documentos: documentos.map(doc => ({
     
     // Limpiar localStorage
     localStorage.removeItem('solicitud_borrador');
-    console.log('Formulario limpiado para usuario:', session?.user?.id);
   };
 
-  const handleNext = () => {
-    setActiveStep((prev) => prev + 1);
-  };
+
 
   const handleBack = () => {
     setActiveStep((prev) => prev - 1);
   };
- // ALTERNATIVA: Usar primary y secondary por separado
-// CORREGIR: Función renderListaDocumentos
+
 const renderListaDocumentos = () => (
   <Box sx={{ mt: 2 }}>
     <Typography variant="subtitle1" gutterBottom>
@@ -230,7 +263,7 @@ const renderListaDocumentos = () => (
             <ListItemText
               primary={documento.file.name}
               secondary={
-                // CORRECCIÓN: Usar Fragment en lugar de Box
+                //  Usar Fragment en lugar de Box
                 <React.Fragment>
                   <Typography variant="caption" display="block">
                     Tipo: {obtenerNombreTipo(documento.tipo)}
@@ -258,7 +291,7 @@ const renderListaDocumentos = () => (
     )}
   </Box>
 );
-  const onSubmit = async (data: SolicitudCreditoInput) => {
+ const onSubmit = async (data: SolicitudCreditoInput) => {
   try {
     setError('');
     setSuccess('');
@@ -281,33 +314,45 @@ const renderListaDocumentos = () => (
         },
         body: JSON.stringify(data)
       });
-      if (!solicitudResponse.ok) throw new Error('Error al crear la solicitud');
+      
+      if (!solicitudResponse.ok) {
+        const errorData = await solicitudResponse.json();
+        throw new Error(errorData.message || 'Error al crear la solicitud');
+      }
 
       const solicitudResult = await solicitudResponse.json();
       nuevaSolicitudId = solicitudResult.data.id;
       setSolicitudId(nuevaSolicitudId);
     }
 
-    // Subir documentos
-    for (const documento of documentos) {
+    // Subir documentos 
+    const documentosPromises = documentos.map(async (documento) => {
       const formData = new FormData();
       if (!nuevaSolicitudId) throw new Error('ID de solicitud inválido');
+      
       formData.append('archivo', documento.file);
       formData.append('solicitud_id', nuevaSolicitudId);
-      formData.append('tipo', obtenerTipoDocumento(documento.file.name));
+      formData.append('tipo', documento.tipo); // Usar el tipo directamente del objeto
 
       const documentoResponse = await fetch(`${API_URL}/solicitudes/${nuevaSolicitudId}/documentos`, {
         method: 'POST',
         body: formData,
         headers: {
           'Authorization': `Bearer ${session.accessToken}`
+          // NO incluir 'Content-Type' porque FormData lo establece automáticamente
         }
       });
 
       if (!documentoResponse.ok) {
-        console.error('Error subiendo documento:', documento.file.name);
+        const errorData = await documentoResponse.json().catch(() => ({}));
+        console.error('Error subiendo documento:', documento.file.name, errorData);
+        throw new Error(`Error al subir ${documento.file.name}: ${errorData.message || 'Error desconocido'}`);
       }
-    }
+
+      return await documentoResponse.json();
+    });
+
+    await Promise.all(documentosPromises);
 
     // Enviar solicitud
     const enviarResponse = await fetch(`${API_URL}/solicitudes/${nuevaSolicitudId}/enviar`, {
@@ -316,9 +361,13 @@ const renderListaDocumentos = () => (
         'Authorization': `Bearer ${session.accessToken}`
       }
     });
-    if (!enviarResponse.ok) throw new Error('Error al enviar la solicitud');
+    
+    if (!enviarResponse.ok) {
+      const errorData = await enviarResponse.json();
+      throw new Error(errorData.message || 'Error al enviar la solicitud');
+    }
 
-    // . LIMPIAR BORRADOR DESPUÉS DE ENVÍO EXITOSO
+    // LIMPIAR BORRADOR DESPUÉS DE ENVÍO EXITOSO
     limpiarBorrador();
 
     setSuccess('Solicitud de crédito enviada exitosamente');
@@ -336,22 +385,15 @@ const limpiarBorrador = () => {
   if (session?.user?.id) {
     const borradorKey = `solicitud_borrador_${session.user.id}`;
     localStorage.removeItem(borradorKey);
-    console.log('. Borrador eliminado del localStorage:', borradorKey);
   }
   
   // También limpiar la clave genérica por si acaso
   localStorage.removeItem('solicitud_borrador');
-  console.log('. Borrador genérico eliminado del localStorage');
 };
-  const obtenerTipoDocumento = (nombreArchivo: string): string => {
-    if (nombreArchivo.includes('dni')) return 'dni';
-    if (nombreArchivo.includes('cuit')) return 'cuit';
-    if (nombreArchivo.includes('domicilio')) return 'comprobante_domicilio';
-    if (nombreArchivo.includes('balance')) return 'balance_contable';
-    if (nombreArchivo.includes('financiero')) return 'estado_financiero';
-    if (nombreArchivo.includes('impuestos')) return 'declaracion_impuestos';
-    return 'otros';
-  };
+const obtenerTipoDocumento = (documento: DocumentoConTipo): string => {
+  // El tipo ya está definido en el objeto documento
+  return documento.tipo;
+};
   // Renderizar los controles de subida de documentos
   const renderControlesDocumentos = () => (
     <Grid container spacing={3}>
@@ -384,7 +426,7 @@ const limpiarBorrador = () => {
               />
             </Button>
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              Formatos: PDF (Máx. 5MB)
+              Formatos: PDF (Máx. 10MB)
             </Typography>
           </CardContent>
         </Card>
@@ -463,7 +505,7 @@ const limpiarBorrador = () => {
               <input
                 type="file"
                 hidden
-                accept=".pdf"
+                accept=".pdf,.xlsx,.xls"
                 onChange={(e) => handleDocumentoChange(e, 'balance_contable')}
               />
             </Button>
@@ -489,7 +531,7 @@ const limpiarBorrador = () => {
               <input
                 type="file"
                 hidden
-                accept=".pdf"
+                accept=".pdf,.xlsx,.xls"
                 onChange={(e) => handleDocumentoChange(e, 'declaracion_impuestos')}
               />
             </Button>
@@ -528,7 +570,7 @@ const limpiarBorrador = () => {
                 {...register('monto', {
                   valueAsNumber: true,
                 })}
-                label="Monto Solicitado (ARS)"
+                label="Monto Solicitado"
                 type="number"
                 fullWidth
                 error={!!errors.monto}
@@ -559,8 +601,8 @@ const limpiarBorrador = () => {
                   defaultValue="ARS"
                   error={!!errors.moneda}
                 >
-                  <MenuItem value="ARS">Pesos Argentinos (ARS)</MenuItem>
-                  <MenuItem value="USD">Dólares Estadounidenses (USD)</MenuItem>
+                 {/**  <MenuItem value="ARS">Pesos Argentinos (ARS)</MenuItem>*/} 
+                 <MenuItem value="USD">Dólares Estadounidenses (USD)</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -592,7 +634,7 @@ const limpiarBorrador = () => {
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle2">Monto Solicitado:</Typography>
-              <Typography variant="body1">${monto} ARS</Typography>
+              <Typography variant="body1">${monto}</Typography>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle2">Plazo:</Typography>

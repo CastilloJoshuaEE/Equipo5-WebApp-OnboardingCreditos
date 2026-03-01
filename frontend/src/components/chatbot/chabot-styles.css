@@ -320,7 +320,7 @@
   outline-offset: 2px;
 }
 
-/* Estados de carga mejorados */
+/* Estados de carga */
 @keyframes loading-dots {
   0%, 20% {
     opacity: 0.2;
@@ -352,4 +352,17 @@
 
 .loading-dots span:nth-child(3) {
   animation-delay: 0.4s;
+}
+.MuiBackdrop-root {
+  background-color: rgba(0, 0, 0, 0.7) !important;
+  backdrop-filter: blur(5px);
+}
+
+.MuiBackdrop-root .MuiTypography-h6 {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.MuiBackdrop-root .MuiTypography-body2 {
+  opacity: 0.9;
 }

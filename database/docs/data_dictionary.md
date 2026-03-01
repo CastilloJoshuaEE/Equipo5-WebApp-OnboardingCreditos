@@ -341,7 +341,7 @@ Información bancaria de los solicitantes para realizar desembolsos.
 | `nombre_banco` | `VARCHAR(100)` | NO | Nombre del banco. Default 'Pichincha'. |
 | `numero_cuenta` | `VARCHAR(50)` | NO | Número de cuenta bancaria. Único. |
 | `tipo_cuenta` | `VARCHAR(20)` | NO | 'ahorros' o 'corriente'. Default 'ahorros'. |
-| `moneda` | `VARCHAR(3)` | NO | 'USD' o 'ARS'. Default 'USD'. |
+| `moneda` | `VARCHAR(3)` | NO | 'ARS'. Default 'ARS'. |
 | `email_contacto` | `VARCHAR(255)` | SÍ | Email de contacto asociado a la cuenta. |
 | `telefono_contacto` | `VARCHAR(20)` | SÍ | Teléfono de contacto. |
 | `estado` | `VARCHAR(20)` | NO | 'activo' o 'inactivo'. Default 'activo'. |
@@ -360,9 +360,9 @@ Registro de las transferencias realizadas a los solicitantes (desembolsos).
 | `contrato_id` | `UUID` | NO | FK a `contratos(id)`. |
 | `contacto_bancario_id` | `UUID` | NO | FK a `contactos_bancarios(id)`. Cuenta de destino. |
 | `monto` | `DECIMAL(15,2)` | NO | Monto transferido. > 0. |
-| `moneda` | `VARCHAR(3)` | NO | 'USD' o 'ARS'. Default 'USD'. |
+| `moneda` | `VARCHAR(3)` | NO | 'ARS'. Default 'ARS'. |
 | `numero_comprobante` | `VARCHAR(100)` | SÍ | Número de comprobante de la transferencia. Único. |
-| `cuenta_origen` | `VARCHAR(50)` | NO | Cuenta de origen de la entidad. Default 'NEXIA-001-USD'. |
+| `cuenta_origen` | `VARCHAR(50)` | NO | Cuenta de origen de la entidad. Default 'NEXIA-001-ARS'. |
 | `banco_origen` | `VARCHAR(100)` | NO | Banco de origen. Default 'Nexia Bank'. |
 | `cuenta_destino` | `VARCHAR(50)` | NO | Cuenta de destino (se replica desde `contacto_bancario` para histórico). |
 | `banco_destino` | `VARCHAR(100)` | NO | Banco de destino. Default 'Banco Pichincha'. |

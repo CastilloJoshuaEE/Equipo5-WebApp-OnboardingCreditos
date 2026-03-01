@@ -4,7 +4,13 @@ import {Documento} from '@/services/documentos/documento.types';
 import {DocumentoContrato } from '@/services/documentos/documento.types';
 import {ComprobanteTransferencia  } from '@/services/documentos/documento.types';
 import {VistaPreviaDocumento   } from '@/services/documentos/documento.types';
+type CriteriosEvaluacion = Record<string, boolean | string | number>;
 
+type FirmaDocumento = {
+  id: string;
+  estado: string;
+  fecha_firma?: string;
+};
 export const DocumentosService = {
   // Subir documento
   async subirDocumento(solicitudId: string, tipo: string, archivo: File) {
@@ -43,13 +49,17 @@ export const DocumentosService = {
   },
 
   // Evaluar documento con criterios específicos
-  async evaluarDocumento(documentoId: string, criterios: any, comentarios: string) {
-    const response = await api.post(`/documentos/${documentoId}/evaluar`, {
-      criterios,
-      comentarios,
-    });
-    return response.data;
-  },
+async evaluarDocumento(
+  documentoId: string,
+  criterios: CriteriosEvaluacion,
+  comentarios: string
+) {
+  const response = await api.post(`/documentos/${documentoId}/evaluar`, {
+    criterios,
+    comentarios,
+  });
+  return response.data;
+},
 
   // Obtener criterios de evaluación por tipo de documento
   async obtenerCriteriosEvaluacion(tipoDocumento: string) {
@@ -65,10 +75,16 @@ export const DocumentosService = {
 
 
   //  Obtener documentos de contrato asociados a una solicitud
-  async obtenerDocumentosContrato(solicitudId: string): Promise<{ contrato: DocumentoContrato; firma: any }> {
-    const response = await api.get(`/solicitudes/${solicitudId}/contrato/documentos`);
-    return response.data.data;
-  },
+async obtenerDocumentosContrato(
+  solicitudId: string
+): Promise<{ contrato: DocumentoContrato; firma: FirmaDocumento }> {
+
+  const response = await api.get(
+    `/solicitudes/${solicitudId}/contrato/documentos`
+  );
+
+  return response.data.data;
+},
 
   //  Obtener comprobantes de transferencia asociados a una solicitud
   async obtenerComprobantesTransferencia(solicitudId: string): Promise<ComprobanteTransferencia[]> {

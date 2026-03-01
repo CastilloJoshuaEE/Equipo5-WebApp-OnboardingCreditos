@@ -1,5 +1,5 @@
 // frontend/src/components/documentos/DocumentosContrato.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -12,7 +12,7 @@ import {
   Grid,
   Dialog,
   DialogContent,
-  Tooltip,
+  Tooltip
 } from '@mui/material';
 import {
   Download,
@@ -20,12 +20,11 @@ import {
   Description,
   CheckCircle,
   Schedule,
-  Error as ErrorIcon,
+  Error as ErrorIcon
 } from '@mui/icons-material';
 import { useDocumentos } from '@/features/documentos/hooks/useDocumentos';
-import { DocumentoContrato } from '@/services/documentos/documento.types';
 import { DocumentosContratoProps } from '@/features/contratos/contrato.types';
-
+import { DocumentosContratoState } from '@/features/contratos/contrato.types';
 export const DocumentosContrato: React.FC<DocumentosContratoProps> = ({ solicitudId }) => {
   const {
     loading,
@@ -35,23 +34,19 @@ export const DocumentosContrato: React.FC<DocumentosContratoProps> = ({ solicitu
     obtenerVistaPrevia,
   } = useDocumentos();
 
-  const [documentos, setDocumentos] = useState<{ contrato: DocumentoContrato; firma: any } | null>(null);
-  const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
+const [documentos, setDocumentos] = useState<DocumentosContratoState | null>(null);  const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
   const [urlVistaPrevia, setUrlVistaPrevia] = useState('');
 
-  useEffect(() => {
-    cargarDocumentos();
-  }, [solicitudId]);
 
-  const cargarDocumentos = async () => {
-    try {
-      const data = await obtenerDocumentosContrato(solicitudId);
-      setDocumentos(data);
-    } catch (err) {
-      console.error('Error cargando documentos:', err);
-    }
-  };
-
+  const cargarDocumentos = useCallback(async () => {
+  try {
+    const data = await obtenerDocumentosContrato(solicitudId);
+    setDocumentos(data);
+  } catch (err) {
+    console.error('Error cargando documentos:', err);
+  }
+  
+}, [solicitudId, obtenerDocumentosContrato]);
   const handleDescargarContrato = async () => {
     if (!documentos?.contrato.id) return;
     
@@ -77,6 +72,9 @@ export const DocumentosContrato: React.FC<DocumentosContratoProps> = ({ solicitu
     }
   };
 
+  useEffect(() => {
+    cargarDocumentos();
+  }, [cargarDocumentos]);
   const getEstadoColor = (estado: string) => {
     switch (estado) {
       case 'firmado_completo':
@@ -218,7 +216,7 @@ export const DocumentosContrato: React.FC<DocumentosContratoProps> = ({ solicitu
                       variant="outlined"
                       color="success"
                       startIcon={<CheckCircle />}
-                      onClick={() => window.open(documentos.firma.url_documento_firmado, '_blank')}
+                      onClick={() => window.open(documentos.firma?.url_documento_firmado, '_blank')}
                       fullWidth
                     >
                       Ver Firmado

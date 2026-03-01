@@ -8,8 +8,6 @@ import {
   Alert,
   Card,
   CardContent,
-  Grid,
-  Button,
   Chip,
   CircularProgress,
   Tabs,
@@ -43,9 +41,11 @@ import {
   Search,
   Close,
 } from '@mui/icons-material';
-import { getSession } from 'next-auth/react';
+import { useSession } from 'next-auth/react'; // ← IMPORTAR useSession
 import { TabPanelProps } from '@/components/ui/tab';
 import { DocumentoTransferenciaBancaria } from '@/features/documentos/documentoTransferenciaBancaria.types';
+import { ContratoDocumento } from '@/features/contratos/contrato.types';
+import { SolicitudConDocumentos } from '@/features/contratos/contrato.types';
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -63,12 +63,13 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function MisDocumentosPage() {
+  const { data: session, status } = useSession(); // ← USAR useSession
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const [tabValue, setTabValue] = useState(0);
-  const [solicitudesConDocumentos, setSolicitudesConDocumentos] = useState<any[]>([]);
+  const [solicitudesConDocumentos, setSolicitudesConDocumentos] = useState<SolicitudConDocumentos[]>([]);
   const [transferencias, setTransferencias] = useState<DocumentoTransferenciaBancaria[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,13 +79,18 @@ export default function MisDocumentosPage() {
   const [documentoCargando, setDocumentoCargando] = useState(false);
 
   useEffect(() => {
-    cargarTodosLosDocumentos();
-  }, []);
+    // Solo cargar cuando la sesión esté disponible
+    if (status === 'authenticated' && session?.accessToken) {
+      cargarTodosLosDocumentos();
+    } else if (status === 'unauthenticated') {
+      setError('No hay sesión activa');
+      setLoading(false);
+    }
+  }, [status, session]); // ← Dependencias: status y session
 
   const cargarTodosLosDocumentos = async () => {
     try {
       setLoading(true);
-      const session = await getSession();
       
       if (!session?.accessToken) {
         setError('No se encontró token de sesión');
@@ -100,7 +106,7 @@ export default function MisDocumentosPage() {
         }
       });
 
-      const responseTransferencias = await fetch(`${API_URL}/mis-transferencias`, {
+      const responseTransferencias = await fetch(`${API_URL}/transferencias/mis-transferencias`, {
         headers: {
           'Authorization': `Bearer ${session.accessToken}`,
           'Content-Type': 'application/json'
@@ -117,110 +123,197 @@ export default function MisDocumentosPage() {
         const errorData = await responseSolicitudes.json().catch(() => responseTransferencias.json());
         throw new Error(errorData.message || 'Error al cargar documentos');
       }
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar documentos');
-      console.error('Error cargando documentos:', err);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message || 'Error al cargar documentos');
+        console.error('Error cargando documentos:', error);
+      } else {
+        setError('Error desconocido');
+      }
     } finally {
       setLoading(false);
     }
   };
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
+// Para ver contrato firmado
+const handleVerContrato = async (contrato: ContratoDocumento) => {
+  try {
+    setDocumentoCargando(true);
 
-  const handleVerContrato = async (contrato: any) => {
-    try {
-      setDocumentoCargando(true);
-      const session = await getSession();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    if (!session?.accessToken) {
+      alert('No hay sesión activa');
+      return;
+    }
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    
+    // Determinar qué ID de firma usar
+    let firmaId = null;
+    
+    if (contrato.firma_digital && contrato.firma_digital.id) {
+      firmaId = contrato.firma_digital.id;
+    } else if (contrato.firmas_digitales && contrato.firmas_digitales.length > 0) {
+      firmaId = contrato.firmas_digitales[0].id;
+    }
+    
+    if (!firmaId) {
+      // Si no hay firma, intentar ver el contrato directamente
+      const response = await fetch(`${API_URL}/documentos/contrato/${contrato.id}/ver`, {
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`
+        }
+      });
       
-      if (contrato.firma_digital) {
-        const response = await fetch(
-          `${API_URL}/firmas/ver-contrato-firmado/${contrato.firma_digital.id}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${session?.accessToken}`
-            }
-          }
-        );
-
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          setUrlVistaPrevia(url);
-          setVistaPreviaAbierta(true);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.url) {
+          window.open(data.data.url, '_blank');
         } else {
           alert('Error al cargar el contrato');
         }
-      }        
-    } catch (error) {
-      console.error('Error viendo contrato:', error);
-      alert('Error al cargar el contrato');
-    } finally {
-      setDocumentoCargando(false);
-    }
-  };
-
-  const handleDescargarComprobante = async (transferencia: DocumentoTransferenciaBancaria) => {
-    try {
-      const session = await getSession();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      
-      const response = await fetch(`${API_URL}/transferencias/${transferencia.id}/comprobante/descargar`, {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`
+      } else {
+        alert('Error al cargar el contrato');
+      }
+    } else {
+      // Usar el endpoint de firma
+      const response = await fetch(
+        `${API_URL}/firmas/ver-contrato-firmado/${firmaId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.accessToken}`
+          }
         }
-      });
+      );
 
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `comprobante-${transferencia.numero_comprobante}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        window.open(url, '_blank');
       } else {
-        console.error('Error descargando comprobante:', response.status);
-        alert('Error al descargar el comprobante');
+        alert('Error al cargar el contrato');
       }
-    } catch (err) {
-      console.error('Error descargando comprobante:', err);
-      alert('Error de conexión al descargar comprobante');
     }
-  };
+  } catch (error) {
+    console.error('Error viendo contrato:', error);
+    alert('Error al cargar el contrato');
+  } finally {
+    setDocumentoCargando(false);
+  }
+};
 
+// Para ver comprobante de transferencia
+const handleVerComprobante = async (transferenciaId: string) => {
+  try {
+    setDocumentoCargando(true);
+
+    if (!session?.accessToken) {
+      alert('No hay sesión activa');
+      return;
+    }
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    
+    const response = await fetch(`${API_URL}/transferencias/${transferenciaId}/ver-comprobante`, {
+      headers: {
+        'Authorization': `Bearer ${session.accessToken}`
+      }
+    });
+
+    if (response.ok) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      alert(errorData.message || 'Error al cargar el comprobante');
+    }
+  } catch (error) {
+    console.error('Error viendo comprobante:', error);
+    alert('Error de conexión al cargar comprobante');
+  } finally {
+    setDocumentoCargando(false);
+  }
+};
+const handleDescargarComprobante = async (transferencia: DocumentoTransferenciaBancaria) => {
+  try {
+    setDocumentoCargando(true);
+
+    if (!session?.accessToken) {
+      alert('No hay sesión activa');
+      return;
+    }
+    
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    
+
+    const response = await fetch(`${API_URL}/transferencias/${transferencia.id}/comprobante/descargar`, {
+      headers: {
+        'Authorization': `Bearer ${session.accessToken}`
+      }
+    });
+
+    if (response.ok) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `comprobante-${transferencia.numero_comprobante || transferencia.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } else {
+      console.error('Error descargando comprobante:', response.status);
+      const errorData = await response.json().catch(() => ({}));
+      alert(errorData.message || 'Error al descargar el comprobante');
+    }
+  } catch (err) {
+    console.error('Error descargando comprobante:', err);
+    alert('Error de conexión al descargar comprobante');
+  } finally {
+    setDocumentoCargando(false);
+  }
+};
   const handleVerVistaPrevia = async (tipo: 'comprobante', id: string) => {
-    try {
-      setDocumentoCargando(true);
-      const session = await getSession();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      
-      const response = await fetch(`${API_URL}/documentos/${tipo}/${id}/ver`, {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`
-        }
-      });
+  try {
+    setDocumentoCargando(true);
 
-      if (response.ok) {
-        const data = await response.json();
+    if (!session?.accessToken) {
+      alert('No hay sesión activa');
+      return;
+    }
+    
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        
+    const response = await fetch(`${API_URL}/documentos/${tipo}/${id}/ver`, {
+      headers: {
+        'Authorization': `Bearer ${session.accessToken}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      
+      if (data.success && data.data.url) {
         setUrlVistaPrevia(data.data.url);
         setVistaPreviaAbierta(true);
       } else {
-        console.error('Error obteniendo vista previa:', response.status);
-        alert('Error al cargar la vista previa');
+        alert('No se pudo obtener la vista previa');
       }
-    } catch (err) {
-      console.error('Error obteniendo vista previa:', err);
-      alert('Error de conexión al cargar vista previa');
-    } finally {
-      setDocumentoCargando(false);
+    } else {
+      console.error('Error obteniendo vista previa:', response.status);
+      alert('Error al cargar la vista previa');
     }
-  };
+  } catch (err) {
+    console.error('Error obteniendo vista previa:', err);
+    alert('Error de conexión al cargar vista previa');
+  } finally {
+    setDocumentoCargando(false);
+  }
+};
 
   const handleCerrarVistaPrevia = () => {
     setVistaPreviaAbierta(false);
@@ -302,7 +395,7 @@ export default function MisDocumentosPage() {
 
     return contratosSolicitud
       .filter(Boolean)
-      .filter((contrato: any) => {
+      .filter((contrato: ContratoDocumento) => {
         const tieneFirmaCompleta = 
           contrato.firma_digital && 
           contrato.firma_digital.estado === 'firmado_completo';
@@ -313,7 +406,7 @@ export default function MisDocumentosPage() {
 
         return tieneFirmaCompleta || contratoFirmado;
       })
-      .map((contrato: any) => ({
+      .map((contrato: ContratoDocumento) => ({
         ...contrato,
         solicitud_numero: solicitud.numero_solicitud,
         monto_solicitud: solicitud.monto,
@@ -340,7 +433,7 @@ export default function MisDocumentosPage() {
   });
 
   // Componente para tarjetas responsive de contratos
-  const ContratoCard = ({ contrato }: { contrato: any }) => (
+  const ContratoCard = ({ contrato }: { contrato: ContratoDocumento }) => (
     <Card variant="outlined" sx={{ mb: 2 }}>
       <CardContent>
         <Stack spacing={2}>
@@ -367,7 +460,10 @@ export default function MisDocumentosPage() {
               Monto
             </Typography>
             <Typography variant="body1">
-              {formatMonto(contrato.monto_solicitud || contrato.monto_aprobado, contrato.moneda_solicitud)}
+              {formatMonto(
+  contrato.monto_solicitud ?? contrato.monto_aprobado ?? 0,
+  contrato.moneda_solicitud
+)}
             </Typography>
           </Box>
           
@@ -457,18 +553,7 @@ export default function MisDocumentosPage() {
               </Typography>
             </Box>
           )}
-          
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Estado
-            </Typography>
-            <Chip
-              icon={getEstadoIcon(transferencia.estado)}
-              label={transferencia.estado?.toUpperCase() || 'SIN ESTADO'}
-              color={getEstadoColor(transferencia.estado)}
-              size="small"
-            />
-          </Box>
+        
           
           <Box>
             <Typography variant="subtitle2" color="text.secondary">
@@ -644,7 +729,10 @@ export default function MisDocumentosPage() {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {formatMonto(contrato.monto_solicitud || contrato.monto_aprobado, contrato.moneda_solicitud)}
+                            {formatMonto(
+  contrato.monto_solicitud ?? contrato.monto_aprobado ?? 0,
+  contrato.moneda_solicitud
+)}
                           </Typography>
                         </TableCell>
                         <TableCell>
@@ -791,7 +879,7 @@ export default function MisDocumentosPage() {
         </>
       )}
 
-      {/* Dialog para vista previa - Mejorado para responsive */}
+      {/* Dialog para vista previa -  para responsive */}
       <Dialog
         open={vistaPreviaAbierta}
         onClose={handleCerrarVistaPrevia}

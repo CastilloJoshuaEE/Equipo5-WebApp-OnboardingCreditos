@@ -25,31 +25,9 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import CambiarContrasenaForm from '@/components/usuario/CambiarContrasenaForm';
 import type {
-  PerfilCompleto,
-  PerfilSolicitante,
-  PerfilOperador
+  PerfilCompleto
 } from '@/features/usuario/perfil/perfil.types';
-
-interface PerfilUsuario {
-  id: string;
-  email: string;
-  nombre_completo: string;
-  telefono: string;
-  dni?: string;
-  rol: 'solicitante' | 'operador';
-  cuenta_activa?: boolean;
-  created_at?: string;
-  updated_at?: string;
-  // Puede venir como array (relación supabase) o como objeto o como campos planos
-  solicitantes?: PerfilSolicitante[] | PerfilSolicitante;
-  // o también (en algunos endpoints) los campos pueden venir «a nivel raíz»
-  nombre_empresa?: string;
-  cuit?: string;
-  representante_legal?: string;
-  domicilio?: string;
-  direccion?: string;
-  email_recuperacion?: string;
-}
+import { EditarPerfilInput } from '@/features/usuario/perfil/perfil.forms';
 
 interface FormData {
   nombre_completo: string;
@@ -110,7 +88,7 @@ const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
     try {
       setLoading(true);
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${API_URL}/usuario/perfil`, {
+      const response = await fetch(`${API_URL}/usuarioautenticado/perfil`, {
         headers: {
           'Authorization': `Bearer ${session?.accessToken}`,
         },
@@ -205,7 +183,7 @@ const inicializarFormData = (perfilData: PerfilCompleto) => {
       setSaving(true);
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-      const datosEnviar: any = {
+      const datosEnviar: EditarPerfilInput = {
         nombre_completo: formData.nombre_completo,
         telefono: formData.telefono,
         direccion: formData.direccion,
@@ -219,7 +197,7 @@ const inicializarFormData = (perfilData: PerfilCompleto) => {
         datosEnviar.domicilio = formData.domicilio_empresa;
       }
 
-      const response = await fetch(`${API_URL}/usuario/editar-perfil`, {
+      const response = await fetch(`${API_URL}/usuarioautenticado/editar-perfil`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
