@@ -789,18 +789,12 @@ const usuarioController = new UsuarioController(
         });
         process.exit(1);
       }
-      console.log(` routes es un router de Express con ${routes.stack.length} rutas en stack principal`);
       
     } catch (error) {
       console.error(' Error al crear routes:', error);
       console.error(error.stack);
       process.exit(1);
     }
-
-    // ------------------ VERIFICACIÓN DETALLADA DE ROUTERS ------------------
-    console.log('\n VERIFICACIÓN DETALLADA DE ROUTERS ANTES DE MONTAR');
-    
-    // Ahora necesitamos obtener los routers individuales para verificarlos
     // Vamos a inspeccionar el stack de routes para extraerlos
     if (routes && routes.stack) {
       routes.stack.forEach((layer, index) => {

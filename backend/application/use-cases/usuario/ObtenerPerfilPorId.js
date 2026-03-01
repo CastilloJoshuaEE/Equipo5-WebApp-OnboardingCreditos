@@ -1,4 +1,4 @@
-// backend/application/use-cases/usuario/ObtenerPerfilPorId.js
+// backend/application/use-cases/usuario/ObtenerPerfilPorId.js // Limpio
 class ObtenerPerfilPorId {
   constructor(usuarioRepository) {
     this.usuarioRepository = usuarioRepository;
