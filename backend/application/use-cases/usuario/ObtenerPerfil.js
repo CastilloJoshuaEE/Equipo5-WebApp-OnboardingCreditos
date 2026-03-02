@@ -17,39 +17,34 @@ class ObtenerPerfil {
       };
     }
 
-    let datosEspecificos = {};
+    // Estructura base de la respuesta
+    const perfilResponse = {
+      ...usuario.toJSON(), // Usamos toJSON para obtener solo los datos, sin métodos
+    };
 
     if (usuario.rol === 'solicitante') {
       try {
         const solicitante = await this.solicitanteRepository.findByUserId(usuarioId);
-        datosEspecificos = {
-          nombre_empresa: solicitante?.nombre_empresa,
-          cuit: solicitante?.cuit,
-          representante_legal: solicitante?.representante_legal,
-          domicilio: solicitante?.domicilio,
-          tipo: solicitante?.tipo
-        };
+        // Añadimos los datos del solicitante en una propiedad anidada
+        perfilResponse.solicitantes = solicitante ? solicitante.toJSON() : null;
       } catch (error) {
         console.warn('No se encontraron datos de solicitante:', error.message);
+        perfilResponse.solicitantes = null;
       }
     } else if (usuario.rol === 'operador') {
       try {
         const operador = await this.operadorRepository.findByUserId(usuarioId);
-        datosEspecificos = {
-          nivel: operador?.nivel,
-          permisos: operador?.permisos
-        };
+        // Añadimos los datos del operador en una propiedad anidada
+        perfilResponse.operadores = operador ? operador.toJSON() : null;
       } catch (error) {
         console.warn('No se encontraron datos de operador:', error.message);
+        perfilResponse.operadores = null;
       }
     }
 
     return {
       success: true,
-      data: {
-        ...usuario,
-        ...datosEspecificos
-      }
+      data: perfilResponse
     };
   }
 }
