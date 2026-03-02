@@ -395,3 +395,4 @@ El sistema se integra con varios servicios externos para proporcionar su funcion
 ## Diagrama de Módulos Funcionales
 
 El sistema está organizado en módulos funcionales, cada uno con sus propios controladores, casos de uso y repositorios.
+**[Documento de los flujos principales del sistema](./FLUJOS_DE_NEGOCIO.md)**

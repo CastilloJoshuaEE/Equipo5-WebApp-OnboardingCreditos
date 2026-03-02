@@ -81,7 +81,7 @@ Backend (API REST desplegada en Render):
 ---
 
 ##  Video Demostrativo
-
+https://drive.google.com/drive/folders/1kJ3BYVAdM8tHo7BAQgqCePbLZSPHRFmR?usp=sharing
 
 
 ---
@@ -93,8 +93,9 @@ Backend (API REST desplegada en Render):
 ---
 
 ## Documentos del Proyecto
-**[Documentos de la base de datos](./database/docs/schema_overview.md)**
-**[Documentos del frontend](./frontend/docs/README.md)**
+**[Documentos de la base de datos](./Documentacion/docs-bd/schema_overview.md)**
+**[Documentos del frontend](./Documentacion/docs-frontend/README.md)**
+**[Documentos del backend](./Documentacion/docs-backend/architecture.md)**
 **[Documentos del QA tester](./Documentacion/DocsQATester/)**
 **[Documentos adicionales](./Documentacion/plantilla_documentos)**
 ### Si deseas usar este programa en local
