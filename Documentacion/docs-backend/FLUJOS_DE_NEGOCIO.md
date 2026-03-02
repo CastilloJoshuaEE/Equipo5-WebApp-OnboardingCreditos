@@ -15,21 +15,21 @@ Este documento describe los principales flujos de usuario y procesos de negocio 
 ## Flujo de Usuario: Registro y Activación de Cuenta
 
 Este flujo describe el proceso desde que un nuevo usuario se registra hasta que puede acceder al sistema.
-![Diagrama: registro_activacion_cuenta](registro_activacion_cuenta.png)
+![Diagram: registro_activacion_cuenta](./registro_activacion_cuenta.png)
 
 ## Flujo de Usuario: Creación y Aprobación de una Solicitud de Crédito
 Este es el flujo central del negocio, que abarca desde la creación de una solicitud por parte del solicitante hasta su aprobación y la generación del contrato.
-![Diagrama: creacion_aprobacion_solicitud](creacion_aprobacion_solicitud.png)
+![Diagram: creacion_aprobacion_solicitud](./creacion_aprobacion_solicitud.png)
 
 ## Flujo de Usuario: Firma Digital del Contrato
 Una vez aprobada la solicitud, se inicia el proceso de firma digital.
 
-![Diagrama: firma_digital_contrato](firma_digital_contrato.png)
+![Diagram: firma_digital_contrato](./firma_digital_contrato.png)
 
 ## Flujo de Usuario: Transferencia Bancaria
 Una vez el contrato está firmado, el operador puede proceder con la transferencia.
 
-![Diagrama: transferencia_bancaria](transferencia_bancaria.png)
+![Diagram: transferencia_bancaria](./transferencia_bancaria.png)
 # Roles y Permisos
 
 El sistema define dos roles principales de usuario con diferentes permisos de acceso.
