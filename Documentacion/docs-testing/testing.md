@@ -442,6 +442,19 @@ Los datos utilizados en los tests se generan dinámicamente.
 ---
 
 ## 12. Test Coverage Strategy
+Después de haber ejecutado el comando:
+```bash
+npm run test:coverage
+```
+Esto generará:
+backend/
+ └── coverage/
+      ├── lcov-report/
+      │     └── index.html
+      └── lcov.info
+Abre el navegador para ver el reporte visual:
+**[Reporte visual actual(Actualización: 09/03/2026)](../../backend/coverage/lcov-report/index.html)**
+backend/coverage/lcov-report/index.html
 
 **Cobertura mínima objetivo:**
 
@@ -472,17 +485,38 @@ Los tests deben ejecutarse rápidamente para no afectar el flujo de desarrollo.
 **Tiempo actual de ejecución:**
 - 65 tests
 - 12 test suites
-- ~4 segundos
+- ~30 segundos
 
 ---
 
-## Resultado
+## Resultados actuales de cobertura (Actualización: 09/03/2026)
+La ejecución actual de pruebas produce los siguientes resultados:
 
-El sistema actual cuenta con:
+| Métrica | Resultado |
+|-------|-------|
+| Test Suites | 12 |
+| Tests | 65 |
+| Tests Passing | 100% |
+| Tiempo de ejecución | ~30s |
 
-- **12** test suites
-- **65** tests
-- **100%** passing
-- **~4s** execution time
+Cobertura global actual:
 
-Lo que garantiza una base sólida de calidad y mantenibilidad para el backend del sistema Nexia.
+| Métrica | Cobertura |
+|------|------|
+| Statements | 13.34% |
+| Branches | 15.04% |
+| Functions | 7.75% |
+| Lines | 13.38% |
+
+### Componentes con mayor cobertura
+
+| Componente | Cobertura |
+|------|------|
+| TransferenciaBancaria | 96% |
+| FirmaDigital | 81% |
+| AprobarSolicitud | 90% |
+| CrearTransferencia | 79% |
+| LoginUsuario | 78% |
+| Usuario | 64% |
+
+Estas áreas corresponden a lógica crítica del sistema financiero y autenticación.
