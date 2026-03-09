@@ -6,6 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
     "dev": "nodemon index.js",
     "start": "node index.js",
     "reparar-firmas": "node scripts/repararFirmas.js"
