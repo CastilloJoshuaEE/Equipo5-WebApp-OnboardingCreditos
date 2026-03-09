@@ -96,8 +96,8 @@ https://drive.google.com/drive/folders/1kJ3BYVAdM8tHo7BAQgqCePbLZSPHRFmR?usp=sha
 **[Documentos de la base de datos](./Documentacion/docs-bd/schema_overview.md)**
 **[Documentos del frontend](./Documentacion/docs-frontend/README.md)**
 **[Documentos del backend](./Documentacion/docs-backend/architecture.md)**
-**[Documentos del QA tester](./Documentacion/DocsQATester/)**
-**[Documentos adicionales](./Documentacion/plantilla_documentos)**
+**[Documentos de testing](./Documentacion/docs-testing/testing.md)**
+**[Documentos de lógica de negocio](./Documentacion/docs-logica-de-negocio/PRD-Créditos%20para%20PYMES.docx)**
 ### Si deseas usar este programa en local
 Si deseas ejecutar el proyecto en tu entorno local, puedes descargar o clonar este repositorio.
 Luego, instala las dependencias:
