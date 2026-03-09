@@ -1,11 +1,3 @@
-
----
-
-### **Documentación de Arquitectura Backend**
-
-**Nombre del archivo:** `architecture.md`
-
-```markdown
 # Documentación de Arquitectura Backend - Nexia
 
 Este documento describe la arquitectura general del backend del sistema de créditos Nexia, proporcionando una visión global de su estructura, capas y flujo de datos.
